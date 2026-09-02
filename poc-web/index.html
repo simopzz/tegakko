@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Ink PoC — Web</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #f7f5f0;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  #stage {
+    position: fixed;
+    inset: 0;
+  }
+  canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    touch-action: none;
+  }
+
+  #hud {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 12px;
+    z-index: 10;
+    font: 13px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    pointer-events: none;
+  }
+  #status {
+    background: rgba(255,255,255,0.85);
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 8px;
+    padding: 6px 10px;
+    color: #333;
+    pointer-events: auto;
+  }
+  #status.active { color: #0a7d2c; border-color: rgba(10,125,44,0.3); }
+  #status.inactive { color: #a63c00; border-color: rgba(166,60,0,0.3); }
+
+  #clearBtn, .presetBtn {
+    pointer-events: auto;
+    font: inherit;
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(0,0,0,0.15);
+    background: rgba(255,255,255,0.9);
+    color: #333;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #clearBtn:active, .presetBtn:active { background: rgba(230,230,230,0.95); }
+
+  #presets {
+    display: flex;
+    gap: 6px;
+    pointer-events: auto;
+  }
+  .presetBtn.selected {
+    background: #1a1a1a;
+    color: #fff;
+    border-color: #1a1a1a;
+  }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="surface"></canvas>
+  </div>
+  <div id="hud">
+    <div id="status">checking ink API…</div>
+    <div id="presets"></div>
+    <button id="clearBtn">Clear</button>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  // Single canvas for both grid and ink. Two stacked canvases (opaque grid +
+  // transparent ink on top) turned black the instant navigator.ink took over
+  // the ink canvas for low-latency compositing — combined with
+  // {desynchronized:true}, Chrome appears to force that canvas's backing
+  // surface opaque, which kills the transparency the grid was showing
+  // through. One canvas sidesteps the issue: nothing needs to show through
+  // anything, the grid is just drawn (and redrawn on clear) directly on the
+  // same surface ink is drawn on.
+  const canvas = document.getElementById("surface");
+  const ctx = canvas.getContext("2d", { desynchronized: true });
+  const statusEl = document.getElementById("status");
+  const clearBtn = document.getElementById("clearBtn");
+  const presetsEl = document.getElementById("presets");
+
+  const CELL_SIZE = 90; // px, genkouyoushi cell target size at CSS-pixel scale
+  const BG_COLOR = "#f7f5f0";
+  const GRID_COLOR = "rgba(0,0,0,0.16)";
+
+  // min/max stroke width in px. Ratios mirror the native PoC's presets so
+  // the two stay comparable. "Calligraphy" pushes toward the brush-pen feel
+  // (hairline to bold) rather than a subtle pressure nuance.
+  const PRESETS = [
+    { name: "Subtle",      min: 2,    max: 5  },
+    { name: "Expressive",  min: 1.5,  max: 9  },
+    { name: "Calligraphy", min: 0.75, max: 18 },
+  ];
+  let activePreset = PRESETS[1];
+
+  function renderPresetButtons() {
+    presetsEl.innerHTML = "";
+    for (const preset of PRESETS) {
+      const btn = document.createElement("button");
+      btn.className = "presetBtn" + (preset === activePreset ? " selected" : "");
+      btn.textContent = preset.name;
+      btn.addEventListener("click", () => {
+        activePreset = preset;
+        renderPresetButtons();
+      });
+      presetsEl.appendChild(btn);
+    }
+  }
+  renderPresetButtons();
+
+  // ---- Persistence (IndexedDB) ----
+  // Lossless by construction: store the point stream (x, y, normalized
+  // pressure) plus which preset's width range was active, never rendered
+  // pixels. Replaying those points through the same strokeSegment() drawing
+  // routine reproduces the identical stroke, since canvas 2D rendering is
+  // deterministic given the same draw calls — same principle as the native
+  // PoC's Stroke(brush, inputs) reconstruction, just hand-rolled since the
+  // web has no equivalent library.
+  const DB_NAME = "ink-poc";
+  const STORE_NAME = "strokes";
+
+  function openDb() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = () => {
+        req.result.createObjectStore(STORE_NAME, { keyPath: "id", autoIncrement: true });
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  function addStrokeToDb(db, strokeRecord) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      tx.objectStore(STORE_NAME).add(strokeRecord);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  function getAllStrokesFromDb(db) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readonly");
+      const req = tx.objectStore(STORE_NAME).getAll();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  function clearStrokesInDb(db) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      tx.objectStore(STORE_NAME).clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  let db = null;
+  let savedStrokes = []; // loaded + newly finished stroke records, kept in memory so resize/rotate can redraw them all
+
+  function replayStroke(strokeRecord) {
+    const { points, preset } = strokeRecord;
+    if (!points || points.length === 0) return;
+    const widthFor = (pressure) => preset.min + pressure * (preset.max - preset.min);
+    if (points.length === 1) {
+      const p = points[0];
+      strokeSegment(p.x, p.y, p.x + 0.01, p.y + 0.01, widthFor(p.pressure));
+      return;
+    }
+    for (let i = 1; i < points.length; i++) {
+      const a = points[i - 1];
+      const b = points[i];
+      strokeSegment(a.x, a.y, b.x, b.y, widthFor(b.pressure));
+    }
+  }
+
+  async function initPersistence() {
+    try {
+      db = await openDb();
+      savedStrokes = await getAllStrokesFromDb(db);
+      resizeAll(); // redraw now that there's saved ink to replay
+    } catch (err) {
+      console.error("IndexedDB init failed:", err);
+    }
+  }
+
+  let dpr = Math.max(1, window.devicePixelRatio || 1);
+
+  function sizeCanvas() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    canvas.style.width = w + "px";
+    canvas.style.height = h + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function drawGrid() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+
+    ctx.fillStyle = BG_COLOR;
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.strokeStyle = GRID_COLOR;
+    ctx.lineWidth = 1;
+
+    const cols = Math.ceil(w / CELL_SIZE);
+    const rows = Math.ceil(h / CELL_SIZE);
+    const offsetX = (w - cols * CELL_SIZE) / 2;
+    const offsetY = (h - rows * CELL_SIZE) / 2;
+
+    ctx.beginPath();
+    for (let c = 0; c <= cols; c++) {
+      const x = Math.round(offsetX + c * CELL_SIZE) + 0.5;
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+    }
+    for (let r = 0; r <= rows; r++) {
+      const y = Math.round(offsetY + r * CELL_SIZE) + 0.5;
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+    }
+    ctx.stroke();
+
+    // faint center cross per cell, genkouyoushi-style
+    ctx.strokeStyle = "rgba(0,0,0,0.07)";
+    ctx.beginPath();
+    for (let c = 0; c < cols; c++) {
+      for (let r = 0; r < rows; r++) {
+        const cx = offsetX + c * CELL_SIZE + CELL_SIZE / 2;
+        const cy = offsetY + r * CELL_SIZE + CELL_SIZE / 2;
+        const s = CELL_SIZE * 0.12;
+        ctx.moveTo(cx - s, cy);
+        ctx.lineTo(cx + s, cy);
+        ctx.moveTo(cx, cy - s);
+        ctx.lineTo(cx, cy + s);
+      }
+    }
+    ctx.stroke();
+  }
+
+  function resizeAll() {
+    dpr = Math.max(1, window.devicePixelRatio || 1);
+    sizeCanvas();
+    drawGrid();
+    for (const stroke of savedStrokes) replayStroke(stroke);
+  }
+
+  window.addEventListener("resize", resizeAll);
+  resizeAll();
+  initPersistence();
+
+  clearBtn.addEventListener("click", () => {
+    savedStrokes = [];
+    drawGrid();
+    if (db) clearStrokesInDb(db).catch((err) => console.error("Failed to clear strokes:", err));
+  });
+
+  // ---- Delegated Ink Trails (low-latency pen rendering) ----
+  // Spec: navigator.ink.requestPresenter({presentationArea}) -> InkPresenter
+  // with .updateInkTrailStartPoint(pointerEvent, style) called on pointerdown/pointermove.
+  // Requires a secure context (HTTPS or localhost) and a Chromium browser.
+  let inkPresenter = null;
+  let inkApiActive = false;
+
+  async function initDelegatedInk() {
+    if (!("ink" in navigator)) {
+      statusEl.textContent = "Ink API: not available (fallback rendering)";
+      statusEl.className = "inactive";
+      return;
+    }
+    try {
+      inkPresenter = await navigator.ink.requestPresenter({ presentationArea: canvas });
+      inkApiActive = true;
+      statusEl.textContent = "Ink API: active (delegated ink trails)";
+      statusEl.className = "active";
+    } catch (err) {
+      inkApiActive = false;
+      statusEl.textContent = "Ink API: present but failed — " + err.message;
+      statusEl.className = "inactive";
+      console.error("navigator.ink.requestPresenter failed:", err);
+    }
+  }
+  initDelegatedInk();
+
+  // ---- Drawing ----
+  let drawing = false;
+  let lastX = 0;
+  let lastY = 0;
+  let activePointerId = null;
+
+  function normalizedPressure(pressure, pointerType) {
+    // Non-pen pointers (mouse) report pressure 0 while a button is down in some
+    // browsers, or 0.5 by spec default — normalize so dev-testing with a mouse
+    // still draws a visible stroke.
+    if (!pressure || pointerType !== "pen") return 0.5;
+    return pressure;
+  }
+
+  function pressureToWidth(pressure, pointerType) {
+    const p = normalizedPressure(pressure, pointerType);
+    return activePreset.min + p * (activePreset.max - activePreset.min);
+  }
+
+  function strokeSegment(x0, y0, x1, y1, width) {
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "#1a1a1a";
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+  }
+
+  function updateInkTrail(evt) {
+    if (!inkApiActive || !inkPresenter) return;
+    try {
+      inkPresenter.updateInkTrailStartPoint(evt, {
+        color: "rgb(26, 26, 26)",
+        diameter: pressureToWidth(evt.pressure, evt.pointerType),
+      });
+    } catch (err) {
+      // Non-fatal: keep drawing via the regular canvas path even if the
+      // delegated trail update itself throws on a given event.
+      console.warn("updateInkTrailStartPoint failed:", err);
+    }
+  }
+
+  let currentStrokePoints = [];
+
+  canvas.addEventListener("pointerdown", (e) => {
+    if (activePointerId !== null) return; // ignore multi-touch for this PoC
+    activePointerId = e.pointerId;
+    drawing = true;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    canvas.setPointerCapture(e.pointerId);
+    updateInkTrail(e);
+    const pressure = normalizedPressure(e.pressure, e.pointerType);
+    currentStrokePoints = [{ x: lastX, y: lastY, pressure }];
+    // draw a dot for a tap/short stroke
+    strokeSegment(lastX, lastY, lastX + 0.01, lastY + 0.01, pressureToWidth(e.pressure, e.pointerType));
+  });
+
+  canvas.addEventListener("pointermove", (e) => {
+    if (!drawing || e.pointerId !== activePointerId) return;
+    const width = pressureToWidth(e.pressure, e.pointerType);
+
+    // Use coalesced events when available for smoother strokes at high sampling rates.
+    const events = (typeof e.getCoalescedEvents === "function" && e.getCoalescedEvents().length)
+      ? e.getCoalescedEvents()
+      : [e];
+
+    for (const ev of events) {
+      strokeSegment(lastX, lastY, ev.clientX, ev.clientY, width);
+      lastX = ev.clientX;
+      lastY = ev.clientY;
+      currentStrokePoints.push({
+        x: ev.clientX,
+        y: ev.clientY,
+        pressure: normalizedPressure(ev.pressure, ev.pointerType),
+      });
+    }
+
+    updateInkTrail(e);
+  });
+
+  function endStroke(e) {
+    if (e.pointerId !== activePointerId) return;
+    drawing = false;
+    activePointerId = null;
+    try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+
+    if (currentStrokePoints.length > 0) {
+      const strokeRecord = {
+        points: currentStrokePoints,
+        preset: { min: activePreset.min, max: activePreset.max },
+      };
+      savedStrokes.push(strokeRecord);
+      currentStrokePoints = [];
+      if (db) {
+        addStrokeToDb(db, strokeRecord).catch((err) => console.error("Failed to save stroke:", err));
+      }
+    }
+  }
+
+  canvas.addEventListener("pointerup", endStroke);
+  canvas.addEventListener("pointercancel", endStroke);
+  canvas.addEventListener("pointerleave", (e) => {
+    if (e.pointerId === activePointerId) endStroke(e);
+  });
+})();
+</script>
+</body>
+</html>
