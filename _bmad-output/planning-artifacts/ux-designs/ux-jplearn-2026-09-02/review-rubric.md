@@ -1,0 +1,73 @@
+# Spine Pair Review — Kana Practice (jplearn)
+
+## Overall verdict
+
+The spine pair is close to a clean downstream-ready contract: shape fit is exact, flow coverage is complete, and the two previously-flagged contradictions (Reveal-gating vs FR-5, mnemonic copy vs the standing gamification exclusion) are now fixed consistently everywhere both terms appear — no residual mentions found anywhere in either file. What's left is a small set of real, independently-discovered gaps: two color tokens (`accent-strong`, `accent-deep`) that are defined with hex values but have no prose story or component wiring anywhere despite being visibly load-bearing colors in the reference mockup; a complete absence of stated contrast targets in DESIGN.md despite EXPERIENCE.md's Accessibility Floor explicitly pointing there for it; a genuine unresolved contradiction between Component Patterns and State Patterns over what happens when Reveal is tapped on a still-blank cell; and a couple of component-coverage gaps (`card-surface`, `History row`) that leave one-word-or-absent behavioral/visual specs. None of these are critical — nothing blocks a downstream consumer from extracting the bulk of the contract — but the three high-severity items should be resolved before this is marked final, since they're exactly the kind of gap a story-dev session would either silently guess at or stall on.
+
+## 1. Flow coverage — strong
+
+Sources frontmatter lists UJ-1 and UJ-2 (PRD §3.3). EXPERIENCE.md's Key Flows has Flow 1 (Morning full session, "Realizes UJ-2") and Flow 2 (Mid-day single-character check, "Realizes UJ-1") — both UJs covered, both named to a protagonist (Simo), both numbered step-by-step, both carry an explicit **Climax** beat, and both address a failure path (Flow 1: idle interruption; Flow 2: explicitly states it shares Flow 1's error surface and why no separate one is needed). FR references inside the flows (FR-2 scope selection, FR-5 reveal, FR-9 closure) match PRD numbering verbatim.
+
+### Findings
+None.
+
+## 2. Token completeness — thin
+
+Every `{path.to.token}` reference found in DESIGN.md and EXPERIENCE.md resolves to a frontmatter definition (verified by extracting all bracketed refs in both files and cross-checking against DESIGN.md's `colors`/`typography`/`rounded`/`spacing`/`components` keys — no broken refs). The gap runs the other direction: two defined tokens are never referenced or explained.
+
+### Findings
+- **high** `accent-strong` (`#8C491A`) and `accent-deep` (`#B2622D`) are defined in DESIGN.md's frontmatter `colors` block but appear in zero `{colors.*}` references and zero Colors-section prose anywhere in either DESIGN.md or EXPERIENCE.md — no "per-color story," no stated usage, no exclusion note (DESIGN.md frontmatter lines 16–17; §Colors has no mention of either). Both colors are visibly load-bearing in the reference mockup: `#8c491a` is the "Back"/"History"/"Settings" nav-link and Undo-button text color throughout `imports/Kana Practice UX.dc.html`, and `#b2622d` is the accuracy-percentage hero color on Session summary and the default (non-idle) accuracy value color on History rows. As written, a downstream implementer has no spec basis for either color and would likely default to `{colors.accent}` or `{colors.ink}` instead, diverging from the mockup. *Fix:* add a one-line Colors-section story for each (e.g. "Accent-strong — secondary text links (Back, History, Settings nav) and the Undo action inside toast-banner" / "Accent-deep — the accuracy hero number and default History-row accuracy value"), and wire them into the relevant `components` entries (toast-banner action text, stat-tile/display accuracy color, history-row accuracy color).
+- **high** DESIGN.md states no contrast targets anywhere, for any color combination, while EXPERIENCE.md's Accessibility Floor explicitly defers to it: "Behavioral; visual contrast lives in `DESIGN.md`" (EXPERIENCE.md:93). Searching both files for "contrast," "WCAG," or "AA" turns up only that one pointer sentence — DESIGN.md's Colors, Typography, and Do's and Don'ts sections state no ratio or pass/fail target for any load-bearing pairing (`{colors.ink}` on `{colors.page-bg}`/`{colors.surface-card}`, `{colors.missed-fg}` on `{colors.missed-bg}`, `{colors.positive-fg}` on `{colors.positive-bg}`, `{colors.surface-card}` text on `{colors.accent}` buttons). The rubric's own token-completeness bar explicitly calls for this on load-bearing combinations. *Fix:* add a short contrast note to DESIGN.md — even a single sentence per pairing family stating the target (e.g. "all text/background pairings meet WCAG AA 4.5:1; verified for ink-on-page-bg, missed-fg-on-missed-bg, positive-fg-on-positive-bg, surface-card-on-accent") — proportionate to this being a single-user hobby tool, but not absent.
+
+## 3. Component coverage — thin
+
+Extracted every component name used anywhere in either file. DESIGN.md's 11 `components` entries (card-surface, genkouyoushi-cell, button-primary/neutral/dimmed, chip-tag, pill-toggle-group, stat-tile, progress-bar, history-bar, toast-banner) and EXPERIENCE.md's Component Patterns table (12 rows) mostly line up — the previously-fixed stat-tile/chip-tag gap is confirmed closed (both have real behavioral rows). Two names don't cross-resolve.
+
+### Findings
+- **medium** `card-surface` has a full visual spec in DESIGN.md.Components ("the base container for every screen... nested grouped controls use surface-card-secondary instead of stacking a second shadowed card") but zero mentions anywhere in EXPERIENCE.md — no Component Patterns row, no behavioral rule (e.g., whether it's ever interactive, scrollable, or dismissible). Confirmed via full-text search: "card surface" / "card-surface" returns no hits in EXPERIENCE.md. *Fix:* either add a one-line Component Patterns row ("Card surface | every screen | static container, never itself interactive, never nested") or note explicitly in DESIGN.md that it's chrome-only and intentionally has no behavioral spec.
+- **medium** "History row" is named and given real behavioral rules in both EXPERIENCE.md Component Patterns (EXPERIENCE.md:63, reverse-chronological ordering, idle/whole-scope chips, dimmed accuracy on idle rows) and State Patterns, but DESIGN.md.Components has no "history-row" entry — only "History bar" (the sparkline) is specified. The row's own layout (padding, divider treatment, the default vs. dimmed accuracy-value color noted above) is unspecified. *Fix:* add a `history-row` entry to DESIGN.md.Components with padding/divider/typography, or fold it explicitly into an existing entry (e.g. document it as a stat-tile variant) so the visual spec isn't purely inferred from the mockup.
+- **medium** Toast banner's mandatory embedded action (Undo / import-confirm) has no visual spec. DESIGN.md's `toast-banner` component token only defines `background`/`foreground`/`radius`/`shadow` for the banner itself, but EXPERIENCE.md's Component Patterns requires it be "always paired with a single clear action" (EXPERIENCE.md:61–62) — the action button/link's own color, border, and radius are undocumented (likely `accent-strong`, per the orphaned-token finding above, but that connection is never made explicit). *Fix:* add an `action` sub-token to the `toast-banner` component entry.
+
+## 4. State coverage — adequate
+
+Walked all six IA surfaces. First Run (stylus found / not detected), Drill loop (Blank / Written pre-grade / Revealed / Graded), Session summary (manual / full-scope / idle closure), History (populated / empty), and Settings (import pending / import rejected) are all covered with real treatment text, not one-word labels.
+
+### Findings
+- **high** Component Patterns states plainly that "a blank cell cannot be graded, but it can be revealed" (EXPERIENCE.md:53), and the Blank state row confirms Missed/Correct render dimmed while Reveal is active (EXPERIENCE.md:72). But the Revealed state row then states unconditionally that "Missed/Correct remain active and required" (EXPERIENCE.md:74) with no state modeling the case where Reveal was tapped directly from Blank (zero ink). This leaves two real open questions a downstream implementer must guess at: (1) does tapping Reveal on an empty cell activate Missed/Correct even though no stroke exists (breaking the stated "blank cell cannot be graded" rule), or do they stay dimmed inside the Revealed layout (contradicting "remain active")? and (2) what does the "yours" panel show in that case — an empty cell with center dot, or nothing? Both Key Flows narrate revealing only after partial/attempted writing, so this path is never actually exercised in either flow, leaving the ambiguity unexercised and unnoticed. *Fix:* add an explicit "Revealed, blank" state row (or a qualifying clause on the existing Revealed row) stating whether grade buttons activate on reveal-alone and what the "yours" panel renders.
+- **low** First Run covers "stylus not detected" but not a declined/unsupported install prompt (browser doesn't support `beforeinstallprompt`, or the user dismisses it) — only the two explicit CTA paths ("Install to home screen" / "Just use it here") are modeled, with no state for an install attempt that fails or is dismissed. *Fix:* either state this is out of scope (acceptable for a personal single-device tool) or add a one-line fallback treatment.
+- **low** Settings covers Import pending-confirmation and Import-rejected but no Export-failure state (e.g. a blocked download). *Fix:* same as above — an explicit "not modeled, acceptable" note would close this cleanly given the hobby-scale posture already established.
+
+## 5. Visual reference coverage — adequate
+
+Only `imports/Kana Practice UX.dc.html` exists in this workspace (no `mockups/` or `wireframes/` directories). EXPERIENCE.md's IA section links to it once, names what it illustrates ("a full visual + screen-flow mockup covering all six surfaces above"), and states spine-wins-on-conflict exactly once, including the one known real conflict (ink-width preset moved to Settings-only). No orphaned files, no unspecific references.
+
+### Findings
+- **low** EXPERIENCE.md claims the mockup covers "10 screen states total" (EXPERIENCE.md:31). Counting `data-screen-label` elements in the file directly gives 9: A1 blank, A2 written, A3 revealed, A4 graded, First run, Scope picker, Session summary, History, Settings. The count is off by one. *Fix:* correct "10" to "9," or if a 10th state was intended (e.g. a distinct "revealed-from-blank" screen — see the State coverage finding above — it may genuinely be missing from the mockup, in which case both gaps should be closed together).
+
+## 6. Bloat & overspecification — strong
+
+No pixel specs found where a token already covers the value; no source (persona/FR/scope) restatement found in either file; no prose used where a table would serve better; Brand & Style in DESIGN.md carries editorial voice appropriately, and EXPERIENCE.md's prose stays operational (the "Climax" framing in Key Flows is descriptive of the payoff beat, consistent with the shape examples, not decorative narrative untied to a decision). The previously-fixed Interaction Primitives bloat issue is confirmed resolved — the section is five lean, non-redundant bullets. The two orphaned color tokens noted under Token completeness (§2) are a mild form of overspecification (definitions with no consumer) but are counted there rather than duplicated here.
+
+### Findings
+None (see §2 for the related orphaned-token finding).
+
+## 7. Inheritance discipline — strong
+
+`sources` frontmatter in EXPERIENCE.md resolves to real files (prd.md, brief.md, addendum.md all exist at the stated paths). UJ-1/UJ-2 and FR-1 through FR-14 are referenced verbatim against the PRD's numbering throughout. Component names are consistent between DESIGN.md and EXPERIENCE.md wherever both define them (case differences are prose-vs-kebab only, e.g. "Genkouyoushi cell" vs `genkouyoushi-cell`). EXPERIENCE.md's `{colors.ink-muted}` and all `{components.*}` cross-references resolve to real DESIGN.md tokens.
+
+### Findings
+- **low** EXPERIENCE.md's glossary line ("Glossary (grapheme, script, card, scope, prompt, attempt, session, self-grade, reveal, miss tally, genkouyoushi grid) used verbatim from the PRD throughout," EXPERIENCE.md:13) omits "yoon" and "kana" from its named list, even though "yoon" is a heavily used term throughout the spine (base-vs-yoon toggles, the Scope picker's Base/Yoon segment, the Weak-Spot Bias section). Not a resolution error — usage is in fact consistent with the PRD's definition — just an incomplete pointer list. *Fix:* add "yoon" (and optionally "kana") to the glossary line for completeness.
+
+## 8. Shape fit — strong
+
+DESIGN.md sections appear in exact canonical order: Brand & Style → Colors → Typography → Layout & Spacing → Elevation & Depth → Shapes → Components → Do's and Don'ts. EXPERIENCE.md has all eight required defaults (Foundation, IA, Voice and Tone, Component Patterns, State Patterns, Interaction Primitives, Accessibility Floor, Key Flows) plus two earned invented/conditional sections: Weak-Spot Bias (invented, directly ties to FR-6/FR-7's headless mechanism) and Inspiration & Anti-patterns (required-when-applicable, since sources/memlog show reference-product rejections — populated with four real rejections, not filler). Responsive & Platform is correctly and explicitly dropped, with Foundation stating why (single-surface, single-device, no breakpoints) — a defensible omission, not a silent gap.
+
+### Findings
+None.
+
+## Mechanical notes
+
+- Frontmatter completeness: both files have `name`, `status: final`, `updated: 2026-09-02`; EXPERIENCE.md additionally has `sources` (all three paths resolve). No missing required frontmatter keys.
+- No Mermaid diagrams present in either file — none needed given the table-driven IA/state/component format.
+- Both previously-fixed contradictions (Reveal-gating vs PRD FR-5; mnemonic copy vs the standing gamification exclusion) were independently re-verified across every location each term appears in both files — no residual "as in kirin"/mnemonic/example-word mentions found anywhere in DESIGN.md or EXPERIENCE.md, and the Reveal-active-from-prompt-appearance rule is stated consistently in both the Grade buttons Component Patterns row and the Blank/Clear State Patterns rows. The one residual state-modeling gap around Reveal-from-Blank (§4, high) is a new, independently-discovered issue, not a recurrence of the already-fixed FR-5 contradiction.
+- No broken `{path.to.token}` cross-references found in either file (full extraction and resolution check performed against DESIGN.md's frontmatter).
