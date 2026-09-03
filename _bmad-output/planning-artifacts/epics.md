@@ -76,7 +76,7 @@ NFR-7: Import is a destructive-by-default operation — the UI must require an e
 - Undo-last-grade (`undoLastGrade(sessionId)`) is a single atomic domain operation: `AttemptRepository.deleteLast()`, then conditionally `TallyRepository.decrement(cardId)` if the undone grade was incorrect, plus removal from AD-10's in-memory attempts list — called once by `ui`, never sequenced as separate port calls by the UI layer. (AD-13)
 - Canonical top-level `Screen` enum (`'pen-check'|'scope-picker'|'drill'|'summary'|'history'|'settings'`) owned by `adapters/ui/screens.ts`; a single top-level Svelte state variable drives which screen renders — no router library. Drill's in-screen sub-states (blank, written, revealed-from-written, revealed-from-blank, graded, etc.) are local component state, not `Screen` members. (AD-12)
 - Service worker updates apply silently via `vite-plugin-pwa`'s `registerType: 'autoUpdate'` — no update-available prompt/banner UI. (AD-7)
-- Production hosting: static build deployed to Cloudflare Pages via its native Git integration (auto build+deploy on push to `main`, preview deployments on other branches, no GitHub Actions workflow needed for this path); default `*.pages.dev` origin (no custom domain in v1) satisfies the HTTPS/secure-context requirement. (AD-8)
+- Production hosting: static build deployed to Cloudflare Pages via its native Git integration (auto build+deploy on push to `main`, preview deployments on other branches, no GitHub Actions workflow needed for this path); default Cloudflare-provided `*.workers.dev` origin (no custom domain in v1) satisfies the HTTPS/secure-context requirement. (AD-8)
 - Dev ergonomics: a `Justfile` at the repo root exposes recipes for repeated commands (`dev`, `build`, `lint`, `typecheck`, `deploy`) so common actions don't require remembering exact syntax; `deploy` wraps `wrangler pages deploy dist` for manual/on-demand deploys outside the Git-triggered flow.
 - **No starter template** — this is a greenfield build. No package.json/build tooling exists yet in the repo (`poc-web/` is a bundler-less single-file vanilla-JS PoC; `poc-native/` is dead code from the rejected native path). Epic 1 / Story 1 must scaffold the Vite + Svelte + TypeScript + vite-plugin-pwa project from scratch.
 - Pinned stack versions (verified current as of 2026-09-03): TypeScript 7.0.2 (strict), Vite 8.2.2, Svelte 5.57.0, @sveltejs/vite-plugin-svelte 7.3.0, vite-plugin-pwa 1.3.0, idb 8.0.3.
@@ -182,7 +182,7 @@ So that I know the app is ready to use like a real installed tool before any dri
 
 **Given** the scaffolded app pushed to a GitHub repo
 **When** connected to Cloudflare Pages via its Git integration (framework preset Vite, build command `npm run build`, output directory `dist`)
-**Then** pushes to `main` auto-build and deploy to a `*.pages.dev` HTTPS origin
+**Then** pushes to `main` auto-build and deploy to a `*.workers.dev` HTTPS origin
 **And** other branches get preview deployments, with no GitHub Actions workflow required for this path.
 
 **Given** the deployed app opened in a Chromium-based Android tablet browser
