@@ -7,9 +7,10 @@ paradigm: 'Ports & Adapters (Hexagonal), with an isolated real-time ink subsyste
 scope: 'jplearn kana writing practice v1 — full app architecture, driven by prd-jplearn-2026-09-02. Chromium-based Android tablet + stylus only (no Safari/iPad, no phone).'
 status: final
 created: '2026-09-02'
-updated: '2026-09-03'
+updated: '2026-09-03T12'
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14]
 sources:
+  - '_bmad-output/specs/spec-jplearn/SPEC.md'
   - '_bmad-output/planning-artifacts/prds/prd-jplearn-2026-09-02/prd.md'
   - '_bmad-output/planning-artifacts/briefs/brief-jplearn-2026-09-01/brief.md'
   - '_bmad-output/planning-artifacts/briefs/brief-jplearn-2026-09-01/addendum.md'
@@ -113,20 +114,25 @@ flowchart TB
 
 ### AD-9 — Repository port method signatures are fixed, not left to implementers
 
-- **Binds:** FR-1, FR-2, FR-6, FR-8, FR-10, FR-11, FR-13
-- **Prevents:** two independently-built pieces of code (e.g. the `tallies` writer in the drill loop and the `tallies` reader in weak-spot selection) satisfying "a `TallyRepository`" with incompatible designs — one assuming atomic increment, another assuming read-modify-write.
+- **Binds:** FR-1, FR-2, FR-6, FR-7, FR-8, FR-10, FR-11, FR-13
+- **Prevents:** two independently-built pieces of code (e.g. the `tallies` writer in the drill loop and AD-13's undo) satisfying "a `TallyRepository`" with incompatible designs — one assuming atomic increment/decrement, another assuming read-modify-write, or one omitting a decrement primitive entirely and hand-rolling `get`+`save` for undo; two independent implementations of `listAll()` disagreeing on exhaustiveness — one returning the full attempt history, another silently paginating or truncating it, which would make old-but-unresolved weak spots invisible to AD-10's selection without any port-level signal that truncation happened.
 - **Rule:**
   - `CardRepository`: `getAll(): Card[]`, `getById(cardId: string): Card`.
-  - `TallyRepository`: `getAll(): Tally[]`, `increment(cardId: string): void` — an atomic increment, never a `get` + `save` pair (avoids a read-modify-write race across attempts).
-  - `AttemptRepository`: `add(attempt: Attempt): void`, `listBySession(sessionId: string): Attempt[]`, `deleteLast(sessionId: string): void` (used by AD-13's undo).
+  - `TallyRepository`: `getAll(): Tally[]`, `increment(cardId: string): void`, `decrement(cardId: string): void` — both atomic, never a `get` + `save` pair (avoids a read-modify-write race across attempts). `decrement` is used only by AD-13's undo; an implementation clamps at zero rather than going negative. `Tally` backs only the lifetime cumulative miss-count displays (AD-10) — it stays a normal mutable store regardless of that display-only *selection* role.
+  - `AttemptRepository`: `add(attempt: Attempt): void`, `listBySession(sessionId: string): Attempt[]`, `listAll(): Attempt[]` — returns the complete, unpaginated attempt history; an adapter must never truncate or page this by default, since AD-10's weak-spot selection depends on seeing old-but-unresolved misses, not just recent ones (AD-10's selection reads this once per session start, not `listBySession` in a loop). `deleteLast(sessionId: string): void` (used by AD-13's undo).
   - `SessionRepository`: `add(session: Session): void`, `list(): Session[]`.
   - `SettingsRepository`: `get(): Settings`, `save(settings: Settings): void`.
 
-### AD-10 — Weak-spot selection stays schedule-free
+### AD-10 — Weak-spot selection stays schedule-free, and is recency-weighted from Attempt history rather than lifetime Tally count
 
-- **Binds:** FR-7
-- **Prevents:** the miss-tally mechanism drifting into a due-date/interval scheduler over time (an SRS), which the brief/PRD explicitly and permanently rejects (§5.2).
-- **Rule:** `Tally` (AD-4's `tallies` store) has exactly two fields, `cardId` and `missCount` — no due date, interval, or last-reviewed timestamp is ever added to it. The selection algorithm's signature is `selectNext(tallies: Tally[], scope: Scope): Card` — no clock, no schedule input.
+- **Binds:** FR-6, FR-7, FR-8
+- **Prevents:** the miss-tally mechanism drifting into a due-date/interval scheduler over time (an SRS), which the brief/PRD explicitly and permanently rejects (§5.2); a builder adding a timestamp/interval field to `Tally` to support recency weighting, when Attempt history already carries the timestamps needed; a builder treating `Tally` as dead code once Attempt history drives selection and dropping the writes that back the lifetime-count UI chips (`EXPERIENCE.md`'s "N shaky" badge and "missed this time" chips, which read cumulative `Tally.missCount`, not a decayed value) or the AD-13 undo-decrement; an N-query-per-card selection implementation in place of the single bulk `listAll()` read AD-9 specifies; a decay-by-ordinal-position implementation and a decay-by-wall-clock-time implementation both satisfying a vague "recency-weighted" rule while ranking the same two cards oppositely; a raw score-proportional sampler silently assigning a never-missed or fully-recovered card zero selection probability, satisfying the Rule's text while violating "no card is ever permanently excluded"; two implementations disagreeing on whether a miss earlier in a session can affect that same session's later picks.
+- **Rule:**
+  - `Tally` (AD-4's `tallies` store) keeps exactly two fields, `cardId` and `missCount` — no due date, interval, or last-reviewed timestamp is ever added to it. It continues to back only the lifetime cumulative miss-count displays, via `TallyRepository` — this display-only role in *selection* does not make `Tally` read-only or optional elsewhere; AD-13's undo still decrements it via `TallyRepository.decrement` (AD-9).
+  - Weak-spot *selection* is a pure domain function, `selectNext(attempts: Attempt[], scope: Scope): Card` — no `tallies` input (redundant: the count of incorrect attempts for a card already equals `Tally.missCount` by construction), no clock, no schedule input. Candidate cards are resolved by filtering `domain/cards.ts`'s static catalog (AD-3) by `scope`, internal to `domain` — no adapter import.
+  - Each candidate's score is computed from that card's attempts within the passed `attempts` list, ordered by `timestamp`: an incorrect attempt's contribution decays as a function of **elapsed wall-clock time since its `timestamp`** — not ordinal position in the card's attempt history (a "most recent N attempts" or position-based scheme is non-compliant, since it ranks a card missed 3× two months ago against a card missed once yesterday differently than time-decay would). A correct attempt discounts the contribution of any incorrect attempt that precedes it for the same card, so a card missed heavily long ago but correct on every attempt since scores lower than a card missed recently (this shape — not just a tuning constant — is fixed by SPEC.md's CAP-7 success criterion). The exact decay curve/half-life and discount function are story-level detail (see Deferred); the wall-clock-not-ordinal shape and the recent-correct-discounts-old-incorrect behavior are fixed here, not left open to interpretation.
+  - Selection is probabilistic, weighted by score, and **every candidate card in scope carries a nonzero selection probability regardless of score** — the sampler includes an explicit floor so a zero- or near-zero-scored card is never actually unreachable; no card is ever permanently excluded or due-date-queued.
+  - The domain loads `attempts` once via `AttemptRepository.listAll()` (AD-9) at session start, then appends each newly recorded attempt to that in-memory list immediately after it is persisted — so a miss earlier in a session can influence a later pick within that same session (matching the pre-amendment, `Tally`-based behavior's intra-session responsiveness). It is not re-fetched from the repository per candidate or per selection call. AD-13's `undoLastGrade` removes the undone attempt from this in-memory list as well as calling `AttemptRepository.deleteLast`, so a later same-session selection never weights against an undone attempt.
 
 ### AD-11 — Settings, including first-run state, get their own persisted store
 
@@ -142,9 +148,9 @@ flowchart TB
 
 ### AD-13 — Undo-last-grade is a single atomic domain operation
 
-- **Binds:** FR-8 (attempt records), FR-6 (tally)
-- **Prevents:** the UI layer sequencing two independent repository calls (delete attempt, then decrement tally) with a partial-failure window between them.
-- **Rule:** `domain` exposes `undoLastGrade(sessionId: string): void`, which internally calls `AttemptRepository.deleteLast` and, only if the undone attempt's `selfGrade` was `'incorrect'`, a corresponding tally decrement — as one domain-level operation the `ui` adapter calls once, never as two separate port calls it sequences itself.
+- **Binds:** FR-8 (attempt records), FR-6 (tally), FR-7 (weak-spot selection state)
+- **Prevents:** the UI layer sequencing independent repository calls (delete attempt, decrement tally) with a partial-failure window between them; a builder hand-rolling the tally decrement as `get`+`save` instead of the atomic `TallyRepository.decrement` (AD-9); an undone attempt continuing to influence AD-10's in-session selection weighting after it's supposedly been retracted.
+- **Rule:** `domain` exposes `undoLastGrade(sessionId: string): void`, which internally calls `AttemptRepository.deleteLast`, then — only if the undone attempt's `selfGrade` was `'incorrect'` — `TallyRepository.decrement(cardId)` (AD-9), and also removes the undone attempt from AD-10's in-memory `attempts` list, as one domain-level operation the `ui` adapter calls once, never as separate port calls it sequences itself.
 
 ## Consistency Conventions
 
@@ -237,9 +243,9 @@ erDiagram
 | FR-3 Pen canvas + genkouyoushi grid | `adapters/ink`, `adapters/persistence` (`settings.widthPreset`) | AD-2, AD-11 |
 | FR-4 Prompt → write → self-grade loop | `adapters/ui` (drill screen) + `domain` (session/attempt aggregation) | AD-1, AD-2 |
 | FR-5 Reveal | `adapters/ui` (drill screen) reading `domain` card data | AD-3 |
-| FR-6 Per-character miss tally | `domain` (tally update logic) + `adapters/persistence` (`tallies` store) | AD-9, AD-10 |
-| FR-7 Weak-spot-biased selection | `domain` (selection algorithm) | AD-10 |
-| FR-8 Per-attempt data collection | `domain` (attempt aggregation) + `adapters/persistence` (`attempts` store) | AD-2, AD-4, AD-9, AD-13 |
+| FR-6 Per-character miss tally | `domain` (tally update logic) + `adapters/persistence` (`tallies` store) — display-only, per AD-10 | AD-9, AD-10 |
+| FR-7 Weak-spot-biased selection | `domain` (`selectNext`, over `AttemptRepository.listAll()`) | AD-9, AD-10 |
+| FR-8 Per-attempt data collection | `domain` (attempt aggregation) + `adapters/persistence` (`attempts` store) — also read in bulk by weak-spot selection | AD-2, AD-4, AD-9, AD-10, AD-13 |
 | FR-9 Session closure conditions | `adapters/ui` (idle timer, explicit control) → `domain` (closure logic) | AD-4 (`closureReason`), AD-11 (idle threshold), AD-12 |
 | FR-10 Session accuracy capture | `domain` (aggregation) + `adapters/persistence` (`sessions` store) | Structural Seed (ERD), AD-9 |
 | FR-11 Session history view | `adapters/ui` (history screen) reading `adapters/persistence` via `SessionRepository` | AD-1, AD-9, AD-12 |
@@ -252,6 +258,7 @@ erDiagram
 - **Testing framework/strategy** — not fixed here; Vitest is the natural fit given the Vite toolchain already chosen, but no test scope or coverage bar was requested. Decide at build time if/when wanted.
 - **CSS/styling architecture** — DESIGN.md's tokens (palette, typography) become the CSS custom properties named in Consistency Conventions, consumed by Svelte's built-in scoped component styles; no separate styling library or design-system tooling decided, since Svelte's native scoping is sufficient for this screen count.
 - **Idle-timeout implementation detail** (the ~5-minute default value from PRD FR-9, stored per AD-11) — a UI-adapter-owned timer calling `domain`'s closure logic; the exact timer mechanism is story-level, not architectural.
+- **CAP-7 recency-decay formula** (AD-10) — the mechanism (Attempt-history-derived, `Tally` untouched, no clock/schedule) is fixed; the exact recency window and decay curve (e.g. a half-life, a fixed lookback count, a linear ramp) are story-level, same deferral pattern as the idle-timeout above.
 - **Error/crash observability** — no third-party crash-reporting or telemetry service; errors surface via browser console plus a minimal in-app error boundary (see Consistency Conventions). Deliberate: single-user local app, no one else depends on knowing it crashed.
 - **Custom domain / DNS** — v1 ships on the default GitHub Pages `*.github.io` origin (AD-8); revisit only if that ever becomes a real constraint.
 - **Kanji/vocabulary content model extension** — v2+ per PRD §5.3; AD-3's static-catalog approach and the domain/adapter split are expected to extend, but the extension itself is out of this spine's scope.
