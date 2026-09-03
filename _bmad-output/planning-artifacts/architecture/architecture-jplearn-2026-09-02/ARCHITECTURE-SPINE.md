@@ -7,7 +7,7 @@ paradigm: 'Ports & Adapters (Hexagonal), with an isolated real-time ink subsyste
 scope: 'jplearn kana writing practice v1 — full app architecture, driven by prd-jplearn-2026-09-02. Chromium-based Android tablet + stylus only (no Safari/iPad, no phone).'
 status: final
 created: '2026-09-02'
-updated: '2026-09-03T12'
+updated: '2026-09-03T15'
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14]
 sources:
   - '_bmad-output/specs/spec-jplearn/SPEC.md'
@@ -110,7 +110,7 @@ flowchart TB
 
 - **Binds:** FR-14
 - **Prevents:** the installed PWA's install/update path silently depending on a laptop being powered on and reachable over LAN, which the PoC setup did.
-- **Rule:** the built static output deploys to GitHub Pages via a GitHub Actions workflow triggered on push to `main`. No custom domain in v1 — the default `*.github.io` origin satisfies the HTTPS/secure-context requirement Delegated Ink Trails and PWA installability both need, on the Chromium-based Android tablet + stylus target this whole spine is scoped to (no Safari/iPad, no phone form factor).
+- **Rule:** the built static output deploys to **Cloudflare Pages**, connected to the project's GitHub repo via Cloudflare's native Git integration — every push to `main` triggers an automatic build+deploy, other branches get preview deployments, with no GitHub Actions workflow file required for this path. No custom domain in v1 — the default `*.pages.dev` origin satisfies the HTTPS/secure-context requirement Delegated Ink Trails and PWA installability both need, on the Chromium-based Android tablet + stylus target this whole spine is scoped to (no Safari/iPad, no phone form factor). A `Justfile` recipe (`just deploy`) wraps an on-demand `wrangler pages deploy dist` for manual/local deploys outside the Git-triggered flow. *(Amended 2026-09-03: originally specified GitHub Pages + GitHub Actions; changed on user request, no other AD depends on the prior hosting choice.)*
 
 ### AD-9 — Repository port method signatures are fixed, not left to implementers
 
@@ -172,7 +172,7 @@ flowchart TB
 | @sveltejs/vite-plugin-svelte | 7.3.0 |
 | vite-plugin-pwa | 1.3.0 |
 | idb | 8.0.3 |
-| Hosting | GitHub Pages + GitHub Actions (build+deploy on push to `main`) |
+| Hosting | Cloudflare Pages, Git-integrated (auto build+deploy on push to `main`; `wrangler` via Justfile for manual deploys) |
 
 ## Structural Seed
 
@@ -261,5 +261,5 @@ erDiagram
 - **CAP-7 recency-decay formula** (AD-10) — the mechanism (Attempt-history-derived, `Tally` untouched, no clock/schedule) is fixed; the exact recency window and decay curve (e.g. a half-life, a fixed lookback count, a linear ramp) are story-level, same deferral pattern as the idle-timeout above.
 - **Error/crash observability** — no third-party crash-reporting or telemetry service; errors surface via browser console plus a minimal in-app error boundary (see Consistency Conventions). Deliberate: single-user local app, no one else depends on knowing it crashed.
 - **Custom domain / DNS** — v1 ships on the default GitHub Pages `*.github.io` origin (AD-8); revisit only if that ever becomes a real constraint.
-- **Kanji/vocabulary content model extension** — v2+ per PRD §5.3; AD-3's static-catalog approach and the domain/adapter split are expected to extend, but the extension itself is out of this spine's scope.
+- **Kanji/vocabulary content model extension** — v2+ per PRD §5.3; AD-3's static-catalog approach and the domain/adapter split are expected to extend, but the extension itself is out of this spine's scope. **Known gap for that future pass:** `cardId`'s `grapheme:script` identity relies on kana's 1:1 grapheme-to-reading property; a kanji grapheme can have multiple valid readings, so `cardId` will likely need a third disambiguating dimension (e.g. a reading/reading-slot) — not resolvable now, flagged so it isn't rediscovered from scratch.
 - **CI beyond deploy** (lint/typecheck gates, etc.) — not specified; the GitHub Actions workflow in AD-8 covers build+deploy only. The AD-1/AD-6 lint rules (import-boundary, no-explicit-any) are named as enforcement mechanisms but not yet wired into a required CI check.

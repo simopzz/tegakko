@@ -119,4 +119,3 @@ Opening the app when unsure about a character reliably yields a fast, honest rea
 ## Open Questions
 
 - How does "already learned" travel forward into kanji/vocab scope once the content set is no longer small and fixed (self-curated list? manual entry? read from Renshuu?) — not a v1 blocker, but should be decided deliberately before scope expands.
-- CAP-7's recency-decay resolution bends `ARCHITECTURE-SPINE.md` AD-10 (`selectNext(tallies, scope): Card`, "no clock, no schedule input") — `selectNext` now needs attempt-history input. `ARCHITECTURE-SPINE.md` is an adopted companion this spec does not own; a `bmad-architecture` pass is needed to reconcile AD-10 with CAP-7 before build.
