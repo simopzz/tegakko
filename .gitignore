@@ -6,3 +6,17 @@ _bmad
 .claude
 .codex
 .gemini
+
+# app build tooling
+node_modules
+dist
+dev-dist
+*.local
+.vite
+coverage
+
+# OS / editor cruft
+.DS_Store
+*.log
+.env
+

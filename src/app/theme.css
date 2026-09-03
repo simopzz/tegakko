@@ -1,0 +1,70 @@
+/* DESIGN.md token set as CSS custom properties, per the architecture spine's
+   Consistency Conventions naming (--color-*, --font-*, --radius-*). Only the
+   subset used by Story 1.1's First Run screen and app shell is exercised
+   today; the rest of the palette/type scale is defined now so later stories
+   don't reinvent it. */
+
+:root {
+  /* colors */
+  --color-page-bg: #e6d9c1;
+  --color-surface-card: #f5ead8;
+  --color-surface-card-secondary: #ebddc5;
+  --color-surface-canvas: #f9f4ed;
+  --color-ink: #201e1d;
+  --color-ink-muted: rgba(32, 30, 29, 0.55);
+  --color-ink-faint: rgba(32, 30, 29, 0.16);
+  --color-ink-hairline: rgba(32, 30, 29, 0.1);
+  --color-accent: #c67139;
+  --color-accent-strong: #8c491a;
+  --color-accent-deep: #b2622d;
+  --color-accent-on-peach: #643312;
+  --color-positive-bg: #e1eecc;
+  --color-positive-fg: #3d472b;
+  --color-positive-accent: #56633f;
+  --color-missed-bg: #ffe1d0;
+  --color-missed-fg: #643312;
+  --color-grid-guide: #ccdbb2;
+
+  /* typography */
+  --font-display: 'Noto Serif JP', serif;
+  --font-heading: 'Noto Serif JP', serif;
+  --font-glyph-ink: 'Yuji Syuku', serif;
+  --font-body: 'Figtree', sans-serif;
+  --font-label: 'Figtree', sans-serif;
+
+  /* radii */
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-squircle: 34px;
+  --radius-full: 9999px;
+
+  /* spacing */
+  --spacing-1: 8px;
+  --spacing-2: 12px;
+  --spacing-3: 18px;
+  --spacing-4: 24px;
+  --spacing-5: 32px;
+  --spacing-6: 40px;
+  --spacing-7: 56px;
+  --spacing-8: 72px;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-page-bg);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  -webkit-tap-highlight-color: transparent;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+* {
+  box-sizing: border-box;
+}
