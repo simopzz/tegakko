@@ -1,7 +1,7 @@
-# Validation Report — Kana Practice (jplearn)
+# Validation Report — Kana Practice (tegakko)
 
-- **DESIGN.md:** `/Users/simopzz/dev/jplearn/_bmad-output/planning-artifacts/ux-designs/ux-jplearn-2026-09-02/DESIGN.md`
-- **EXPERIENCE.md:** `/Users/simopzz/dev/jplearn/_bmad-output/planning-artifacts/ux-designs/ux-jplearn-2026-09-02/EXPERIENCE.md`
+- **DESIGN.md:** `/Users/simopzz/dev/tegakko/_bmad-output/planning-artifacts/ux-designs/ux-tegakko-2026-09-02/DESIGN.md`
+- **EXPERIENCE.md:** `/Users/simopzz/dev/tegakko/_bmad-output/planning-artifacts/ux-designs/ux-tegakko-2026-09-02/EXPERIENCE.md`
 - **Run at:** 2026-09-02T21:15:00
 
 ## Overall verdict

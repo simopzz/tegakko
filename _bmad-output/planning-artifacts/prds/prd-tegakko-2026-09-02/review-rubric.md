@@ -1,4 +1,4 @@
-# PRD Quality Review — prd-jplearn-2026-09-02
+# PRD Quality Review — prd-tegakko-2026-09-02
 
 ## Overall verdict
 

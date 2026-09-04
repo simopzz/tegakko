@@ -11,16 +11,12 @@ Japanese kana handwriting-practice PWA: prompt → write on a pressure-sensitive
 
 ## Where things are
 
-- Before writing any application code, read `_bmad-output/specs/spec-jplearn/SPEC.md` (14 capabilities, constraints, permanent non-goals) and `_bmad-output/planning-artifacts/architecture/architecture-jplearn-2026-09-02/ARCHITECTURE-SPINE.md` (13 binding invariants AD-1..AD-13, stack, structural seed) — this is the canonical contract, not background reading.
+- Before writing any application code, read `_bmad-output/specs/spec-tegakko/SPEC.md` (14 capabilities, constraints, permanent non-goals) and `_bmad-output/planning-artifacts/architecture/architecture-tegakko-2026-09-02/ARCHITECTURE-SPINE.md` (13 binding invariants AD-1..AD-13, stack, structural seed) — this is the canonical contract, not background reading.
 - Story-level breakdown and acceptance detail: `_bmad-output/planning-artifacts/epics.md`.
-- Visual/interaction design: `_bmad-output/planning-artifacts/ux-designs/ux-jplearn-2026-09-02/DESIGN.md` and `EXPERIENCE.md`.
+- Visual/interaction design: `_bmad-output/planning-artifacts/ux-designs/ux-tegakko-2026-09-02/DESIGN.md` and `EXPERIENCE.md`.
 
 ## Running and verifying
 
 - No `package.json` or `Justfile` exists yet. `epics.md` plans a root `Justfile` with `dev`/`build`/`lint`/`typecheck` recipes and a `deploy` recipe wrapping `wrangler pages deploy dist` — verify these against the real file once written; don't assume npm/pnpm scripts as a substitute.
-
-## Conventions that differ from defaults
-
-- Use `tegakko`, not `jplearn`, in code, package name, and the PWA manifest — the project was renamed 2026-09-03; only the repo directory keeps the old name.
 
 <!-- /bmad:context -->

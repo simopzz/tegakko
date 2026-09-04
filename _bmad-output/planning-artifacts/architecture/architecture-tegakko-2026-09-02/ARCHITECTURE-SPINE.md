@@ -1,25 +1,25 @@
 ---
-name: 'jplearn-kana-v1'
+name: 'tegakko-kana-v1'
 type: architecture-spine
 purpose: build-substrate
 altitude: feature
 paradigm: 'Ports & Adapters (Hexagonal), with an isolated real-time ink subsystem'
-scope: 'jplearn kana writing practice v1 — full app architecture, driven by prd-jplearn-2026-09-02. Chromium-based Android tablet + stylus only (no Safari/iPad, no phone).'
+scope: 'tegakko kana writing practice v1 — full app architecture, driven by prd-tegakko-2026-09-02. Chromium-based Android tablet + stylus only (no Safari/iPad, no phone).'
 status: final
 created: '2026-09-02'
 updated: '2026-09-03T15'
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14]
 sources:
-  - '_bmad-output/specs/spec-jplearn/SPEC.md'
-  - '_bmad-output/planning-artifacts/prds/prd-jplearn-2026-09-02/prd.md'
-  - '_bmad-output/planning-artifacts/briefs/brief-jplearn-2026-09-01/brief.md'
-  - '_bmad-output/planning-artifacts/briefs/brief-jplearn-2026-09-01/addendum.md'
-  - '_bmad-output/planning-artifacts/ux-designs/ux-jplearn-2026-09-02/DESIGN.md'
-  - '_bmad-output/planning-artifacts/ux-designs/ux-jplearn-2026-09-02/EXPERIENCE.md'
+  - '_bmad-output/specs/spec-tegakko/SPEC.md'
+  - '_bmad-output/planning-artifacts/prds/prd-tegakko-2026-09-02/prd.md'
+  - '_bmad-output/planning-artifacts/briefs/brief-tegakko-2026-09-01/brief.md'
+  - '_bmad-output/planning-artifacts/briefs/brief-tegakko-2026-09-01/addendum.md'
+  - '_bmad-output/planning-artifacts/ux-designs/ux-tegakko-2026-09-02/DESIGN.md'
+  - '_bmad-output/planning-artifacts/ux-designs/ux-tegakko-2026-09-02/EXPERIENCE.md'
 companions: []
 ---
 
-# Architecture Spine — jplearn-kana-v1
+# Architecture Spine — tegakko-kana-v1
 
 ## Design Paradigm
 

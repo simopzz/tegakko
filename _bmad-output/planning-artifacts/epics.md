@@ -1,16 +1,16 @@
 ---
 stepsCompleted: [step-01-validate-prerequisites, step-02-design-epics, step-03-create-stories]
 inputDocuments:
-  - _bmad-output/specs/spec-jplearn/SPEC.md
-  - _bmad-output/planning-artifacts/prds/prd-jplearn-2026-09-02/prd.md
-  - _bmad-output/planning-artifacts/architecture/architecture-jplearn-2026-09-02/ARCHITECTURE-SPINE.md
-  - _bmad-output/planning-artifacts/ux-designs/ux-jplearn-2026-09-02/DESIGN.md
-  - _bmad-output/planning-artifacts/ux-designs/ux-jplearn-2026-09-02/EXPERIENCE.md
+  - _bmad-output/specs/spec-tegakko/SPEC.md
+  - _bmad-output/planning-artifacts/prds/prd-tegakko-2026-09-02/prd.md
+  - _bmad-output/planning-artifacts/architecture/architecture-tegakko-2026-09-02/ARCHITECTURE-SPINE.md
+  - _bmad-output/planning-artifacts/ux-designs/ux-tegakko-2026-09-02/DESIGN.md
+  - _bmad-output/planning-artifacts/ux-designs/ux-tegakko-2026-09-02/EXPERIENCE.md
 ---
 
 # tegakko - Epic Breakdown
 
-*(Project renamed from "jplearn" to "tegakko" on 2026-09-03. Historical artifact folder slugs — `prd-jplearn-*`, `architecture-jplearn-*`, `spec-jplearn` — are kept as-is for path stability; "tegakko" is the live project/app name used going forward in config, package/repo naming, and the PWA manifest.)*
+*(Project renamed from "tegakko" to "tegakko" on 2026-09-03. Historical artifact folder slugs — `prd-tegakko-*`, `architecture-tegakko-*`, `spec-tegakko` — are kept as-is for path stability; "tegakko" is the live project/app name used going forward in config, package/repo naming, and the PWA manifest.)*
 
 ## Overview
 

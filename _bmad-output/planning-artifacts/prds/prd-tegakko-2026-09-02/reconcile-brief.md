@@ -6,9 +6,9 @@ created: 2026-09-02
 # Reconciliation: Brief + Addendum vs PRD (Kana Writing Practice)
 
 Sources checked:
-- brief.md — `_bmad-output/planning-artifacts/briefs/brief-jplearn-2026-09-01/brief.md`
-- addendum.md — `_bmad-output/planning-artifacts/briefs/brief-jplearn-2026-09-01/addendum.md`
-- prd.md — `_bmad-output/planning-artifacts/prds/prd-jplearn-2026-09-02/prd.md`
+- brief.md — `_bmad-output/planning-artifacts/briefs/brief-tegakko-2026-09-01/brief.md`
+- addendum.md — `_bmad-output/planning-artifacts/briefs/brief-tegakko-2026-09-01/addendum.md`
+- prd.md — `_bmad-output/planning-artifacts/prds/prd-tegakko-2026-09-02/prd.md`
 
 Known, deliberate PRD additions (excluded from this report per instructions): yoon expansion (FR-1), Reveal (FR-4), session-level tracking (FR-7/8/9/10), JSON export/import (FR-12), explicit PWA installability (FR-13).
 

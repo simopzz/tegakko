@@ -1,12 +1,12 @@
 ---
 name: 'review-adversarial-incompatibility'
 type: architecture-review
-target: '_bmad-output/planning-artifacts/architecture/architecture-jplearn-2026-09-02/ARCHITECTURE-SPINE.md'
+target: '_bmad-output/planning-artifacts/architecture/architecture-tegakko-2026-09-02/ARCHITECTURE-SPINE.md'
 method: 'adversarial two-independent-builders incompatibility hunt'
 created: '2026-09-03'
 ---
 
-# Adversarial Incompatibility Review — jplearn-kana-v1 Architecture Spine
+# Adversarial Incompatibility Review — tegakko-kana-v1 Architecture Spine
 
 ## Method
 

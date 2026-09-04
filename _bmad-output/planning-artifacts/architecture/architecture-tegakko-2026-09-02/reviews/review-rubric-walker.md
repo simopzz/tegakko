@@ -1,11 +1,11 @@
 ---
-title: Architecture Spine Review — jplearn-kana-v1 (rubric walk)
+title: Architecture Spine Review — tegakko-kana-v1 (rubric walk)
 reviews: ../ARCHITECTURE-SPINE.md
-against: _bmad-output/planning-artifacts/prds/prd-jplearn-2026-09-02/prd.md
+against: _bmad-output/planning-artifacts/prds/prd-tegakko-2026-09-02/prd.md
 created: 2026-09-03
 ---
 
-# Review: ARCHITECTURE-SPINE.md (jplearn-kana-v1)
+# Review: ARCHITECTURE-SPINE.md (tegakko-kana-v1)
 
 Verdict: **Solid, ship-ready with two fixes.** The spine is unusually tight for its altitude — every PRD FR maps to a governing AD or the paradigm, the ERD and component diagram are valid and non-trivial, the deploy/hosting envelope is explicitly decided (not silently missing), and nothing in Deferred creates real divergence risk given a single builder. Two concrete defects found: one AD whose stated enforcement mechanism doesn't actually enforce the rule it claims to prevent, and one capability (production error visibility) that's absent without even being named as a deferral. Neither blocks moving to epics/stories, both are cheap to fix.
 

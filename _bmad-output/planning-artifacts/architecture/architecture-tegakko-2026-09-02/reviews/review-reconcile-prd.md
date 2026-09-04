@@ -1,7 +1,7 @@
 ---
 type: reconciliation-review
-target: architecture-jplearn-2026-09-02/ARCHITECTURE-SPINE.md
-against: prds/prd-jplearn-2026-09-02/prd.md
+target: architecture-tegakko-2026-09-02/ARCHITECTURE-SPINE.md
+against: prds/prd-tegakko-2026-09-02/prd.md
 created: 2026-09-03
 ---
 

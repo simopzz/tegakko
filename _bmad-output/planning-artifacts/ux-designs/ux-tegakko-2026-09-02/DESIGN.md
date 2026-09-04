@@ -1,6 +1,6 @@
 ---
 name: Kana Practice
-description: Personal kana (hiragana/katakana) recall-drill app for tablet + stylus (jplearn v1). Warm washi-paper surface, brush-ink glyph rendering, one terracotta accent.
+description: Personal kana (hiragana/katakana) recall-drill app for tablet + stylus (tegakko v1). Warm washi-paper surface, brush-ink glyph rendering, one terracotta accent.
 status: final
 updated: 2026-09-02
 colors:

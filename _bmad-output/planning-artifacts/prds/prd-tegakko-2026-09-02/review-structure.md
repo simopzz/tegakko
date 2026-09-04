@@ -1,4 +1,4 @@
-# Structure Review — PRD: Kana Writing Practice (jplearn)
+# Structure Review — PRD: Kana Writing Practice (tegakko)
 
 **Purpose/audience read:** This document exists to let the app's creator — acting as PM, sole developer, and sole reader — lock down exactly what v1 does and does not do before building further, not to align external stakeholders.
 

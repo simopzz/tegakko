@@ -1,6 +1,6 @@
 # Reconciliation — Product Brief + Addendum
 
-Source: `briefs/brief-jplearn-2026-09-01/brief.md` + `addendum.md` (one linked document).
+Source: `briefs/brief-tegakko-2026-09-01/brief.md` + `addendum.md` (one linked document).
 
 ## Covered
 

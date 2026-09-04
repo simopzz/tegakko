@@ -2,9 +2,9 @@
 name: Kana Practice
 status: final
 sources:
-  - {planning_artifacts}/prds/prd-jplearn-2026-09-02/prd.md
-  - {planning_artifacts}/briefs/brief-jplearn-2026-09-01/brief.md
-  - {planning_artifacts}/briefs/brief-jplearn-2026-09-01/addendum.md
+  - {planning_artifacts}/prds/prd-tegakko-2026-09-02/prd.md
+  - {planning_artifacts}/briefs/brief-tegakko-2026-09-01/brief.md
+  - {planning_artifacts}/briefs/brief-tegakko-2026-09-01/addendum.md
 updated: 2026-09-02
 ---
 

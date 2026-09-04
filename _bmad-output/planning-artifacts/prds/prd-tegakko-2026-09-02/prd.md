@@ -1,16 +1,16 @@
 ---
-title: "PRD: Kana Writing Practice (jplearn)"
+title: "PRD: Kana Writing Practice (tegakko)"
 status: final
 created: 2026-09-02
 updated: 2026-09-02
 ---
 
-# PRD: Kana Writing Practice (jplearn)
+# PRD: Kana Writing Practice (tegakko)
 *Working title — confirm.*
 
 ## 0. Document Purpose
 
-This PRD is for the app's own creator, acting as both PM and sole developer — it exists to lock down what v1 does before building further on it, not to align stakeholders. It builds on the finalized [Product Brief](../../briefs/brief-jplearn-2026-09-01/brief.md) and its [addendum](../../briefs/brief-jplearn-2026-09-01/addendum.md), which already cover the problem framing, competitive gap, and the delivery-stack decision (web/PWA, chosen after building and testing both native and web PoCs) — this document does not re-derive those, only references them. Features are grouped with FRs nested and globally numbered (FR-1 through FR-N); inferences made without explicit confirmation are tagged `[ASSUMPTION]` inline and indexed in §7. A `[NOTE FOR PM]` tag flags a genuine tension worth a conscious call — a handful of instances, called out inline rather than indexed separately.
+This PRD is for the app's own creator, acting as both PM and sole developer — it exists to lock down what v1 does before building further on it, not to align stakeholders. It builds on the finalized [Product Brief](../../briefs/brief-tegakko-2026-09-01/brief.md) and its [addendum](../../briefs/brief-tegakko-2026-09-01/addendum.md), which already cover the problem framing, competitive gap, and the delivery-stack decision (web/PWA, chosen after building and testing both native and web PoCs) — this document does not re-derive those, only references them. Features are grouped with FRs nested and globally numbered (FR-1 through FR-N); inferences made without explicit confirmation are tagged `[ASSUMPTION]` inline and indexed in §7. A `[NOTE FOR PM]` tag flags a genuine tension worth a conscious call — a handful of instances, called out inline rather than indexed separately.
 
 ## 1. Vision
 

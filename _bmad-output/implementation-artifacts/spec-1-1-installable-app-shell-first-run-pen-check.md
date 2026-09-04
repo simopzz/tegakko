@@ -7,7 +7,7 @@ baseline_commit: '53e5743ab3ef01dad10cc06c2fa8a37f84564130'
 review_loop_iteration: 0
 context: [
   '{project-root}/_bmad-output/implementation-artifacts/epic-1-context.md',
-  '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-jplearn-2026-09-02/DESIGN.md',
+  '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-tegakko-2026-09-02/DESIGN.md',
   '{project-root}/poc-web/index.html',
 ]
 ---
@@ -86,7 +86,7 @@ context: [
 **Deferred:**
 - [x] [Review][Defer] Pinned-TypeScript-version docs contradict `package.json`'s actual pins — ARCHITECTURE-SPINE.md, epics.md, epic-1-context.md, and this spec's own Code Map all say "TypeScript 6.0.3," but `package.json` pins `@typescript/typescript6@6.0.2` for tooling plus a separate `@typescript/native@7.0.2` for the real compiler [package.json] — deferred: caused by the parallel TS7/ESLint dependency-version work (commits 8faafe4/bbaab96/d7511a3) outside story 1.1's own commits; reconcile docs once that work settles
 - [x] [Review][Defer] epic-1-context.md's "resolve as a typed Result/rejected Promise" phrasing is self-contradictory and doesn't match the implementation, which never rejects [_bmad-output/implementation-artifacts/epic-1-context.md:51] — deferred: doc-only clarity issue, fix touches an architecture-context doc rather than story code
-- [x] [Review][Defer] ARCHITECTURE-SPINE.md's AD-8 has two separate amendment notes stacked on one sentence [_bmad-output/planning-artifacts/architecture/architecture-jplearn-2026-09-02/ARCHITECTURE-SPINE.md:113] — deferred: cosmetic doc formatting, fix touches architecture doc rather than story code
+- [x] [Review][Defer] ARCHITECTURE-SPINE.md's AD-8 has two separate amendment notes stacked on one sentence [_bmad-output/planning-artifacts/architecture/architecture-tegakko-2026-09-02/ARCHITECTURE-SPINE.md:113] — deferred: cosmetic doc formatting, fix touches architecture doc rather than story code
 - [x] [Review][Defer] Adapter-boundary ESLint rule (AD-1) has no fixture test proving it actually blocks a cross-adapter violation [eslint.config.js:12] — deferred: guards a currently-empty boundary since no adapters cross-import yet; add a fixture test once real adapter code exists (Story 1.2+)
 
 **Rejected:**

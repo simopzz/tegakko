@@ -1,22 +1,22 @@
 ---
-id: SPEC-jplearn
+id: SPEC-tegakko
 companions:
-  - ../../planning-artifacts/prds/prd-jplearn-2026-09-02/prd.md
-  - ../../planning-artifacts/ux-designs/ux-jplearn-2026-09-02/DESIGN.md
-  - ../../planning-artifacts/ux-designs/ux-jplearn-2026-09-02/EXPERIENCE.md
-  - ../../planning-artifacts/architecture/architecture-jplearn-2026-09-02/ARCHITECTURE-SPINE.md
+  - ../../planning-artifacts/prds/prd-tegakko-2026-09-02/prd.md
+  - ../../planning-artifacts/ux-designs/ux-tegakko-2026-09-02/DESIGN.md
+  - ../../planning-artifacts/ux-designs/ux-tegakko-2026-09-02/EXPERIENCE.md
+  - ../../planning-artifacts/architecture/architecture-tegakko-2026-09-02/ARCHITECTURE-SPINE.md
 sources:
-  - ../../planning-artifacts/briefs/brief-jplearn-2026-09-01/brief.md
-  - ../../planning-artifacts/briefs/brief-jplearn-2026-09-01/addendum.md
+  - ../../planning-artifacts/briefs/brief-tegakko-2026-09-01/brief.md
+  - ../../planning-artifacts/briefs/brief-tegakko-2026-09-01/addendum.md
 ---
 
 > **Canonical contract.** This SPEC and the files in `companions:` are the complete, preservation-validated contract for what to build, test, and validate. Source documents listed in frontmatter are for traceability — consult them only if you need narrative rationale or prose color this contract intentionally omits.
 
-# Kana Writing Practice (jplearn v1)
+# Kana Writing Practice (tegakko v1)
 
 ## Why
 
-Existing kana tools test recognition, not recall: Renshuu traces the correct stroke path for the user, Duolingo auto-recognizes an approximate finger-drawn shape but still guides the hand. Neither ever confirms a character can be produced from a blank page with nothing to go on. That gap leaves quiet uncertainty — sitting down unsure whether a kana is really known or only recognizable, with no fast, honest way to check. jplearn kana v1 closes that gap for its single user (the app's creator) with a genuine pressure-sensitive pen canvas: prompt, write from memory, self-grade — a targeted reinforcement tool, not a second SRS. It also serves as the deliberately narrow, low-risk proof-of-pipeline for kanji and vocabulary, expected to follow within months by reusing the same script-aware, self-graded, weak-spot-biased shape.
+Existing kana tools test recognition, not recall: Renshuu traces the correct stroke path for the user, Duolingo auto-recognizes an approximate finger-drawn shape but still guides the hand. Neither ever confirms a character can be produced from a blank page with nothing to go on. That gap leaves quiet uncertainty — sitting down unsure whether a kana is really known or only recognizable, with no fast, honest way to check. tegakko kana v1 closes that gap for its single user (the app's creator) with a genuine pressure-sensitive pen canvas: prompt, write from memory, self-grade — a targeted reinforcement tool, not a second SRS. It also serves as the deliberately narrow, low-risk proof-of-pipeline for kanji and vocabulary, expected to follow within months by reusing the same script-aware, self-graded, weak-spot-biased shape.
 
 ## Capabilities
 

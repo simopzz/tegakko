@@ -1,11 +1,11 @@
 ---
 review: version-verification
-target: ARCHITECTURE-SPINE.md (jplearn-kana-v1)
+target: ARCHITECTURE-SPINE.md (tegakko-kana-v1)
 performed: 2026-09-03
 method: live npm registry queries (registry.npmjs.org) + MDN/web search
 ---
 
-# Version & Technical-Currency Verification — jplearn-kana-v1 Architecture Spine
+# Version & Technical-Currency Verification — tegakko-kana-v1 Architecture Spine
 
 ## Scope
 

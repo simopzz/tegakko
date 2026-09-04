@@ -1,4 +1,4 @@
-# Prose Review — PRD: Kana Writing Practice (jplearn)
+# Prose Review — PRD: Kana Writing Practice (tegakko)
 
 This document exists to help the app's creator — acting as both PM and sole developer — lock down what v1 does before building further on it. Reader: the creator only. Style guide: Microsoft Writing Style Guide. Voice preserved: dense, technical, terse fragment-style feature descriptions, inline `[ASSUMPTION]`/`[NOTE FOR PM]` tags, and FR/glossary cross-references — none of that is touched below.
 

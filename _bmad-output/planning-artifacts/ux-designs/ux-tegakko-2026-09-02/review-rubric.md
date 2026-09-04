@@ -1,4 +1,4 @@
-# Spine Pair Review — Kana Practice (jplearn)
+# Spine Pair Review — Kana Practice (tegakko)
 
 ## Overall verdict
 

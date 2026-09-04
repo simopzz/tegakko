@@ -1,14 +1,14 @@
 ---
 title: "Reconciliation Review: ARCHITECTURE-SPINE.md vs. brief.md + addendum.md"
 type: review
-target: architecture/architecture-jplearn-2026-09-02/ARCHITECTURE-SPINE.md
+target: architecture/architecture-tegakko-2026-09-02/ARCHITECTURE-SPINE.md
 sources:
-  - briefs/brief-jplearn-2026-09-01/brief.md
-  - briefs/brief-jplearn-2026-09-01/addendum.md
+  - briefs/brief-tegakko-2026-09-01/brief.md
+  - briefs/brief-tegakko-2026-09-01/addendum.md
 created: 2026-09-03
 ---
 
-# Reconciliation Review — jplearn Architecture Spine vs. Brief + Addendum
+# Reconciliation Review — tegakko Architecture Spine vs. Brief + Addendum
 
 ## Verdict: Minor gaps
 

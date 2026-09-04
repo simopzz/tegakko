@@ -1,7 +1,7 @@
 # PoC Reconciliation — PRD Technical Claims vs. poc-web/index.html
 
-Source reviewed in full: `/Users/simopzz/dev/jplearn/poc-web/index.html` (428 lines).
-Source skimmed for context only: `/Users/simopzz/dev/jplearn/poc-native/` — no `.kt` source files present in the tree (only Gradle wrapper/build artifacts and `AndroidManifest.xml`); no corroborating detail available beyond what the PRD/addendum already states.
+Source reviewed in full: `/Users/simopzz/dev/tegakko/poc-web/index.html` (428 lines).
+Source skimmed for context only: `/Users/simopzz/dev/tegakko/poc-native/` — no `.kt` source files present in the tree (only Gradle wrapper/build artifacts and `AndroidManifest.xml`); no corroborating detail available beyond what the PRD/addendum already states.
 
 ## FR-2 — Pen canvas with genkouyoushi grid
 
@@ -29,7 +29,7 @@ Source skimmed for context only: `/Users/simopzz/dev/jplearn/poc-native/` — no
 
 **Verdict: Pure greenfield — not yet built or proven in the PoC.**
 
-- `/Users/simopzz/dev/jplearn/poc-web/` contains only `index.html` and `.gitignore` — confirmed via directory listing.
+- `/Users/simopzz/dev/tegakko/poc-web/` contains only `index.html` and `.gitignore` — confirmed via directory listing.
 - No `manifest.json`/web app manifest, no service worker file, and no `serviceWorker`/`register()`/manifest-link code anywhere in `index.html` (grep for `manifest|serviceWorker|service-worker|sw.js|register` returns nothing).
 - So FR-13's installability + full offline-functionality claims describe work the PRD is correctly scoping in as new, not a capability the PoC already demonstrated. This is consistent with how the PRD itself frames it — §4.6 cites the addendum's PoC-based decision as being about the *delivery-stack choice* (web vs. native), not about PWA installability specifically, and FR-13's one PoC-backed claim is narrower and accurate: the HTTPS/secure-context requirement for Delegated Ink Trails (`navigator.ink` requires a secure context) is genuinely exercised by the PoC, since `requestPresenter` only succeeds on HTTPS or localhost. No mismatch here — just confirming FR-13 as new work, as requested.
 

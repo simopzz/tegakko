@@ -1,6 +1,6 @@
 # Reconciliation — PRD
 
-Source: `prds/prd-jplearn-2026-09-02/prd.md`
+Source: `prds/prd-tegakko-2026-09-02/prd.md`
 
 Lead with two concrete contradictions found between the PRD's own functional requirements and what the spines (EXPERIENCE.md in particular) actually specify — both are testable, both look unintentional.
 

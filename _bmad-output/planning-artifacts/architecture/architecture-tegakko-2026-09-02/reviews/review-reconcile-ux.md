@@ -2,13 +2,13 @@
 name: reconcile-ux-vs-architecture-spine
 type: review
 purpose: reconciliation-check
-scope: 'ARCHITECTURE-SPINE.md vs DESIGN.md + EXPERIENCE.md (jplearn kana v1)'
+scope: 'ARCHITECTURE-SPINE.md vs DESIGN.md + EXPERIENCE.md (tegakko kana v1)'
 status: final
 created: '2026-09-03'
 sources:
-  - '_bmad-output/planning-artifacts/architecture/architecture-jplearn-2026-09-02/ARCHITECTURE-SPINE.md'
-  - '_bmad-output/planning-artifacts/ux-designs/ux-jplearn-2026-09-02/DESIGN.md'
-  - '_bmad-output/planning-artifacts/ux-designs/ux-jplearn-2026-09-02/EXPERIENCE.md'
+  - '_bmad-output/planning-artifacts/architecture/architecture-tegakko-2026-09-02/ARCHITECTURE-SPINE.md'
+  - '_bmad-output/planning-artifacts/ux-designs/ux-tegakko-2026-09-02/DESIGN.md'
+  - '_bmad-output/planning-artifacts/ux-designs/ux-tegakko-2026-09-02/EXPERIENCE.md'
 ---
 
 # Reconciliation Review — Architecture Spine vs UX Source Docs
