@@ -49,7 +49,7 @@ Deliver a personal, installable tablet PWA that tests genuine handwriting *recal
 - Service worker updates apply silently (`vite-plugin-pwa`, `registerType: 'autoUpdate'`) — no update-available prompt.
 - Production hosting: static build on Cloudflare Pages via native Git integration (auto build+deploy on push to `main`, preview deployments elsewhere, no GitHub Actions needed); default Cloudflare-provided `*.workers.dev` origin satisfies the HTTPS requirement.
 - Persistence-adapter failures resolve as a typed `Result`/rejected `Promise`, never a raw `DOMException` past the adapter boundary.
-- Greenfield scaffold: no build tooling exists yet. Directory shape: `src/{domain,ports,adapters/{persistence,content,ink,ui,io},app}`, `public/manifest.webmanifest`. Pinned versions: TypeScript 7.0.2 (strict), Vite 8.2.2, Svelte 5.57.0, @sveltejs/vite-plugin-svelte 7.3.0, vite-plugin-pwa 1.3.0, idb 8.0.3. A `Justfile` exposes `dev`, `build`, `lint`, `typecheck`, `deploy` (deploy wraps `wrangler pages deploy dist --project-name=tegakko`).
+- Greenfield scaffold: no build tooling exists yet. Directory shape: `src/{domain,ports,adapters/{persistence,content,ink,ui,io},app}`, `public/manifest.webmanifest`. Pinned versions: TypeScript 6.0.3 (strict), Vite 8.2.2, Svelte 5.57.0, @sveltejs/vite-plugin-svelte 7.3.0, vite-plugin-pwa 1.3.0, idb 8.0.3. A `Justfile` exposes `dev`, `build`, `lint`, `typecheck`, `deploy` (deploy wraps `wrangler pages deploy dist --project-name=tegakko`).
 - Testing strategy and CI gates (beyond Cloudflare's build+deploy) are not fixed at the architecture level — decide at story/build time; Vitest is the natural fit given the toolchain.
 
 ## UX & Interaction Patterns

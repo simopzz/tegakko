@@ -25,7 +25,3 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-1-installable-app-shell-first-run-pen-check.md`
   summary: Add a CI workflow wiring `lint`/`typecheck`/`test`/`build` together on push/PR.
   evidence: Epic context explicitly left CI gates undecided ("decide at story/build time"); none of the new npm scripts are enforced automatically today.
-
-- source_spec: `_bmad-output/implementation-artifacts/spec-1-1-installable-app-shell-first-run-pen-check.md`
-  summary: Add a short README (or CONTRIBUTING note) explaining the TypeScript 7/6 side-by-side shim (`.npmrc`, `postinstall` script, `package.json` overrides).
-  evidence: The rationale is scattered across inline comments in three separate files; a future contributor hitting an install issue has to piece it together.

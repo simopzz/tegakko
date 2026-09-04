@@ -9,8 +9,7 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit && svelte-check --tsconfig ./tsconfig.json",
-    "test": "vitest run",
-    "postinstall": "scripts/link-ts6-for-eslint.sh"
+    "test": "vitest run"
   },
   "dependencies": {
     "idb": "8.0.3"
@@ -26,19 +25,11 @@
     "svelte": "5.57.0",
     "svelte-check": "4.7.6",
     "svelte-eslint-parser": "1.8.1",
-    "typescript": "7.0.2",
+    "typescript": "6.0.3",
     "typescript-eslint": "8.69.0",
     "vite": "8.2.2",
     "vite-plugin-pwa": "1.3.0",
     "vitest": "5.0.0",
     "wrangler": "4.129.0"
-  },
-  "overrides": {
-    "typescript-eslint": {
-      "typescript": "6.0.3"
-    },
-    "svelte-check": {
-      "typescript": "6.0.3"
-    }
   }
 }

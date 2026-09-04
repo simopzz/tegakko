@@ -42,7 +42,7 @@ context: [
 
 ## Code Map
 
-- `package.json` -- pin Vite 8.2.2, Svelte 5.57.0, `@sveltejs/vite-plugin-svelte` 7.3.0, `vite-plugin-pwa` 1.3.0, `idb` 8.0.3, TypeScript 7.0.2 (strict), ESLint + `typescript-eslint` + `eslint-plugin-import`
+- `package.json` -- pin Vite 8.2.2, Svelte 5.57.0, `@sveltejs/vite-plugin-svelte` 7.3.0, `vite-plugin-pwa` 1.3.0, `idb` 8.0.3, TypeScript 6.0.3 (strict), ESLint + `typescript-eslint` + `eslint-plugin-import`
 - `vite.config.ts` -- `@sveltejs/vite-plugin-svelte` + `VitePWA({ registerType: 'autoUpdate', manifest: false })` (manifest served statically, see below)
 - `tsconfig.json` -- `strict: true`
 - `eslint.config.js` -- `no-explicit-any: 'error'`; `import/no-restricted-paths` zones enforcing no `adapters/x` → `adapters/y` outside `app/`
@@ -169,9 +169,6 @@ zones: ['content','ink','persistence','ui','io'].map(name => ({
 
 **Peripherals**
 
-- `Justfile`, `.npmrc`, and `tsconfig.json` -- the pinned-version, strict-mode tooling contract
+- `Justfile` and `tsconfig.json` -- the pinned-version, strict-mode tooling contract
   [`Justfile:1`](../../Justfile#L1)
-
-- TypeScript 7/6 side-by-side shim needed until `typescript-eslint`/`svelte-check` support TS7
-  [`link-ts6-for-eslint.sh:1`](../../scripts/link-ts6-for-eslint.sh#L1)
 

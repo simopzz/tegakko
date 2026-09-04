@@ -166,7 +166,7 @@ flowchart TB
 
 | Name | Version |
 | --- | --- |
-| TypeScript | 7.0.2, strict mode |
+| TypeScript | 6.0.3, strict mode (downgraded from 7.0.2: TS7 ships without a programmatic API as of 7.0, which svelte-check/typescript-eslint require — not viable until 7.1) |
 | Vite | 8.2.2 |
 | Svelte | 5.57.0 |
 | @sveltejs/vite-plugin-svelte | 7.3.0 |
