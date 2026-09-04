@@ -6,7 +6,6 @@
   // handling, simplified: no stroke rendering, just a live pressure readout.
   import { onMount } from 'svelte';
   import type { SettingsRepository } from '../../ports/settings-repository';
-  import { DEFAULT_SETTINGS } from '../../domain/settings';
 
   interface Props {
     settingsRepository: SettingsRepository;
@@ -29,6 +28,13 @@
   let deferredInstallPrompt = $state<BeforeInstallPromptEvent | null>(null);
   let dismissError = $state<string | null>(null);
 
+  // Distinct from `dismissError` (the rendered message, which an
+  // install-prompt failure also sets): only a *persistence* attempt
+  // failing should let a later tap skip straight through without
+  // retrying. An install-prompt failure never even attempted a save, so
+  // it must not trip this guard -- see `persistPenCheckShown` below.
+  let persistenceFailed = false;
+
   const chipText: Record<PenStatus, string> = {
     idle: 'Touch the pad with your stylus',
     'pressure-detected': 'Stylus found',
@@ -43,12 +49,27 @@
   function evaluatePointer(event: PointerEvent): void {
     if (event.pointerType === 'pen') {
       if (event.pressure > 0) {
-        penStatus = 'pressure-detected';
-        pressure = event.pressure;
+        if (penStatus === 'pressure-detected') {
+          // Already confirmed -- keep the live readout current regardless
+          // of the exact value (including a genuine 0.5 reading).
+          pressure = event.pressure;
+          return;
+        }
+        if (event.pressure !== 0.5) {
+          // Any reading other than exactly 0.5 confirms a real sensor
+          // immediately. 0.5 alone is ambiguous: per the W3C Pointer
+          // Events spec, hardware *without* pressure support reports
+          // exactly 0.5 while a pen is in contact (0 otherwise), so a
+          // lone 0.5 doesn't prove anything -- it takes a differing
+          // reading to confirm.
+          penStatus = 'pressure-detected';
+          pressure = event.pressure;
+        }
       }
-      // A pen event with zero pressure doesn't prove absence of a pressure
-      // API yet (a later move in the same contact might report one) -- only
-      // pointerup settles that, below.
+      // A pen event with zero pressure -- or stuck at exactly 0.5 before
+      // confirmation -- doesn't prove absence of a pressure API yet (a
+      // later move in the same contact might report a differing value)
+      // -- only pointerup settles that, below.
       return;
     }
     // Mouse or touch: never carries meaningful pressure.
@@ -64,16 +85,24 @@
   }
 
   async function persistPenCheckShown(): Promise<void> {
-    if (dismissError) {
-      // A previous attempt already surfaced the failure note -- don't
-      // hard-block a follow-up tap behind a retry the learner didn't ask
-      // for; let them straight through this time.
+    if (persistenceFailed) {
+      // A previous *persistence* attempt already surfaced the failure note
+      // -- don't hard-block a follow-up tap behind a retry the learner
+      // didn't ask for; let them straight through this time.
       onDismiss();
       return;
     }
     const current = await settingsRepository.get();
-    const base = current.ok ? current.value : DEFAULT_SETTINGS;
-    const result = await settingsRepository.save({ ...base, penCheckShown: true });
+    if (!current.ok) {
+      // Don't silently fall back to defaults on a read failure -- that
+      // would overwrite any real settings (Story 1.3+'s widthPreset,
+      // etc.) the same way a save failure would. Surface it identically.
+      console.error('Failed to read settings before persisting penCheckShown:', current.error);
+      dismissError = "Couldn't save that -- tap again to continue anyway.";
+      persistenceFailed = true;
+      return;
+    }
+    const result = await settingsRepository.save({ ...current.value, penCheckShown: true });
     if (!result.ok) {
       // Never hard-block: surface the failure (a short, generic message --
       // the technical detail is for the console, not the learner), but stay
@@ -81,6 +110,7 @@
       // being unmounted in the same tick it appears.
       console.error('Failed to persist penCheckShown:', result.error);
       dismissError = "Couldn't save that -- tap again to continue anyway.";
+      persistenceFailed = true;
       return;
     }
     onDismiss();
@@ -94,10 +124,18 @@
     const promptEvent = deferredInstallPrompt;
     if (!promptEvent) return;
     deferredInstallPrompt = null;
-    await promptEvent.prompt();
-    const choice = await promptEvent.userChoice;
-    if (choice.outcome === 'accepted') {
-      await persistPenCheckShown();
+    try {
+      await promptEvent.prompt();
+      const choice = await promptEvent.userChoice;
+      if (choice.outcome === 'accepted') {
+        await persistPenCheckShown();
+      }
+    } catch (cause) {
+      // The native prompt can reject (e.g. invoked a second time) --
+      // surface it like a persist failure instead of leaving the Install
+      // button silently gone behind an unhandled rejection.
+      console.error('Install prompt failed:', cause);
+      dismissError = 'Couldn\'t open the install prompt -- tap "Just use it here" to continue.';
     }
   }
 

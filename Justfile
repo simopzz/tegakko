@@ -12,6 +12,11 @@ dev:
 build:
     npm run build
 
+# Requires a python3 interpreter on PATH -- the only recipe in this file
+# that isn't satisfied by the npm toolchain alone.
+gen-icons:
+    python3 scripts/gen-icons.py
+
 clean:
     rm -rf dist dev-dist
 

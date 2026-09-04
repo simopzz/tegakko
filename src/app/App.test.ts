@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import { DEFAULT_SETTINGS } from '../domain/settings';
-import { ok } from '../domain/result';
+import { err, ok } from '../domain/result';
 
 const getMock = vi.fn();
 
@@ -43,5 +43,13 @@ describe('App', () => {
 
     expect(await screen.findByText(/tegakko is set up/)).toBeTruthy();
     expect(screen.queryByText('Check your stylus')).toBeNull();
+  });
+
+  it('falls back to showing First Run when the settings read fails', async () => {
+    getMock.mockResolvedValue(err(new Error('IndexedDB blocked')));
+
+    render(App);
+
+    expect(await screen.findByText('Check your stylus')).toBeTruthy();
   });
 });
