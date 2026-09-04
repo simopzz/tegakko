@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import { DEFAULT_SETTINGS } from '../domain/settings';
 import { err, ok } from '../domain/result';
 
@@ -36,12 +36,12 @@ describe('App', () => {
     expect(await screen.findByText('Check your stylus')).toBeTruthy();
   });
 
-  it('skips First Run and shows the placeholder screen once penCheckShown is true', async () => {
+  it('skips First Run and shows the Scope picker once penCheckShown is true', async () => {
     getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
 
     render(App);
 
-    expect(await screen.findByText(/tegakko is set up/)).toBeTruthy();
+    expect(await screen.findByText('What are we testing today?')).toBeTruthy();
     expect(screen.queryByText('Check your stylus')).toBeNull();
   });
 
@@ -51,5 +51,31 @@ describe('App', () => {
     render(App);
 
     expect(await screen.findByText('Check your stylus')).toBeTruthy();
+  });
+
+  it('carries the chosen scope forward to the drill placeholder when "Start writing" is tapped', async () => {
+    getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
+
+    render(App);
+
+    await screen.findByText('What are we testing today?');
+    await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
+
+    expect(await screen.findByText(/tegakko is set up/)).toBeTruthy();
+    expect(screen.getByText('scope: hiragana+katakana / base+yoon')).toBeTruthy();
+  });
+
+  it('carries a narrowed scope forward to the drill placeholder when narrowed before "Start writing"', async () => {
+    getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
+
+    render(App);
+
+    await screen.findByText('What are we testing today?');
+    await fireEvent.click(screen.getByRole('button', { name: 'Hiragana' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Base' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
+
+    expect(await screen.findByText(/tegakko is set up/)).toBeTruthy();
+    expect(screen.getByText('scope: hiragana / base')).toBeTruthy();
   });
 });
