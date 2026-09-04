@@ -1,9 +1,9 @@
 // @ts-check
 import tseslint from 'typescript-eslint';
-import importPlugin from 'eslint-plugin-import';
+import importPlugin from 'eslint-plugin-import-x';
 import svelte from 'eslint-plugin-svelte';
 
-// eslint-plugin-import's no-restricted-paths needs one zone per adapter
+// eslint-plugin-import-x's no-restricted-paths needs one zone per adapter
 // directory -- a same-pattern target/from won't exclude same-dir imports.
 // The trailing `/**` matters: `no-restricted-paths` resolves an extglob
 // `from` with `minimatch`, which matches path *segments* -- without `/**`,
@@ -37,7 +37,7 @@ export default tseslint.config(
   {
     files: ['src/**/*.ts', 'vite.config.ts', 'vitest.config.ts', 'eslint.config.js'],
     extends: [...tseslint.configs.recommended],
-    plugins: { import: importPlugin },
+    plugins: { 'import-x': importPlugin },
     rules: {
       // AD-6: no `any` anywhere, least of all at a port boundary.
       '@typescript-eslint/no-explicit-any': 'error',
@@ -73,18 +73,18 @@ export default tseslint.config(
     // src/adapters/ui/*.svelte) -- a component doesn't get a boundary pass
     // just because it's markup-flavored.
     files: ['src/adapters/**/*.ts', 'src/adapters/**/*.svelte'],
-    plugins: { import: importPlugin },
+    plugins: { 'import-x': importPlugin },
     settings: {
       // Extensionless relative imports (`'../persistence/x'`) resolve to
-      // `.ts` files; without this, eslint-plugin-import's resolver can't
+      // `.ts` files; without this, eslint-plugin-import-x's resolver can't
       // find the module at all and silently skips the restricted-paths
       // check instead of reporting a violation.
-      'import/resolver': {
+      'import-x/resolver': {
         node: { extensions: ['.js', '.ts', '.svelte'] },
       },
     },
     rules: {
-      'import/no-restricted-paths': ['error', { zones: adapterZones }],
+      'import-x/no-restricted-paths': ['error', { zones: adapterZones }],
     },
   },
 );
