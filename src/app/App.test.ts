@@ -71,8 +71,8 @@ describe('App', () => {
     render(App);
 
     await screen.findByText('What are we testing today?');
-    await fireEvent.click(screen.getByRole('button', { name: 'Hiragana' }));
-    await fireEvent.click(screen.getByRole('button', { name: 'Base' }));
+    await fireEvent.click(screen.getByRole('radio', { name: 'Hiragana' }));
+    await fireEvent.click(screen.getByRole('radio', { name: 'Base' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
 
     expect(await screen.findByText(/tegakko is set up/)).toBeTruthy();

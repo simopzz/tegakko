@@ -44,7 +44,9 @@
 
 - summary: The pressure-check's 0.5-ambiguity heuristic has an inherent false-negative edge case.
   evidence: A real pressure sensor whose reading happens to land on exactly 0.5 for an entire contact (`FirstRun.svelte:50`) would be misread as "no pressure input detected" -- the inverse of the false-positive the heuristic was written to fix. No further signal is available from `PointerEvent.pressure` alone to disambiguate a genuine 0.5 from the W3C no-pressure-API default; would need a different API (e.g. a device-capabilities check) to close fully.
+  status: unowned -- no story or milestone currently schedules this; needs a deliberate call at the next sprint-planning pass rather than sitting here indefinitely.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-2-kana-catalog-scope-picker.md`
   summary: The ≥48dp tap-target requirement has no test coverage anywhere in the suite.
   evidence: `happy-dom` can't resolve CSS `min-height` via `getComputedStyle`, so neither `FirstRun.test.ts` (Story 1.1, 88px buttons) nor `ScopePicker.test.ts` (Story 1.2, 56px pills / 88px "Start writing") can assert real tap-target size -- both substitute a "renders as a real `<button>`" check instead. A regression that shrinks a button below 48dp would pass `just check` undetected; would need a real-browser/Playwright-style check to close.
+  status: unowned -- no story schedules this; the CI-workflow item above (this file, spec-1-1 section) is the natural place to add a real-browser test job once that workflow exists, but nothing currently forces that pairing to happen.

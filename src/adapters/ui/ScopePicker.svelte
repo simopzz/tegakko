@@ -5,8 +5,12 @@
   // and drive a live card-count recompute -- see EXPERIENCE.md's Component
   // Patterns and this story's frozen Intent.
   import type { CardRepository } from '../../ports/card-repository';
-  import { cardsInScope, type Scope } from '../../domain/scope';
+  import { cardsInScope, FULL_SCOPE, type Scope } from '../../domain/scope';
   import type { Script, CardKind } from '../../domain/cards';
+
+  function capitalize(value: string): string {
+    return value.charAt(0).toUpperCase() + value.slice(1);
+  }
 
   interface Props {
     cardRepository: CardRepository;
@@ -28,19 +32,22 @@
   let scriptChoice = $state<ScriptChoice>('both');
   let setChoice = $state<SetChoice>('all');
 
+  // "Both"/"All" fall back to `FULL_SCOPE`'s own arrays -- not a re-typed
+  // literal -- so this can never silently drift from the domain's definition
+  // of "unnarrowed" (verification-gap: ScopePicker used to duplicate the
+  // literal instead of importing it).
   const scope = $derived<Scope>({
-    scripts: scriptChoice === 'both' ? ['hiragana', 'katakana'] : [scriptChoice],
-    units: setChoice === 'all' ? ['base', 'yoon'] : [setChoice],
+    scripts: scriptChoice === 'both' ? FULL_SCOPE.scripts : [scriptChoice],
+    units: setChoice === 'all' ? FULL_SCOPE.units : [setChoice],
   });
 
   const scopedCount = $derived(cardsInScope(allCards, scope).length);
 
-  const scriptChipLabels = $derived(
-    scriptChoice === 'both' ? ['Hiragana', 'Katakana'] : [scriptChoice === 'hiragana' ? 'Hiragana' : 'Katakana'],
-  );
-  const setChipLabels = $derived(
-    setChoice === 'all' ? ['Base', 'Yoon'] : [setChoice === 'base' ? 'Base' : 'Yoon'],
-  );
+  // Chip labels are derived from `scope` itself, not re-branched from
+  // `scriptChoice`/`setChoice` a second time, so the chips the learner sees
+  // can never drift from the scope actually handed to `onStart`.
+  const scriptChipLabels = $derived(scope.scripts.map(capitalize));
+  const setChipLabels = $derived(scope.units.map(capitalize));
 
   function handleStart(): void {
     onStart(scope);
@@ -54,12 +61,15 @@
 
     <div class="group">
       <p class="group-label">Script</p>
-      <div class="pill-group" role="group" aria-label="Script">
+      <div class="pill-group" role="radiogroup" aria-label="Script">
         <button
           type="button"
           class="pill"
           class:pill--active={scriptChoice === 'both'}
-          aria-pressed={scriptChoice === 'both'}
+          role="radio"
+          aria-checked={scriptChoice === 'both'}
+          aria-label="Both scripts"
+          tabindex={scriptChoice === 'both' ? 0 : -1}
           onclick={() => (scriptChoice = 'both')}
         >
           Both
@@ -68,7 +78,9 @@
           type="button"
           class="pill"
           class:pill--active={scriptChoice === 'hiragana'}
-          aria-pressed={scriptChoice === 'hiragana'}
+          role="radio"
+          aria-checked={scriptChoice === 'hiragana'}
+          tabindex={scriptChoice === 'hiragana' ? 0 : -1}
           onclick={() => (scriptChoice = 'hiragana')}
         >
           Hiragana
@@ -77,7 +89,9 @@
           type="button"
           class="pill"
           class:pill--active={scriptChoice === 'katakana'}
-          aria-pressed={scriptChoice === 'katakana'}
+          role="radio"
+          aria-checked={scriptChoice === 'katakana'}
+          tabindex={scriptChoice === 'katakana' ? 0 : -1}
           onclick={() => (scriptChoice = 'katakana')}
         >
           Katakana
@@ -87,12 +101,15 @@
 
     <div class="group">
       <p class="group-label">Set</p>
-      <div class="pill-group" role="group" aria-label="Set">
+      <div class="pill-group" role="radiogroup" aria-label="Set">
         <button
           type="button"
           class="pill"
           class:pill--active={setChoice === 'all'}
-          aria-pressed={setChoice === 'all'}
+          role="radio"
+          aria-checked={setChoice === 'all'}
+          aria-label="Both sets"
+          tabindex={setChoice === 'all' ? 0 : -1}
           onclick={() => (setChoice = 'all')}
         >
           Both
@@ -101,7 +118,9 @@
           type="button"
           class="pill"
           class:pill--active={setChoice === 'base'}
-          aria-pressed={setChoice === 'base'}
+          role="radio"
+          aria-checked={setChoice === 'base'}
+          tabindex={setChoice === 'base' ? 0 : -1}
           onclick={() => (setChoice = 'base')}
         >
           Base
@@ -110,7 +129,9 @@
           type="button"
           class="pill"
           class:pill--active={setChoice === 'yoon'}
-          aria-pressed={setChoice === 'yoon'}
+          role="radio"
+          aria-checked={setChoice === 'yoon'}
+          tabindex={setChoice === 'yoon' ? 0 : -1}
           onclick={() => (setChoice = 'yoon')}
         >
           Yoon

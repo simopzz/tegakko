@@ -10,7 +10,7 @@ inputDocuments:
 
 # tegakko - Epic Breakdown
 
-*(Project renamed from "tegakko" to "tegakko" on 2026-09-03. Historical artifact folder slugs — `prd-tegakko-*`, `architecture-tegakko-*`, `spec-tegakko` — are kept as-is for path stability; "tegakko" is the live project/app name used going forward in config, package/repo naming, and the PWA manifest.)*
+*(Project renamed from "jplearn" to "tegakko" on 2026-09-03. Artifact folder slugs — `prd-*`, `architecture-*`, `spec-*`, `ux-*` — were renamed to match; the original brief (`brief-jplearn-2026-09-01`) and the frozen `poc-web`/`poc-native` evidence keep their historical name. "tegakko" is the live project/app name used going forward in config, package/repo naming, and the PWA manifest.)*
 
 ## Overview
 

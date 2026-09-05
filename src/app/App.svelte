@@ -67,4 +67,9 @@
     font-family: var(--font-body);
     color: var(--color-ink-muted);
   }
+
+  .placeholder-scope {
+    margin: var(--spacing-2) 0 0;
+    font-size: 0.875rem;
+  }
 </style>

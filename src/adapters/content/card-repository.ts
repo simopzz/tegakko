@@ -15,7 +15,12 @@ export class InMemoryCardRepository implements CardRepository {
   }
 
   getById(cardId: string): Card {
-    const card = CARDS.find((candidate) => candidate.cardId === cardId);
+    // Normalize before comparing: the catalog's own `cardId`s are built from
+    // NFC-normalized graphemes (domain/cards.ts), but a lookup key sourced
+    // from persisted data or an import isn't guaranteed to arrive already
+    // normalized.
+    const normalizedId = cardId.normalize('NFC');
+    const card = CARDS.find((candidate) => candidate.cardId === normalizedId);
     if (!card) {
       throw new Error(`Unknown cardId: ${cardId}`);
     }

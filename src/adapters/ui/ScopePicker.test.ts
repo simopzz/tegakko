@@ -21,17 +21,24 @@ function realRepository(): CardRepository {
 }
 
 // Pill labels ("Hiragana", "Base", "Yoon", ...) intentionally repeat as chip
-// text once selected -- `getByRole('button', ...)` disambiguates from the
-// read-only `<span>` chips, which carry no button role. "Both" is the third
-// option in *each* pill group (Script and Set), so an unscoped lookup is
-// ambiguous once both groups are rendered -- pass `groupLabel` ("Script" or
-// "Set") to disambiguate via that group's own `role="group"` accessible name.
+// text once selected -- role lookups disambiguate from the read-only `<span>`
+// chips, which carry no interactive role. Script/Set are `role="radiogroup"`s
+// of `role="radio"` pills (a true mutually-exclusive single-select, not
+// independent toggle buttons); "Start writing" stays a plain button outside
+// either group. Each group's two "Both" pills carry distinct accessible names
+// ("Both scripts" / "Both sets") since a screen reader flattening all
+// controls into one list can't otherwise tell them apart -- `groupLabel`
+// additionally scopes the lookup to one `radiogroup` by its own accessible
+// name ("Script" or "Set").
 function pill(name: string, groupLabel?: string): HTMLElement {
-  if (groupLabel) {
-    const group = screen.getByRole('group', { name: groupLabel });
-    return within(group).getByRole('button', { name });
+  if (name === 'Start writing') {
+    return screen.getByRole('button', { name });
   }
-  return screen.getByRole('button', { name });
+  if (groupLabel) {
+    const group = screen.getByRole('radiogroup', { name: groupLabel });
+    return within(group).getByRole('radio', { name });
+  }
+  return screen.getByRole('radio', { name });
 }
 
 function chips(): HTMLElement {
@@ -91,7 +98,7 @@ describe('ScopePicker', () => {
     await fireEvent.click(pill('Hiragana'));
 
     expect(pill('Hiragana').className).toContain('pill--active');
-    expect(pill('Both', 'Script').className).not.toContain('pill--active');
+    expect(pill('Both scripts').className).not.toContain('pill--active');
     expect(pill('Katakana').className).not.toContain('pill--active');
   });
 
@@ -126,10 +133,10 @@ describe('ScopePicker', () => {
     // interactive-element markup, not a styled non-interactive <div>.
     render(ScopePicker, { cardRepository: realRepository(), onStart: vi.fn() });
 
-    for (const name of ['Both', 'Hiragana', 'Katakana']) {
+    for (const name of ['Both scripts', 'Hiragana', 'Katakana']) {
       expect(pill(name, 'Script').tagName).toBe('BUTTON');
     }
-    for (const name of ['Both', 'Base', 'Yoon']) {
+    for (const name of ['Both sets', 'Base', 'Yoon']) {
       expect(pill(name, 'Set').tagName).toBe('BUTTON');
     }
     expect(pill('Start writing').tagName).toBe('BUTTON');

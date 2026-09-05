@@ -12,11 +12,14 @@ export interface Scope {
   units: CardKind[];
 }
 
-/** The full catalog, unnarrowed -- the Scope picker's default (FR-2). */
-export const FULL_SCOPE: Scope = {
-  scripts: ['hiragana', 'katakana'],
-  units: ['base', 'yoon'],
-};
+/** The full catalog, unnarrowed -- the Scope picker's default (FR-2).
+ *
+ * Frozen, including its arrays: shared module state that no caller may
+ * corrupt by mutating what they were handed back. */
+export const FULL_SCOPE: Scope = Object.freeze({
+  scripts: Object.freeze(['hiragana', 'katakana']) as Script[],
+  units: Object.freeze(['base', 'yoon']) as CardKind[],
+});
 
 /** Pure filter: every card whose script is in `scope.scripts` AND whose kind
  * is in `scope.units`. An empty `scripts` or `units` array yields no cards --

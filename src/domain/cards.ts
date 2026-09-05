@@ -16,8 +16,12 @@ export interface Card {
   kind: CardKind;
 }
 
+// NFC-normalized so a `cardId` built here always matches one built from any
+// externally-sourced grapheme/lookup key (persisted `Attempt.cardId`, an
+// import) that happens to use a differently-composed but visually identical
+// encoding of the same kana.
 function cardId(grapheme: string, script: Script): string {
-  return `${grapheme}:${script}`;
+  return `${grapheme.normalize('NFC')}:${script}`;
 }
 
 // Base gojuon order, hiragana. Exactly 46 -- seion only, no dakuten/handakuten,
@@ -88,10 +92,16 @@ function yoonCards(
 }
 
 /** The full 158-card static catalog (AD-3): 46 base hiragana + 46 base
- * katakana + 33 hiragana yoon + 33 katakana yoon. */
-export const CARDS: Card[] = [
-  ...baseCards(HIRAGANA_BASE, 'hiragana'),
-  ...baseCards(KATAKANA_BASE, 'katakana'),
-  ...yoonCards(HIRAGANA_YOON_ROWS, YOON_SMALL_SUFFIXES, 'hiragana'),
-  ...yoonCards(KATAKANA_YOON_ROWS, YOON_SMALL_SUFFIXES_KATAKANA, 'katakana'),
-];
+ * katakana + 33 hiragana yoon + 33 katakana yoon.
+ *
+ * Every card and the array itself are frozen -- `CARDS` is shared module
+ * state, so a caller that got a reference to it (or to one of its cards, e.g.
+ * via `getById`) must not be able to corrupt it for every other reader. */
+export const CARDS: Card[] = Object.freeze(
+  [
+    ...baseCards(HIRAGANA_BASE, 'hiragana'),
+    ...baseCards(KATAKANA_BASE, 'katakana'),
+    ...yoonCards(HIRAGANA_YOON_ROWS, YOON_SMALL_SUFFIXES, 'hiragana'),
+    ...yoonCards(KATAKANA_YOON_ROWS, YOON_SMALL_SUFFIXES_KATAKANA, 'katakana'),
+  ].map((card) => Object.freeze(card)),
+) as Card[];
