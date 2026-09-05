@@ -23,12 +23,12 @@
   // A canvas can't read CSS custom properties, so `theme.css`'s token values
   // are handed to the ink adapter from here -- the composition root is the
   // one layer allowed to know both the theme and the adapter.
-  const INK_COLORS = {
+  const INK_COLORS = Object.freeze({
     ink: '#201E1D', // --color-ink
     guide: '#CCDBB2', // --color-grid-guide
     dot: '#E1EECC', // --color-positive-bg
     canvas: '#F9F4ED', // --color-surface-canvas
-  };
+  });
 
   let screen = $state<Screen>('pen-check');
   let ready = $state(false);

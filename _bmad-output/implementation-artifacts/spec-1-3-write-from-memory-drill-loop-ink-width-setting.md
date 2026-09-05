@@ -99,6 +99,28 @@ context: [
 - **Rect caching.** `getBoundingClientRect()` is cached and invalidated on `resize`, and additionally re-read once per `pointerdown` -- one layout per stroke, which also covers a layout change no resize event reported.
 - **Existing test superseded.** `cards.test.ts`'s "never has a `romaji` field" assertion (Story 1.2's deferral) was replaced by the Hepburn assertions this story requires; `card-repository.test.ts`'s exact-shape `toEqual` gained the new field.
 
+### Review Findings
+
+- [x] [Review][Patch] `pointerleave` completes the active stroke prematurely, contradicting a frozen invariant [src/adapters/ink/canvas-ink-surface.ts:148]
+- [x] [Review][Patch] Katakana/hiragana romaji correctness rests on positional array-coupling verified by only a partial content spot-check [src/domain/cards.ts:96-113]
+- [x] [Review][Patch] A Settings save failure on the currently-selected preset can never be retried by re-tapping it [src/adapters/ui/Settings.svelte:53]
+- [x] [Review][Patch] Settings' load/save failure note has no `aria-live` region, so screen-reader users get no announcement [src/adapters/ui/Settings.svelte:105]
+- [x] [Review][Patch] `INK_COLORS` is a plain mutable object, unlike every other config table in this codebase (`WIDTH_PRESETS`, `CARDS`) [src/app/App.svelte:26]
+- [x] [Review][Defer] `epic-1-context.md`'s rewrite drops the scope/full-scope-completion link and the quantified 5-minute idle default [_bmad-output/implementation-artifacts/epic-1-context.md] — deferred: pre-existing at `baseline_commit`, not caused by this diff, and the fix would edit an agent-context file; Stories 1.7/1.9 must restore both facts before being specified.
+
+**Rejected**
+
+- Spec frontmatter says `status: 'done'` while `sprint-status.yaml` has this story at `review` — `false`: fixing this would mean editing the spec under review; both reflect this workflow's own in-flight state.
+- `wrangler.jsonc` added with no mention in the spec's Code Map — `false`: valid, inert deployment config from an unrelated commit riding the branch; no behavioral defect.
+- `Missed`/`Correct` both call the identical `handleGrade()` with no distinguishing argument — `false`: intentional per the frozen spec ("a grade only advances the loop"); nothing is persisted this story, so there is nothing yet to differentiate.
+- `epic-1-context.md` leaves the shaky badge's interaction with the new Settings/Back flow unstated — `false`: no concrete failure scenario, a documentation gap for a future story, not a defect in this diff.
+- `pointercancel` leaves `hasInk` unchanged when a prior stroke already completed — `false`: correct behavior; the earlier stroke's ink still exists on the canvas so `hasInk` staying `true` matches what's actually drawn.
+- `Settings.svelte`'s `settingsRepository.get().then(...)` has no `.catch` — `false`: `IdbSettingsRepository.get()` wraps every I/O path in try/catch and always resolves a `Result`, per `settings-repository.persist-failure.test.ts`; unreachable without a new adapter bug.
+- `pickRandomCard` doesn't guard against duplicate `cardId`s in its input — `false`: `CARDS` is a frozen, generated catalog with unique natural keys; no code path today produces a scope containing duplicates.
+- Ink-trail width is computed once per move event and reused across coalesced sub-segments — `false`: this is exactly the frozen PoC-parity mechanic the spec requires, not a defect.
+- `deferred-work.md`'s new entry assumes `planning-artifacts/epics.md` still holds two facts, unverified in this diff — `false`: a documentation cross-check with no demonstrated failure and nothing in this diff to patch.
+- Grade buttons stay active mid-second-stroke, and `clear()` nulls `activePointerId` without releasing native pointer capture — `false`: matches the spec's "active once a stroke exists" wording; native pointer capture auto-releases on `pointerup` regardless of the explicit call, and the `activePointerId` null check correctly ignores any leftover move/end events for that pointer.
+
 ## Spec Change Log
 
 ## Review Triage Log

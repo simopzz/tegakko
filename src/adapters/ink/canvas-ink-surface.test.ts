@@ -423,6 +423,30 @@ describe('CanvasInkSurface', () => {
     expect(onStroke).toHaveBeenCalledTimes(1);
   });
 
+  it('discards the in-progress stroke on pointerleave instead of completing it', () => {
+    // pointerleave is a boundary event, excluded by spec from pointer-capture
+    // retargeting -- it still fires at the physical edge mid-stroke even
+    // while captured, unlike pointerup. Treating it as a completion would end
+    // the stroke early whenever a pen tip grazes the cell edge, so it must be
+    // discarded like pointercancel rather than committed.
+    const { surface, canvas } = mounted();
+    const onStroke = vi.fn();
+    surface.onStrokeComplete(onStroke);
+
+    canvas.dispatchEvent(pointerEvent('pointerdown', { clientX: 10, clientY: 10 }));
+    canvas.dispatchEvent(pointerEvent('pointermove', { clientX: 30, clientY: 30 }));
+    canvas.dispatchEvent(pointerEvent('pointerleave', {}));
+
+    expect(onStroke).not.toHaveBeenCalled();
+
+    // The pointer is released, so a fresh stroke can start immediately.
+    writeStroke(canvas, [
+      [50, 50],
+      [60, 60],
+    ]);
+    expect(onStroke).toHaveBeenCalledTimes(1);
+  });
+
   it('replays an existing stroke at the preset it was drawn with, not the current one', () => {
     // `setWidthPreset` applies from the next stroke onward -- a resize
     // repaint must not retroactively rewrite ink already on the cell.

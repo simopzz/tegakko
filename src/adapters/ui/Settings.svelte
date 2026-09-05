@@ -50,7 +50,11 @@
 
   async function choose(next: WidthPreset): Promise<void> {
     const baseline = lastRead;
-    if (!baseline || next === preset) return;
+    // Re-tapping the already-active preset is normally a no-op, but if the
+    // last save of it failed (`note` is still showing), it's the only way to
+    // retry -- switching away and back would also work, but shouldn't be
+    // required.
+    if (!baseline || (next === preset && !note)) return;
 
     // Optimistic: the toggle moves and the drill picks the new range up
     // immediately, even if persistence then fails -- this run stays usable.
@@ -102,7 +106,7 @@
     {/if}
 
     {#if note}
-      <p class="note">{note}</p>
+      <p class="note" role="status" aria-live="polite">{note}</p>
     {/if}
   </div>
 </main>

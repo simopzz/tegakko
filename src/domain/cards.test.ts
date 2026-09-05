@@ -143,6 +143,37 @@ describe('cards', () => {
     }
   });
 
+  it('maps every base grapheme to its correct Hepburn reading, by content not position', () => {
+    // Hand-typed independently of `HIRAGANA_BASE`/`KATAKANA_BASE`/
+    // `HIRAGANA_ROMAJI`'s declaration order in cards.ts: a transcription slip
+    // that reorders or swaps entries in either grapheme array would still be
+    // caught here, unlike a check that only compares hiragana and katakana
+    // cards at the same array index (which stays green under a shared
+    // reordering of both).
+    const gojuon: Array<[hiragana: string, katakana: string, romaji: string]> = [
+      ['あ', 'ア', 'a'], ['い', 'イ', 'i'], ['う', 'ウ', 'u'], ['え', 'エ', 'e'], ['お', 'オ', 'o'],
+      ['か', 'カ', 'ka'], ['き', 'キ', 'ki'], ['く', 'ク', 'ku'], ['け', 'ケ', 'ke'], ['こ', 'コ', 'ko'],
+      ['さ', 'サ', 'sa'], ['し', 'シ', 'shi'], ['す', 'ス', 'su'], ['せ', 'セ', 'se'], ['そ', 'ソ', 'so'],
+      ['た', 'タ', 'ta'], ['ち', 'チ', 'chi'], ['つ', 'ツ', 'tsu'], ['て', 'テ', 'te'], ['と', 'ト', 'to'],
+      ['な', 'ナ', 'na'], ['に', 'ニ', 'ni'], ['ぬ', 'ヌ', 'nu'], ['ね', 'ネ', 'ne'], ['の', 'ノ', 'no'],
+      ['は', 'ハ', 'ha'], ['ひ', 'ヒ', 'hi'], ['ふ', 'フ', 'fu'], ['へ', 'ヘ', 'he'], ['ほ', 'ホ', 'ho'],
+      ['ま', 'マ', 'ma'], ['み', 'ミ', 'mi'], ['む', 'ム', 'mu'], ['め', 'メ', 'me'], ['も', 'モ', 'mo'],
+      ['や', 'ヤ', 'ya'], ['ゆ', 'ユ', 'yu'], ['よ', 'ヨ', 'yo'],
+      ['ら', 'ラ', 'ra'], ['り', 'リ', 'ri'], ['る', 'ル', 'ru'], ['れ', 'レ', 're'], ['ろ', 'ロ', 'ro'],
+      ['わ', 'ワ', 'wa'], ['を', 'ヲ', 'wo'],
+      ['ん', 'ン', 'n'],
+    ];
+    expect(gojuon).toHaveLength(46);
+    for (const [hiragana, katakana, romaji] of gojuon) {
+      expect(CARDS.find((c) => c.grapheme === hiragana && c.script === 'hiragana')?.romaji).toBe(
+        romaji,
+      );
+      expect(CARDS.find((c) => c.grapheme === katakana && c.script === 'katakana')?.romaji).toBe(
+        romaji,
+      );
+    }
+  });
+
   it('never doubles the i of shi/chi/ji into a yoon reading', () => {
     // しゅ is `shu`, never `shyu`; じょ is `jo`, never `jyo`.
     const readings = new Set(CARDS.map((card) => card.romaji));

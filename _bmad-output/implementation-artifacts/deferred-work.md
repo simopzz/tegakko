@@ -70,3 +70,9 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-3-write-from-memory-drill-loop-ink-width-setting.md`
   summary: The `epic-1-context.md` rewrite dropped two normative requirements that Stories 1.7 and 1.9 depend on.
   evidence: The scope "sets both the card pool and the full-scope-completion condition" is gone entirely, and the 5-minute default idle timeout (and its adjustability) survives only as an unquantified "evaluate idleness retroactively" line. The file was already modified in the working tree at this story's `baseline_commit`, so the loss is not this change's doing; it is also an agent-context artifact. Restore both from `planning-artifacts/epics.md` before Story 1.7 or 1.9 is specified.
+
+## Deferred from: code review of spec-1-3-write-from-memory-drill-loop-ink-width-setting (2026-09-05)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-3-write-from-memory-drill-loop-ink-width-setting.md`
+  summary: `epic-1-context.md`'s rewrite drops the scope/full-scope-completion link and the quantified 5-minute idle default (same item already tracked above; re-flagged independently in this review pass).
+  evidence: Confirmed still present and unresolved as of this diff. Pre-existing at `baseline_commit`, not caused by this change; fix requires editing an agent-context file, so it stays deferred here as well rather than being patched.

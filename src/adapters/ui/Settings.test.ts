@@ -125,6 +125,22 @@ describe('Settings', () => {
     expect(onPresetChange).toHaveBeenCalledWith('calligraphy');
   });
 
+  it('retries by re-tapping the active preset after its save failed', async () => {
+    const settingsRepository = repository(ok(STORED), err(new Error('quota exceeded')));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(Settings, { settingsRepository, onPresetChange: vi.fn(), onBack: vi.fn() });
+
+    await screen.findByRole('radiogroup', { name: 'Ink width' });
+    await fireEvent.click(preset('Calligraphy'));
+    await screen.findByText(/won't stick/);
+
+    settingsRepository.save.mockResolvedValueOnce(ok(undefined));
+    await fireEvent.click(preset('Calligraphy'));
+
+    expect(settingsRepository.save).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText(/won't stick/)).toBeNull();
+  });
+
   it('does not re-save when the already-active preset is tapped again', async () => {
     const settingsRepository = repository(ok(STORED));
     render(Settings, {

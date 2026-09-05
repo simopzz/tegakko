@@ -145,7 +145,15 @@ export class CanvasInkSurface implements InkSurface {
     canvas.addEventListener('pointermove', this.handlePointerMove);
     canvas.addEventListener('pointerup', this.handlePointerEnd);
     canvas.addEventListener('pointercancel', this.handlePointerCancel);
-    canvas.addEventListener('pointerleave', this.handlePointerEnd);
+    // Boundary events (pointerleave/-out/-over/-enter) are excluded from
+    // pointer-capture retargeting by spec, so pointerleave still fires at the
+    // physical boundary mid-stroke even while captured -- unlike pointerup,
+    // which capture keeps delivered to this canvas regardless of where the
+    // pointer physically is. Treating it as a completion would end the
+    // stroke early exactly when a learner's pen tip grazes the cell edge;
+    // discard it like pointercancel instead and let the real pointerup (or a
+    // genuine cancel) decide the stroke's fate.
+    canvas.addEventListener('pointerleave', this.handlePointerCancel);
     window.addEventListener('resize', this.handleResize);
 
     this.resize();
@@ -160,7 +168,7 @@ export class CanvasInkSurface implements InkSurface {
       canvas.removeEventListener('pointermove', this.handlePointerMove);
       canvas.removeEventListener('pointerup', this.handlePointerEnd);
       canvas.removeEventListener('pointercancel', this.handlePointerCancel);
-      canvas.removeEventListener('pointerleave', this.handlePointerEnd);
+      canvas.removeEventListener('pointerleave', this.handlePointerCancel);
       canvas.remove();
     }
     this.canvas = null;

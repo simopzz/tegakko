@@ -6,6 +6,7 @@ _bmad
 .claude
 .codex
 .gemini
+.opencode
 
 # app build tooling
 node_modules
