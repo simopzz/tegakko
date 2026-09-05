@@ -4,7 +4,7 @@
 
 ## Goal
 
-This epic delivers the full single-user kana handwriting drill as an installable, offline-first PWA: pick a practice scope, write a prompted kana character from memory on a pressure-sensitive genkouyoushi canvas, self-grade honestly with an optional reveal, let misses bias which characters resurface next by recency rather than raw count, and review accuracy session by session over time. It also carries the greenfield scaffold and hexagonal domain/ports/adapters skeleton everything else builds on, since no build tooling exists yet. The product exists for a fast, honest recall check — not a guided-tracing tool, an auto-recognition tool, or an engagement product. Epic 1 is fully shippable alone; export/import backup (Epic 2) is a later, separable addition.
+Deliver the entire shippable product minus backup/restore: a learner installs tegakko on a Chromium Android tablet, picks a practice scope, writes kana from memory on a pressure-sensitive genkouyoushi canvas, self-grades honestly (with a reveal option that never grades for them), has recent misses bias which cards resurface, and reviews accuracy session by session — fully offline, across days, with nothing lost on reload. Because there is no starter template, this epic also carries the greenfield scaffold and the hexagonal skeleton every later story builds on. Epic 1 is standalone and shippable without Epic 2.
 
 ## Stories
 
@@ -21,43 +21,55 @@ This epic delivers the full single-user kana handwriting drill as an installable
 
 ## Requirements & Constraints
 
-- Catalog holds exactly 158 cards (46 base hiragana, 46 base katakana, 33 hiragana yoon, 33 katakana yoon), each uniquely keyed by grapheme+script; no same-sound card collapses across script or base/yoon.
-- A session scope (script and/or base/yoon), chosen up front, sets both the card pool and the full-scope-completion condition.
-- Every prompt needs an explicit self-grade; no automated recognition ever grades. Reveal can be used any time before grading, never auto-grades, and its use is recorded on the attempt.
-- The miss tally is a plain cumulative per-card count — never a spaced-repetition scheduler with due dates or intervals.
-- Next-card selection is recency-weighted from attempt history, not lifetime tally: misses decay exponentially (7-day half-life) by wall-clock time, a card's score sums its decayed misses (not max/most-recent), and a later correct attempt zeroes out prior misses for that card. Every candidate always keeps some chance of being picked.
-- Every completed prompt records its card, timestamp, time-to-first-stroke, total time, stroke count, reveal-used flag, self-grade, and grid-relative stroke ink (replayable at any viewport size).
-- Sessions close on explicit action, full-scope completion, or inactivity (5 min default, adjustable). Idle detection compares a stored last-interaction time retroactively on next resume, not a live foreground timer — backgrounded mobile tabs throttle those.
-- All data persists losslessly in IndexedDB across reload/restart, with typed errors rather than raw exceptions on failure. The app must install as an offline-capable PWA on Chromium Android (manifest + service worker, HTTPS) and work fully offline once installed.
-- Tap targets sit well above Android's 48dp minimum; states are never color-only; WCAG AA contrast; TypeScript strict, no-explicit-any as an error.
+- **Catalog:** exactly 158 distinct cards — 46 base + 33 yoon per script, hiragana and katakana. Same-sound cards never collapse across script or base/yoon.
+- **Self-grading is sacred.** Nothing automated ever judges a stroke. Every prompt cycle requires an explicit correct/incorrect tap; reveal never auto-assigns a grade, and whether reveal was used is recorded on the attempt.
+- **No scheduling.** Misses bias selection probabilistically; no due dates, intervals, or queues. Every in-scope card always keeps a nonzero selection probability.
+- **Persistence is lossless and local.** Tallies, attempts (with ink), and sessions survive reload and device restart; strokes are stored grid-relative so they replay correctly at any viewport size.
+- **Offline PWA.** Must meet Chromium installability criteria (manifest + service worker), launch from the home screen with no address bar, and run drill/history/settings with no network. Production requires an HTTPS origin — Delegated Ink Trails needs a secure context.
+- **Ink feel** is validated by side-by-side comparison against the existing web PoC on the same device class, not against an invented numeric latency threshold.
+- **Strictness:** TypeScript `strict: true` across every layer with no exceptions; `@typescript-eslint/no-explicit-any` is an error, not a warning.
+- **Accessibility floor:** tap targets comfortably exceed Android's 48dp minimum; no state is ever color-only (every chip pairs tint with text); WCAG AA contrast on all load-bearing pairings.
+- **Standing product exclusions:** no streaks, points, badges, or daily-use nudges; no mnemonics or example words in prompts (romaji + script name only); no red/error visual language for a miss.
 
 ## Technical Decisions
 
-- Hexagonal layering: domain is pure (no DOM/IndexedDB/Svelte); ports define interfaces; adapters (persistence, content, ink, ui — io is Epic 2) implement them; app is the sole composition root wiring concrete adapters. Lint enforces the boundary; the one needed cross-adapter link (ui→ink) goes through the ink port.
-- The ink port exposes mount/clear/on-stroke-complete; the adapter owns its canvas node outside Svelte's reactive tree, mounted once, firing the callback once per stroke (not per pointer event). Grid and ink render on one canvas element, never two layered — a compositing bug appeared that way earlier.
-- The card catalog is static build-time data via an in-memory repository, not IndexedDB; a card's id is grapheme+script.
-- Four IndexedDB stores: tallies, attempts (fields per Requirements above), sessions, and a singleton settings record. Repository signatures are fixed, including atomic tally increment/decrement (clamped at zero) and an unpaginated attempts listing.
-- Weak-spot selection is a pure function of attempt history and scope; history loads once per session and is appended to in memory as attempts are recorded, never re-fetched per pick.
-- Undo-last-grade is one atomic operation — delete the last attempt, decrement the tally only if incorrect, retract it from the in-memory selection list — called once, never sequenced by the UI.
-- A single top-level screen enum (pen-check/scope-picker/drill/summary/history/settings) drives navigation via one state variable, no router; drill's own sub-states stay local component state.
-- Service-worker updates apply silently, no update-prompt UI. Hosting: Cloudflare Pages, Git-integrated, auto-deploy on main; a root Justfile exposes dev/build/lint/typecheck/deploy. Stack: TypeScript strict, Vite, Svelte 5, vite-plugin-pwa, idb.
+- **Ports & adapters layering:** `domain/` (pure — no DOM, IndexedDB, or Svelte imports), `ports/` (interfaces), `adapters/` (persistence, content, ink, ui, io), `app/` (composition root, the only place concrete adapters are wired). An adapter never imports a sibling adapter's implementation; enforce with an import-boundary ESLint rule.
+- **Card content is static build-time data** in `domain/cards.ts`, served by an in-memory `CardRepository` — never an IndexedDB store. `cardId` is the natural key `"<grapheme>:<script>"`.
+- **IndexedDB (via `idb`), four stores:** `tallies` (`cardId`, `missCount` — exactly those two fields, ever), `attempts` (embeds grid-relative `strokes[]` plus session/card ids, timestamp, timing, stroke count, reveal flag, self-grade), `sessions` (id, date, structured `scope`, cardsAttempted, accuracy, closureReason), `settings` (singleton: widthPreset, idleTimeoutMs, penCheckShown). `closureReason` is one canonical type: `'explicit' | 'full-scope' | 'inactivity'`. Ids are `crypto.randomUUID()`; dates are ISO-8601 strings.
+- **Repository signatures are fixed:** `CardRepository.getAll/getById`; `TallyRepository.getAll/increment/decrement` (atomic, decrement clamps at zero, used only by undo); `AttemptRepository.add/listBySession/listAll/deleteLast` — `listAll()` returns complete unpaginated history; `SessionRepository.add/list`; `SettingsRepository.get/save`.
+- **Persistence failures** surface as a typed `Result` or rejected promise — a raw `DOMException` must never escape the adapter boundary.
+- **Ink adapter** implements an `InkSurface` port (`mount(node)`, `clear()`, `onStrokeComplete(cb)`) and owns its canvas node outside Svelte's reactive tree: `mount()` is called once on mount and nothing re-renders inside that node; `onStrokeComplete` fires per stroke, never per pointer event. The pen-check screen's live pressure readout is the one exemption (its own lightweight `pointermove` listener).
+- **One canvas element only** — grid guide and ink render together; two layered canvases trigger a known black-canvas compositing bug under Delegated Ink Trails.
+- **Selection is a pure domain function** `selectNext(attempts, scope): Card` — no tallies parameter, no clock or schedule input, candidates filtered from the static catalog internally. Each incorrect attempt's weight decays exponentially with a 7-day half-life on elapsed wall-clock time; a card's score is the **sum** of qualifying decayed weights; a correct attempt zeroes the contribution of the incorrect attempts preceding it for that card; sampling enforces a nonzero probability floor. `attempts` is loaded once via `listAll()` at session start and appended to in memory during the session.
+- **Undo is one atomic domain operation** `undoLastGrade(sessionId)`: delete last attempt, conditionally decrement the tally, and drop it from the in-memory attempts list. The UI calls it once, never sequencing the port calls itself.
+- **Navigation** is a canonical `Screen` enum (`pen-check | scope-picker | drill | summary | history | settings`) in `adapters/ui/screens.ts` driven by one top-level state variable — no router. Drill's sub-states (blank, written, revealed-from-*, graded) are local component state, not `Screen` members.
+- **Idle closure must not rely on a live timer** — backgrounded Android/Chrome throttles `setTimeout`. Record `lastInteractionAt` on every interaction and evaluate idleness retroactively on resume/focus/interaction; a session found idle closes with `'inactivity'` and a date/duration reflecting when activity actually stopped.
+- **Stack (pinned):** TypeScript 6.0.3 strict, Vite 8.2.2, Svelte 5.57.0, @sveltejs/vite-plugin-svelte 7.3.0, vite-plugin-pwa 1.3.0 (`registerType: 'autoUpdate'` — updates apply silently, no update banner), idb 8.0.3. A root `Justfile` exposes `dev`, `build`, `lint`, `typecheck`, `deploy`. Hosting is Cloudflare Pages via Git integration (push to `main` builds and deploys; other branches get previews); `deploy` wraps `wrangler pages deploy dist`.
+- **Not decided upstream, decide at story time:** test framework (Vitest is the natural fit) and whether lint/typecheck become a CI gate. No third-party telemetry or crash reporting — console plus a minimal in-app error boundary.
 
 ## UX & Interaction Patterns
 
-- Warm washi-paper palette, one chromatic accent (terracotta) — no red/error fills, gradients, or second accent. Voice avoids praise, streak language, exclamation marks; prompts are romaji + script name only, never a mnemonic.
-- Reveal is active the instant a prompt appears; Missed/Correct start dimmed and activate once a stroke exists or Reveal is tapped, whichever first — Correct is the only button ever filled with the accent color. The cell's center dot shows only while empty; Clear empties it without advancing the prompt.
-- Reveal switches to a side-by-side "yours"/"reference" layout (reference in the glyph-ink typeface), never overlaid; from blank it shows an empty "yours" panel. Reveal then becomes a dimmed "Revealed" label — grading is still required after.
-- The post-grade toast shows the card and (Missed only) its new cumulative tally plus Undo, until "Next character" is tapped; Undo restores the pre-grade written state, not a blank cell.
-- Pill-toggle groups (scope script/set; settings idle-threshold/ink-width) commit immediately. Scope picker recomputes its live card count and informational "N shaky" badge on every toggle. A progress bar + "N of total" counter in the drill header advances on every completed grade, including post-reveal ones.
-- Session summary: one accuracy hero percentage, two stat tiles (time, reveal count), a missed-chip list with running tallies; manual close gets a chip, full-scope close gets none.
-- History rows run reverse-chronological; idle-closed rows get a neutral chip and dimmed accuracy, full-scope rows a positive chip, manual closes none. The last-10-session sparkline's bar height maps to accuracy and color to a 5-step ramp except the newest bar (always accent); empty history shows one centered line instead, no CTA.
-- First-run shows a "stylus found" chip with a live pressure readout, and a graceful "no pressure detected" fallback that never blocks install or using the app without a stylus.
-- One screen visible at a time, no modal in this epic (the app's only modal, import confirmation, belongs to Epic 2).
+- **Visual system:** implement DESIGN.md's tokens as CSS custom properties (`--color-*`, `--font-*`, `--radius-*`, `spacing-1`..`spacing-8`). Warm washi-paper neutrals, exactly one chromatic accent (terracotta) reserved for the single primary action per screen. No second accent, no gradients, no red anywhere — a miss uses the peach "missed" tint, not error language. Card surfaces are the only elements that cast a shadow. Kana graphemes render in the brush face (Yuji Syuku); UI text, labels, and romaji never do.
+- **Single-surface navigation:** one screen at a time, no tab bar or drawer, six surfaces total. The only modal in v1 belongs to Epic 2.
+- **Layout target:** portrait ~800×1280 logical px, Android tablet + stylus; no responsive breakpoints.
+- **Grade buttons** sit in one equal-width row under the canvas. Reveal is active from the moment the prompt appears; Missed and Correct stay dimmed and non-interactive until either a stroke exists or Reveal has been tapped. Correct is the only accent-filled control.
+- **Genkouyoushi cell:** dashed cross-guide always visible; center dot only while empty; Clear appears once ink exists, paired with "Your call — nothing is checking the shape," and never advances or grades.
+- **Reveal** switches to a side-by-side Yours/Reference layout — never overlaid, never replacing the user's ink; revealing from blank shows an empty "yours" panel. Reveal then becomes a dimmed "Revealed" label.
+- **Post-grade toast** shows the card, its new cumulative miss tally (Missed only), and Undo; it persists until "Next character" or Undo. Undo returns to the graded card's *written* state, not a blank cell.
+- **Pill toggle groups** (script, set, ink width, idle threshold): exactly one active segment, commits immediately, no confirm step. Scope picker recomputes "N cards in scope" live on every tap.
+- **Chips are read-only and never tappable** — positive for script/set/status, missed for counts. Card position ("12 / 46") is plain text, not a chip. Progress bars are always paired with the text counter.
+- **Shaky badge** counts in-scope cards whose tally exceeds a running-average threshold — informational only, it never affects weighting.
+- **History:** reverse-chronological rows divided by hairlines (omitted on the last); idle-closed rows get a neutral "closed on idle" chip with a dimmed accuracy value, full-scope rows a positive "whole scope" chip, manual closures no chip. Sparkline covers the last 10 sessions, height by accuracy, color by a 5-step ramp, newest bar always accent; idle sessions appear undifferentiated there. Empty state hides the sparkline and shows one centered line, no CTA.
+- **Voice:** no praise, streaks, or exclamation marks. "I'm done." not "Let's go!"
+- **Interaction:** pen-first, but every non-canvas action is a single tap — no swipe, drag, or long-press. Mouse/touch must stay operable as a dev/testing degradation.
 
 ## Cross-Story Dependencies
 
-- Story 1.1's scaffold/skeleton is a prerequisite for every other story here.
-- Story 1.3 ships a random-selection placeholder by design; Story 1.7 explicitly supersedes it, depending on attempt history (1.5) and tallies (1.6).
-- Story 1.8 depends on 1.5's delete-last and 1.6's decrement, and must retract the undone attempt from 1.7's in-memory selection list.
-- Story 1.9 depends on attempts/tallies for accuracy and missed-chip data, and extends 1.3's Settings screen with an idle-threshold toggle; Story 1.10 depends on the session records it writes.
-- Epic 2's export/import builds on this epic's persisted data shapes but is not required for Epic 1 to ship.
+- Story 1.1 scaffolds everything (project, layering, lint boundaries, PWA, settings store) — every other story depends on it.
+- Story 1.2's catalog and `Scope` type feed the drill loop's card pool and the session record's `scope`.
+- Story 1.3 builds the drill loop with a **random** selection placeholder and introduces the Settings screen; Story 1.7 replaces the placeholder with `selectNext`.
+- Story 1.7 needs both attempt history (1.5) and tallies (1.6); its shaky badge lands on Story 1.2's Scope picker.
+- Story 1.8's undo consumes `TallyRepository.decrement` (created but unused in 1.6), `AttemptRepository.deleteLast` (1.5), and Story 1.7's in-memory attempts list.
+- Story 1.9 extends Story 1.3's Settings screen with the idle threshold and depends on attempt data (1.5) for its accuracy summary.
+- Story 1.10 depends on Story 1.9's `sessions` store and closure reasons.
+- Epic 2 builds on this epic's persisted data model; nothing here depends on Epic 2.

@@ -102,9 +102,95 @@ describe('cards', () => {
     }
   });
 
-  it('never has a `romaji` field on a Card', () => {
+  // Story 1.2 deliberately shipped without `romaji` and asserted its absence,
+  // deferring it to "a future prompt screen". Story 1.3 is that screen: the
+  // drill prompt is romaji + script name, so the field now exists and the
+  // absence assertion is replaced by these.
+  it('gives every card a non-empty romaji reading', () => {
     for (const card of CARDS) {
-      expect('romaji' in card).toBe(false);
+      expect(card.romaji.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('uses Hepburn, not Nihon-shiki, for the readings that differ', () => {
+    // Tied to graphemes, not to positions: katakana readings are generated
+    // from the hiragana arrays by index, so a katakana grapheme reordered out
+    // of gojuon order would otherwise ship a wrong prompt with a green suite.
+    const expected: Record<string, string> = {
+      し: 'shi',
+      ち: 'chi',
+      つ: 'tsu',
+      ふ: 'fu',
+      を: 'wo',
+      ん: 'n',
+      しゃ: 'sha',
+      じゃ: 'ja',
+      ちゃ: 'cha',
+      きゃ: 'kya',
+      シ: 'shi',
+      チ: 'chi',
+      ツ: 'tsu',
+      フ: 'fu',
+      ヲ: 'wo',
+      ン: 'n',
+      シャ: 'sha',
+      ジャ: 'ja',
+      キャ: 'kya',
+    };
+    for (const [grapheme, romaji] of Object.entries(expected)) {
+      const card = CARDS.find((c) => c.grapheme === grapheme);
+      expect(card?.romaji).toBe(romaji);
+    }
+  });
+
+  it('maps every base grapheme to its correct Hepburn reading, by content not position', () => {
+    // Hand-typed independently of `HIRAGANA_BASE`/`KATAKANA_BASE`/
+    // `HIRAGANA_ROMAJI`'s declaration order in cards.ts: a transcription slip
+    // that reorders or swaps entries in either grapheme array would still be
+    // caught here, unlike a check that only compares hiragana and katakana
+    // cards at the same array index (which stays green under a shared
+    // reordering of both).
+    const gojuon: Array<[hiragana: string, katakana: string, romaji: string]> = [
+      ['あ', 'ア', 'a'], ['い', 'イ', 'i'], ['う', 'ウ', 'u'], ['え', 'エ', 'e'], ['お', 'オ', 'o'],
+      ['か', 'カ', 'ka'], ['き', 'キ', 'ki'], ['く', 'ク', 'ku'], ['け', 'ケ', 'ke'], ['こ', 'コ', 'ko'],
+      ['さ', 'サ', 'sa'], ['し', 'シ', 'shi'], ['す', 'ス', 'su'], ['せ', 'セ', 'se'], ['そ', 'ソ', 'so'],
+      ['た', 'タ', 'ta'], ['ち', 'チ', 'chi'], ['つ', 'ツ', 'tsu'], ['て', 'テ', 'te'], ['と', 'ト', 'to'],
+      ['な', 'ナ', 'na'], ['に', 'ニ', 'ni'], ['ぬ', 'ヌ', 'nu'], ['ね', 'ネ', 'ne'], ['の', 'ノ', 'no'],
+      ['は', 'ハ', 'ha'], ['ひ', 'ヒ', 'hi'], ['ふ', 'フ', 'fu'], ['へ', 'ヘ', 'he'], ['ほ', 'ホ', 'ho'],
+      ['ま', 'マ', 'ma'], ['み', 'ミ', 'mi'], ['む', 'ム', 'mu'], ['め', 'メ', 'me'], ['も', 'モ', 'mo'],
+      ['や', 'ヤ', 'ya'], ['ゆ', 'ユ', 'yu'], ['よ', 'ヨ', 'yo'],
+      ['ら', 'ラ', 'ra'], ['り', 'リ', 'ri'], ['る', 'ル', 'ru'], ['れ', 'レ', 're'], ['ろ', 'ロ', 'ro'],
+      ['わ', 'ワ', 'wa'], ['を', 'ヲ', 'wo'],
+      ['ん', 'ン', 'n'],
+    ];
+    expect(gojuon).toHaveLength(46);
+    for (const [hiragana, katakana, romaji] of gojuon) {
+      expect(CARDS.find((c) => c.grapheme === hiragana && c.script === 'hiragana')?.romaji).toBe(
+        romaji,
+      );
+      expect(CARDS.find((c) => c.grapheme === katakana && c.script === 'katakana')?.romaji).toBe(
+        romaji,
+      );
+    }
+  });
+
+  it('never doubles the i of shi/chi/ji into a yoon reading', () => {
+    // しゅ is `shu`, never `shyu`; じょ is `jo`, never `jyo`.
+    const readings = new Set(CARDS.map((card) => card.romaji));
+    for (const bad of ['shya', 'shyu', 'shyo', 'chya', 'chyu', 'chyo', 'jya', 'jyu', 'jyo']) {
+      expect(readings.has(bad)).toBe(false);
+    }
+  });
+
+  it('reads a hiragana card and its katakana counterpart identically', () => {
+    // Same position in the gojuon order -> same sound, regardless of script:
+    // あ/ア are both "a", きゃ/キャ both "kya".
+    const hiragana = CARDS.filter((card) => card.script === 'hiragana');
+    const katakana = CARDS.filter((card) => card.script === 'katakana');
+    expect(hiragana).toHaveLength(katakana.length);
+    for (const [index, card] of hiragana.entries()) {
+      expect(katakana[index]?.romaji).toBe(card.romaji);
+      expect(katakana[index]?.kind).toBe(card.kind);
     }
   });
 });

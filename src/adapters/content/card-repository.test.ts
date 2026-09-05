@@ -19,7 +19,13 @@ describe('InMemoryCardRepository', () => {
   it('getById returns the exact card for a known id', () => {
     const repository = new InMemoryCardRepository();
     const card = repository.getById('あ:hiragana');
-    expect(card).toEqual({ cardId: 'あ:hiragana', grapheme: 'あ', script: 'hiragana', kind: 'base' });
+    expect(card).toEqual({
+      cardId: 'あ:hiragana',
+      grapheme: 'あ',
+      script: 'hiragana',
+      kind: 'base',
+      romaji: 'a',
+    });
   });
 
   it('getById finds a yoon card by its full two-character grapheme id', () => {

@@ -11,7 +11,9 @@ const getMock = vi.fn();
 // runtime, not as a type error, since the mock factory returns `unknown`).
 class StubSettingsRepository {
   get = getMock;
-  save = vi.fn();
+  // Resolves a real `Result`: Settings.svelte awaits this, so a bare
+  // `vi.fn()` returning `undefined` surfaces as an unhandled rejection.
+  save = vi.fn().mockResolvedValue(ok(undefined));
 }
 
 // App.svelte is the composition root: it constructs its own
@@ -21,6 +23,9 @@ vi.mock('../adapters/persistence/settings-repository', () => ({
   IdbSettingsRepository: StubSettingsRepository,
 }));
 
+// Imported for its prototype only -- the composition root is the layer that
+// constructs concrete adapters, so this is where that wiring is observable.
+const { CanvasInkSurface } = await import('../adapters/ink/canvas-ink-surface');
 const App = (await import('./App.svelte')).default;
 
 describe('App', () => {
@@ -53,7 +58,7 @@ describe('App', () => {
     expect(await screen.findByText('Check your stylus')).toBeTruthy();
   });
 
-  it('carries the chosen scope forward to the drill placeholder when "Start writing" is tapped', async () => {
+  it('carries the full scope forward into the drill when "Start writing" is tapped', async () => {
     getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
 
     render(App);
@@ -61,11 +66,14 @@ describe('App', () => {
     await screen.findByText('What are we testing today?');
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
 
-    expect(await screen.findByText(/tegakko is set up/)).toBeTruthy();
-    expect(screen.getByText('scope: hiragana+katakana / base+yoon')).toBeTruthy();
+    // The counter's N *is* the scoped card list's length -- the whole
+    // catalog here.
+    expect(await screen.findByText('1 / 158')).toBeTruthy();
+    // AD-2 / the black-canvas compositing bug: exactly one canvas, ever.
+    expect(document.querySelectorAll('canvas')).toHaveLength(1);
   });
 
-  it('carries a narrowed scope forward to the drill placeholder when narrowed before "Start writing"', async () => {
+  it('carries a narrowed scope forward into the drill', async () => {
     getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
 
     render(App);
@@ -75,7 +83,100 @@ describe('App', () => {
     await fireEvent.click(screen.getByRole('radio', { name: 'Base' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
 
-    expect(await screen.findByText(/tegakko is set up/)).toBeTruthy();
-    expect(screen.getByText('scope: hiragana / base')).toBeTruthy();
+    expect(await screen.findByText('1 / 46')).toBeTruthy();
+  });
+
+  it('returns from the drill to the Scope picker with the selection intact', async () => {
+    getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
+
+    render(App);
+
+    await screen.findByText('What are we testing today?');
+    await fireEvent.click(screen.getByRole('radio', { name: 'Katakana' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
+    await screen.findByText('1 / 79');
+    await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+
+    await screen.findByText('What are we testing today?');
+    expect(screen.getByText('79 cards in scope')).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Katakana' }).className).toContain('pill--active');
+    // The drill's canvas went with it -- the adapter was destroyed.
+    expect(document.querySelectorAll('canvas')).toHaveLength(0);
+  });
+
+  it('reaches Settings from the Scope-picker header and back again, selection intact', async () => {
+    getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
+
+    render(App);
+
+    await screen.findByText('What are we testing today?');
+    await fireEvent.click(screen.getByRole('radio', { name: 'Yoon' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+
+    expect(await screen.findByRole('radiogroup', { name: 'Ink width' })).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+
+    await screen.findByText('What are we testing today?');
+    expect(screen.getByText('66 cards in scope')).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Yoon' }).className).toContain('pill--active');
+  });
+
+  it('applies a preset chosen in Settings to the next drill entry', async () => {
+    // The composition root holds `widthPreset` between screens: Settings
+    // reports the change, and the *next* adapter is constructed with it.
+    getMock.mockResolvedValue(
+      ok({ ...DEFAULT_SETTINGS, penCheckShown: true, widthPreset: 'subtle' }),
+    );
+    const setWidthPreset = vi.spyOn(CanvasInkSurface.prototype, 'setWidthPreset');
+
+    render(App);
+
+    await screen.findByText('What are we testing today?');
+    await fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    await screen.findByRole('radiogroup', { name: 'Ink width' });
+    await fireEvent.click(screen.getByRole('radio', { name: 'Calligraphy' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    await screen.findByText('What are we testing today?');
+    await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
+    await screen.findByText('1 / 158');
+
+    expect(setWidthPreset).toHaveBeenLastCalledWith('calligraphy');
+  });
+
+  it('leaves exactly one canvas behind when the drill is re-entered', async () => {
+    // A leaked adapter would append a second canvas -- two stacked canvases
+    // are exactly the black-canvas compositing bug AD-2's one-canvas rule
+    // exists to prevent.
+    getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
+
+    render(App);
+
+    await screen.findByText('What are we testing today?');
+    await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
+    await screen.findByText('1 / 158');
+    await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    await screen.findByText('What are we testing today?');
+    await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
+    await screen.findByText('1 / 158');
+
+    expect(document.querySelectorAll('canvas')).toHaveLength(1);
+  });
+
+  it('starts the drill at the persisted ink-width preset', async () => {
+    // The composition root owns `widthPreset` -- it is read once on boot and
+    // pushed into each freshly constructed ink adapter.
+    getMock.mockResolvedValue(
+      ok({ ...DEFAULT_SETTINGS, penCheckShown: true, widthPreset: 'calligraphy' }),
+    );
+    const setWidthPreset = vi.spyOn(CanvasInkSurface.prototype, 'setWidthPreset');
+
+    render(App);
+
+    await screen.findByText('What are we testing today?');
+    await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
+    await screen.findByText('1 / 158');
+
+    expect(setWidthPreset).toHaveBeenCalledWith('calligraphy');
   });
 });
