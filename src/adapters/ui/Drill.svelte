@@ -13,7 +13,7 @@
   // `adapters/ui` never imports `adapters/ink` (AD-1, enforced by
   // import-x/no-restricted-paths). Svelte renders NOTHING inside `.cell`:
   // the adapter owns that node's contents (AD-2).
-  import { onMount, untrack } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import type { Card, Script } from '../../domain/cards';
   import type { InkSurface } from '../../ports/ink-surface';
   import { pickRandomCard } from '../../domain/drill';
@@ -39,6 +39,10 @@
   let card = $state<Card>(untrack(() => pickRandomCard(cards)));
   let position = $state(1);
   let hasInk = $state(false);
+  // Reveal (Story 1.4): active the instant a prompt appears, resets on every
+  // grade alongside `hasInk`. Once true it unlocks Missed/Correct even from a
+  // blank cell -- revealing nothing is itself an honest "I don't know".
+  let revealed = $state(false);
 
   // Selection is with replacement, so the counter can climb past the scope
   // size ("47 / 46") until Story 1.9 adds closure. The bar clamps at 100% --
@@ -48,10 +52,18 @@
   // Assigned by `bind:this` before `onMount` runs; typed as possibly
   // undefined rather than asserted, so the mount below is a real check.
   let cell: HTMLElement | undefined;
+  // Focus target after Reveal fires (below): the button `disabled` there
+  // stops being the focused element, and most browsers drop focus to
+  // `<body>` rather than leaving it on the control the user just pressed.
+  let missedButton: HTMLButtonElement | undefined;
 
   onMount(() => {
     if (!cell) return;
     inkSurface.onStrokeComplete(() => {
+      // A reveal locks the cell to pointer input (see `.cell--locked`
+      // below); this guards the same invariant at the state level in case a
+      // stroke-complete notification is ever still in flight when it fires.
+      if (revealed) return;
       hasInk = true;
     });
     inkSurface.mount(cell);
@@ -66,11 +78,20 @@
     hasInk = false;
   }
 
+  function handleReveal(): void {
+    // Never assigns a grade -- Missed/Correct stay required afterward.
+    revealed = true;
+    // Move focus onto the newly-active Missed button so a keyboard/screen
+    // reader user isn't dropped to `<body>` by Reveal's own `disabled`.
+    void tick().then(() => missedButton?.focus());
+  }
+
   function handleGrade(): void {
     // Nothing is persisted this story (Stories 1.5/1.6 own attempts and
     // tallies) and no toast is shown (Story 1.8) -- a grade only advances.
     card = pickRandomCard(cards, card);
     position += 1;
+    revealed = false;
     inkSurface.clear();
     hasInk = false;
   }
@@ -102,36 +123,69 @@
 
   <!-- The ink adapter owns the inner node: it creates and appends the single
        canvas element there on mount. Svelte renders nothing inside it. The
-       outer wrapper is a container-query context so the cell can size itself
-       to whatever room is actually left after the header/prompt/footer/
-       grades claim theirs, rather than guessing a fraction of the viewport
-       and risking a taller-than-fits page. -->
-  <div class="cell-wrap">
-    <div class="cell" bind:this={cell}></div>
-  </div>
-
-  <div class="cell-footer">
-    <p class="disclaimer">Your call — nothing is checking the shape</p>
-    {#if hasInk}
-      <button type="button" class="clear" onclick={handleClear}>Clear</button>
+       `.cell` div itself is never inside a conditional block -- only its
+       enclosing `.panel`'s CSS box changes (a second `.panel` sibling
+       appears beside it on reveal), so Svelte never remounts it and AD-2's
+       "mount() exactly once per instance" holds across a reveal. Each
+       `.panel` is its own container-query context so the cell can size
+       itself to whatever room is actually left after the header/prompt/
+       footer/grades claim theirs, rather than guessing a fraction of the
+       viewport and risking a taller-than-fits page. -->
+  <div class="cell-wrap" class:cell-wrap--revealed={revealed}>
+    <div class="panel">
+      {#if revealed}<p class="label" id="yours-label">Yours</p>{/if}
+      <div
+        class="cell"
+        class:cell--locked={revealed}
+        bind:this={cell}
+        role="group"
+        aria-labelledby={revealed ? 'yours-label' : undefined}
+      ></div>
+    </div>
+    {#if revealed}
+      <div class="panel">
+        <p class="label" id="reference-label">Reference</p>
+        <div class="reference-cell" role="group" aria-labelledby="reference-label">
+          <span class="glyph" class:glyph--yoon={card.kind === 'yoon'}>{card.grapheme}</span>
+        </div>
+      </div>
     {/if}
   </div>
+
+  {#if !revealed}
+    <div class="cell-footer">
+      <p class="disclaimer">Your call — nothing is checking the shape</p>
+      {#if hasInk}
+        <button type="button" class="clear" onclick={handleClear}>Clear</button>
+      {/if}
+    </div>
+  {/if}
 
   <div class="grades">
     <button
       type="button"
       class="btn btn--neutral"
-      class:btn--dimmed={!hasInk}
-      disabled={!hasInk}
+      class:btn--dimmed={revealed}
+      disabled={revealed}
+      onclick={handleReveal}
+    >
+      {revealed ? 'Revealed' : 'Reveal'}
+    </button>
+    <button
+      type="button"
+      class="btn btn--neutral"
+      class:btn--dimmed={!hasInk && !revealed}
+      disabled={!hasInk && !revealed}
       onclick={handleGrade}
+      bind:this={missedButton}
     >
       Missed
     </button>
     <button
       type="button"
       class="btn btn--primary"
-      class:btn--dimmed={!hasInk}
-      disabled={!hasInk}
+      class:btn--dimmed={!hasInk && !revealed}
+      disabled={!hasInk && !revealed}
       onclick={handleGrade}
     >
       Correct
@@ -241,21 +295,43 @@
        the header/prompt/cell-footer/grades take theirs -- the column's
        total height can never exceed `.drill`'s, so nothing here forces a
        scroll. `min-height: 0` lets it shrink below its content's natural
-       minimum instead of the (larger) automatic default. */
+       minimum instead of the (larger) automatic default. One `.panel` child
+       normally (the ink cell, centered); Reveal adds a second, equal-width
+       "Reference" panel beside it (Story 1.4). */
     flex: 1;
     min-height: 0;
     min-width: 0;
     display: flex;
+    align-items: stretch;
+    justify-content: center;
+  }
+
+  .cell-wrap--revealed {
+    gap: var(--spacing-3);
+  }
+
+  .panel {
+    /* Each panel is its own container-query context, not `.cell-wrap` --
+       `.cell`'s `cqw`/`cqh` sizing must measure the box actually available
+       to IT (half of `.cell-wrap`'s width once Reveal adds a second panel),
+       never the wrapper's full width. With one panel this is identical to
+       measuring `.cell-wrap` directly. */
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: var(--spacing-1);
     container-type: size;
   }
 
   .cell {
     /* Square at every size: `toGridRelative` normalizes x and y
        independently, so a non-square cell would replay stored strokes
-       distorted. `cqw`/`cqh` are relative to `.cell-wrap`'s actual box (from
-       the flex layout above), so the cell is always the largest square that
+       distorted. `cqw`/`cqh` are relative to `.panel`'s actual box (from the
+       flex layout above), so the cell is always the largest square that
        fits the room actually left -- never a guessed fraction of the
        viewport that could be taller than what's really available. */
     width: min(100cqw, 100cqh);
@@ -267,6 +343,50 @@
     touch-action: none;
     -webkit-user-select: none;
     user-select: none;
+  }
+
+  .cell--locked {
+    /* Once revealed, the "Yours" panel is a frozen record of what was
+       written, not an active writing surface -- tracing over the
+       just-revealed reference would undercut the whole point of reveal
+       never assigning a grade for the learner. */
+    pointer-events: none;
+  }
+
+  .reference-cell {
+    /* Mirrors `.cell`'s box exactly, so Yours/Reference read as one
+       comparison pair -- but tinted `--color-missed-bg` per DESIGN.md
+       ("the reference-glyph panel on the Reveal screen" uses the missed
+       tint, not the canvas ground: this is attention, not the writing
+       surface). */
+    width: min(100cqw, 100cqh);
+    height: min(100cqw, 100cqh);
+    border-radius: var(--radius-lg);
+    background: var(--color-missed-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .glyph {
+    /* The brush face renders ONLY an actual grapheme, never UI text
+       (DESIGN.md) -- romaji/labels stay in `--font-heading`/`--font-body`
+       throughout this component. */
+    font-family: var(--font-glyph-ink);
+    font-size: min(60cqw, 60cqh);
+    line-height: 1;
+    color: var(--color-missed-fg);
+    transform: rotate(-1.2deg);
+    white-space: nowrap;
+  }
+
+  .glyph--yoon {
+    /* A yoon grapheme is two characters (e.g. きゃ) -- `.glyph`'s width-based
+       cap is sized for one and would clip against `.reference-cell`'s
+       `overflow: hidden`. Capped by width alone (not height) since it's the
+       extra character, not extra vertical space, that needs room. */
+    font-size: min(34cqw, 60cqh);
   }
 
   .cell-footer {

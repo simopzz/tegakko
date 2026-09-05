@@ -199,12 +199,10 @@ describe('Drill', () => {
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 
-  it('shows no Reveal control and no post-grade toast or Undo', async () => {
-    // Story 1.4 owns Reveal; Stories 1.6/1.8 own the tally toast and Undo.
+  it('shows no post-grade toast or Undo', async () => {
+    // Stories 1.6/1.8 own the tally toast and Undo, not this story.
     const inkSurface = fakeInkSurface();
     render(Drill, { cards: [card('し'), card('つ')], inkSurface, onBack: vi.fn() });
-
-    expect(screen.queryByRole('button', { name: 'Reveal' })).toBeNull();
 
     await inkSurface.landStroke();
     await fireEvent.click(grade('Missed'));
@@ -213,5 +211,145 @@ describe('Drill', () => {
     expect(screen.queryByRole('button', { name: 'Next character' })).toBeNull();
     // No cumulative tally readout either -- Story 1.6 introduces that.
     expect(screen.queryByText(/missed \d+/i)).toBeNull();
+  });
+
+  function reveal(): HTMLButtonElement {
+    return screen.getByRole('button', { name: 'Reveal' }) as HTMLButtonElement;
+  }
+
+  it('is active from the moment a prompt appears, before any stroke', () => {
+    render(Drill, { cards: [card('あ')], inkSurface: fakeInkSurface(), onBack: vi.fn() });
+
+    expect(reveal().disabled).toBe(false);
+    expect(reveal().className).not.toContain('btn--dimmed');
+  });
+
+  it('unlocks Missed and Correct from a blank cell', async () => {
+    render(Drill, { cards: [card('あ')], inkSurface: fakeInkSurface(), onBack: vi.fn() });
+
+    await fireEvent.click(reveal());
+
+    for (const name of ['Missed', 'Correct'] as const) {
+      expect(grade(name).disabled).toBe(false);
+    }
+  });
+
+  it('shows the empty Yours panel (no inked glyph) when revealed from blank', async () => {
+    render(Drill, { cards: [card('し')], inkSurface: fakeInkSurface(), onBack: vi.fn() });
+
+    await fireEvent.click(reveal());
+
+    expect(screen.getByText('Yours')).toBeTruthy();
+    expect(screen.getByText('Reference')).toBeTruthy();
+    expect(screen.getByText('し')).toBeTruthy();
+  });
+
+  it('shows the Yours ink alongside the Reference glyph when revealed from written ink', async () => {
+    const inkSurface = fakeInkSurface();
+    render(Drill, { cards: [card('し')], inkSurface, onBack: vi.fn() });
+
+    await inkSurface.landStroke();
+    await fireEvent.click(reveal());
+
+    // The same ink-surface node stays mounted -- no second mount/destroy,
+    // and the ink itself is never cleared just because Reveal was tapped.
+    expect(inkSurface.mounts).toHaveLength(1);
+    expect(inkSurface.destroys).toBe(0);
+    expect(inkSurface.clears).toBe(0);
+    expect(screen.getByText('し')).toBeTruthy();
+  });
+
+  it('does not clip a two-character yoon reference glyph', async () => {
+    render(Drill, { cards: [card('きゃ')], inkSurface: fakeInkSurface(), onBack: vi.fn() });
+
+    await fireEvent.click(reveal());
+
+    const glyph = screen.getByText('きゃ');
+    expect(glyph.className).toContain('glyph--yoon');
+  });
+
+  it('ties the Yours/Reference captions to their panels for assistive tech', async () => {
+    render(Drill, { cards: [card('し')], inkSurface: fakeInkSurface(), onBack: vi.fn() });
+
+    await fireEvent.click(reveal());
+
+    const yoursLabel = screen.getByText('Yours');
+    const referenceLabel = screen.getByText('Reference');
+    const groups = screen.getAllByRole('group');
+    expect(groups.map((g) => g.getAttribute('aria-labelledby'))).toEqual(
+      expect.arrayContaining([yoursLabel.id, referenceLabel.id]),
+    );
+  });
+
+  it('locks the ink cell to pointer input once revealed, so the reference cannot be traced', async () => {
+    const inkSurface = fakeInkSurface();
+    render(Drill, { cards: [card('あ')], inkSurface, onBack: vi.fn() });
+
+    await inkSurface.landStroke();
+    await fireEvent.click(reveal());
+
+    const cellEl = document.querySelector('.cell');
+    expect(cellEl?.className).toContain('cell--locked');
+  });
+
+  it('moves focus to Missed so Reveal becoming disabled does not drop it to the page', async () => {
+    render(Drill, { cards: [card('あ')], inkSurface: fakeInkSurface(), onBack: vi.fn() });
+
+    await fireEvent.click(reveal());
+    await tick();
+
+    expect(document.activeElement).toBe(grade('Missed'));
+  });
+
+  it('never assigns a grade on its own and becomes a dimmed "Revealed" label', async () => {
+    render(Drill, { cards: [card('あ')], inkSurface: fakeInkSurface(), onBack: vi.fn() });
+
+    await fireEvent.click(reveal());
+
+    expect(screen.getByText('1 / 1')).toBeTruthy();
+    const revealedLabel = screen.getByRole('button', { name: 'Revealed' });
+    expect(revealedLabel.hasAttribute('disabled')).toBe(true);
+    expect(revealedLabel.className).toContain('btn--dimmed');
+  });
+
+  it('hides Clear and the disclaimer once revealed', async () => {
+    const inkSurface = fakeInkSurface();
+    render(Drill, { cards: [card('あ')], inkSurface, onBack: vi.fn() });
+
+    await inkSurface.landStroke();
+    await fireEvent.click(reveal());
+
+    expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull();
+    expect(screen.queryByText('Your call — nothing is checking the shape')).toBeNull();
+  });
+
+  it('resets to the single-cell layout on the next prompt after a graded reveal', async () => {
+    const cards = [card('し'), card('つ')];
+    render(Drill, { cards, inkSurface: fakeInkSurface(), onBack: vi.fn() });
+
+    await fireEvent.click(reveal());
+    await fireEvent.click(grade('Missed'));
+
+    expect(screen.getByText('2 / 2')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Reveal' }).hasAttribute('disabled')).toBe(false);
+    expect(screen.queryByText('Yours')).toBeNull();
+    expect(screen.queryByText('Reference')).toBeNull();
+    expect(grade('Correct').disabled).toBe(true);
+  });
+
+  it('resets to the single-cell layout after grading a reveal that started from written ink', async () => {
+    const cards = [card('し'), card('つ')];
+    const inkSurface = fakeInkSurface();
+    render(Drill, { cards, inkSurface, onBack: vi.fn() });
+
+    await inkSurface.landStroke();
+    await fireEvent.click(reveal());
+    await fireEvent.click(grade('Correct'));
+
+    expect(screen.getByText('2 / 2')).toBeTruthy();
+    expect(screen.queryByText('Yours')).toBeNull();
+    expect(screen.queryByText('Reference')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Reveal' }).hasAttribute('disabled')).toBe(false);
+    expect(grade('Correct').disabled).toBe(true);
   });
 });
