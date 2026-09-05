@@ -49,13 +49,21 @@ function chips(): HTMLElement {
 
 describe('ScopePicker', () => {
   it('defaults to the full 158-card scope with a live "158 cards" count', () => {
-    render(ScopePicker, { cardRepository: realRepository(), onStart: vi.fn() });
+    render(ScopePicker, {
+      cardRepository: realRepository(),
+      onStart: vi.fn(),
+      onSettings: vi.fn(),
+    });
 
     expect(screen.getByText('158 cards in scope')).toBeTruthy();
   });
 
   it('renders the default selection as positive-variant script/set chip tags', () => {
-    render(ScopePicker, { cardRepository: realRepository(), onStart: vi.fn() });
+    render(ScopePicker, {
+      cardRepository: realRepository(),
+      onStart: vi.fn(),
+      onSettings: vi.fn(),
+    });
 
     const group = chips();
     expect(within(group).getByText('Hiragana')).toBeTruthy();
@@ -68,7 +76,11 @@ describe('ScopePicker', () => {
   });
 
   it('recomputes the live count immediately when narrowing to Hiragana + Base (46 cards)', async () => {
-    render(ScopePicker, { cardRepository: realRepository(), onStart: vi.fn() });
+    render(ScopePicker, {
+      cardRepository: realRepository(),
+      onStart: vi.fn(),
+      onSettings: vi.fn(),
+    });
 
     await fireEvent.click(pill('Hiragana'));
     await fireEvent.click(pill('Base'));
@@ -77,7 +89,11 @@ describe('ScopePicker', () => {
   });
 
   it('recomputes the live count when narrowing to Katakana only (79 cards)', async () => {
-    render(ScopePicker, { cardRepository: realRepository(), onStart: vi.fn() });
+    render(ScopePicker, {
+      cardRepository: realRepository(),
+      onStart: vi.fn(),
+      onSettings: vi.fn(),
+    });
 
     await fireEvent.click(pill('Katakana'));
 
@@ -85,7 +101,11 @@ describe('ScopePicker', () => {
   });
 
   it('recomputes the live count when narrowing to Yoon only (66 cards)', async () => {
-    render(ScopePicker, { cardRepository: realRepository(), onStart: vi.fn() });
+    render(ScopePicker, {
+      cardRepository: realRepository(),
+      onStart: vi.fn(),
+      onSettings: vi.fn(),
+    });
 
     await fireEvent.click(pill('Yoon'));
 
@@ -93,7 +113,11 @@ describe('ScopePicker', () => {
   });
 
   it('keeps exactly one active segment per pill group after a tap', async () => {
-    render(ScopePicker, { cardRepository: realRepository(), onStart: vi.fn() });
+    render(ScopePicker, {
+      cardRepository: realRepository(),
+      onStart: vi.fn(),
+      onSettings: vi.fn(),
+    });
 
     await fireEvent.click(pill('Hiragana'));
 
@@ -104,7 +128,7 @@ describe('ScopePicker', () => {
 
   it('passes the exact narrowed {scripts, units} scope to onStart on "Start writing"', async () => {
     const onStart = vi.fn();
-    render(ScopePicker, { cardRepository: realRepository(), onStart });
+    render(ScopePicker, { cardRepository: realRepository(), onStart, onSettings: vi.fn() });
 
     await fireEvent.click(pill('Hiragana'));
     await fireEvent.click(pill('Base'));
@@ -115,7 +139,7 @@ describe('ScopePicker', () => {
 
   it('passes the full scope to onStart when nothing was narrowed', async () => {
     const onStart = vi.fn();
-    render(ScopePicker, { cardRepository: realRepository(), onStart });
+    render(ScopePicker, { cardRepository: realRepository(), onStart, onSettings: vi.fn() });
 
     await fireEvent.click(pill('Start writing'));
 
@@ -131,7 +155,11 @@ describe('ScopePicker', () => {
     // 56px, Start writing at 88px) is enforced by the CSS itself, not
     // measurable here -- this asserts every tap target is at least native
     // interactive-element markup, not a styled non-interactive <div>.
-    render(ScopePicker, { cardRepository: realRepository(), onStart: vi.fn() });
+    render(ScopePicker, {
+      cardRepository: realRepository(),
+      onStart: vi.fn(),
+      onSettings: vi.fn(),
+    });
 
     for (const name of ['Both scripts', 'Hiragana', 'Katakana']) {
       expect(pill(name, 'Script').tagName).toBe('BUTTON');
@@ -142,8 +170,59 @@ describe('ScopePicker', () => {
     expect(pill('Start writing').tagName).toBe('BUTTON');
   });
 
+  it('reaches Settings from the header link without touching the scope', async () => {
+    const onSettings = vi.fn();
+    const onStart = vi.fn();
+    render(ScopePicker, { cardRepository: realRepository(), onStart, onSettings });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+
+    expect(onSettings).toHaveBeenCalledTimes(1);
+    // Settings is a navigation link, not a second primary action: it never
+    // starts a drill.
+    expect(onStart).not.toHaveBeenCalled();
+    expect(screen.getByText('158 cards in scope')).toBeTruthy();
+  });
+
+  it('restores a previously chosen scope onto the pills when remounted', async () => {
+    // Back from the drill or Settings unmounts and remounts this screen, so
+    // the selection has to survive via `initialScope` from the composition
+    // root -- otherwise Back silently resets the learner to the full scope.
+    render(ScopePicker, {
+      cardRepository: realRepository(),
+      onStart: vi.fn(),
+      onSettings: vi.fn(),
+      initialScope: { scripts: ['katakana'], units: ['yoon'] },
+    });
+
+    expect(pill('Katakana').className).toContain('pill--active');
+    expect(pill('Yoon').className).toContain('pill--active');
+    expect(screen.getByText('33 cards in scope')).toBeTruthy();
+  });
+
+  it('reports every scope change upward, not just the one at "Start writing"', async () => {
+    const onScopeChange = vi.fn();
+    render(ScopePicker, {
+      cardRepository: realRepository(),
+      onStart: vi.fn(),
+      onSettings: vi.fn(),
+      onScopeChange,
+    });
+
+    await fireEvent.click(pill('Hiragana'));
+
+    expect(onScopeChange).toHaveBeenLastCalledWith({
+      scripts: ['hiragana'],
+      units: ['base', 'yoon'],
+    });
+  });
+
   it('shrinks the rendered chips to match a narrowed Hiragana + Base selection', async () => {
-    render(ScopePicker, { cardRepository: realRepository(), onStart: vi.fn() });
+    render(ScopePicker, {
+      cardRepository: realRepository(),
+      onStart: vi.fn(),
+      onSettings: vi.fn(),
+    });
 
     await fireEvent.click(pill('Hiragana'));
     await fireEvent.click(pill('Base'));

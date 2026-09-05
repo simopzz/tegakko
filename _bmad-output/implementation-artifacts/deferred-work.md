@@ -50,3 +50,23 @@
   summary: The ≥48dp tap-target requirement has no test coverage anywhere in the suite.
   evidence: `happy-dom` can't resolve CSS `min-height` via `getComputedStyle`, so neither `FirstRun.test.ts` (Story 1.1, 88px buttons) nor `ScopePicker.test.ts` (Story 1.2, 56px pills / 88px "Start writing") can assert real tap-target size -- both substitute a "renders as a real `<button>`" check instead. A regression that shrinks a button below 48dp would pass `just check` undetected; would need a real-browser/Playwright-style check to close.
   status: unowned -- no story schedules this; the CI-workflow item above (this file, spec-1-1 section) is the natural place to add a real-browser test job once that workflow exists, but nothing currently forces that pairing to happen.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-3-write-from-memory-drill-loop-ink-width-setting.md`
+  summary: `pointerleave` is wired to `handlePointerEnd`, which may split one stroke into several completions when pointer capture is unavailable.
+  evidence: Under a working `setPointerCapture` the browser retargets boundary events, so the leave should not fire mid-stroke -- but `setPointerCapture` failures are swallowed in a bare `catch`, and happy-dom never dispatches `pointerleave` on its own, so no test covers it either way. Would be settled by writing a stroke that exits the cell on the target tablet and checking whether `onStrokeComplete` fires more than once; medium severity if confirmed, since an extra completion enables grading on a partial stroke.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-3-write-from-memory-drill-loop-ink-width-setting.md`
+  summary: `INK_COLORS` in `app/App.svelte` hard-codes four `theme.css` hexes with nothing guarding against drift.
+  evidence: The canvas cannot read CSS custom properties, so the composition root duplicates `--color-ink`, `--color-grid-guide`, `--color-positive-bg` and `--color-surface-canvas` as literals (values currently match `theme.css`). A palette edit desynchronizes the drill canvas from the DOM with a green suite -- `canvas-ink-surface.test.ts` injects its own colors, and `App.test.ts` only counts canvases. Closing it needs a shared token module consumed by both, or a test that parses `theme.css`.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-3-write-from-memory-drill-loop-ink-width-setting.md`
+  summary: The pill radiogroups have roving `tabindex` but no arrow-key handler, so a keyboard or switch user can never change the selection.
+  evidence: `Settings.svelte` (Story 1.3) reuses the pattern shipped in `ScopePicker.svelte:104-174` (Story 1.2): `role="radio"` with `tabindex` 0 on the checked pill and -1 on the rest, `onclick` only. Only the already-selected option is reachable. Pre-existing, and it now spans two screens -- the fix belongs across both controls at once, plus the `aria-disabled` pills in Settings that stay focusable and click to a silent no-op.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-3-write-from-memory-drill-loop-ink-width-setting.md`
+  summary: The `settingsRepository.get()` chains in `App.svelte` and `Settings.svelte` have no `.catch`, so a rejection would leave the app or the screen permanently unrendered.
+  evidence: Both use `void settingsRepository.get().then(...)`. `App.svelte` would never flip `ready`, rendering a blank page; `Settings.svelte` would never flip `loaded`, showing a heading with no pills -- plus an unhandled rejection in each case. Reaching it needs an adapter bug: `settings-repository.persist-failure.test.ts` proves `IdbSettingsRepository` converts both `get()` and `save()` failures into typed `Result`s. The `void ... .then` shape in `App.svelte` predates this story.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-3-write-from-memory-drill-loop-ink-width-setting.md`
+  summary: The `epic-1-context.md` rewrite dropped two normative requirements that Stories 1.7 and 1.9 depend on.
+  evidence: The scope "sets both the card pool and the full-scope-completion condition" is gone entirely, and the 5-minute default idle timeout (and its adjustability) survives only as an unquantified "evaluate idleness retroactively" line. The file was already modified in the working tree at this story's `baseline_commit`, so the loss is not this change's doing; it is also an agent-context artifact. Restore both from `planning-artifacts/epics.md` before Story 1.7 or 1.9 is specified.
