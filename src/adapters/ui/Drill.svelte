@@ -100,9 +100,15 @@
     <p class="script">{scriptLabel[card.script]}</p>
   </section>
 
-  <!-- The ink adapter owns this node: it creates and appends the single
-       canvas element here on mount. Svelte renders nothing inside it. -->
-  <div class="cell" bind:this={cell}></div>
+  <!-- The ink adapter owns the inner node: it creates and appends the single
+       canvas element there on mount. Svelte renders nothing inside it. The
+       outer wrapper is a container-query context so the cell can size itself
+       to whatever room is actually left after the header/prompt/footer/
+       grades claim theirs, rather than guessing a fraction of the viewport
+       and risking a taller-than-fits page. -->
+  <div class="cell-wrap">
+    <div class="cell" bind:this={cell}></div>
+  </div>
 
   <div class="cell-footer">
     <p class="disclaimer">Your call — nothing is checking the shape</p>
@@ -138,7 +144,15 @@
     display: flex;
     flex-direction: column;
     gap: var(--spacing-3);
-    min-height: 100vh;
+    /* Fixed to the visible viewport, not just its floor: `min-height` let the
+       page grow past whatever was actually visible (worse on a browser tab
+       with an address bar than an installed PWA), pushing Missed/Correct
+       below the fold. `100dvh` tracks the real visible height, and
+       `overflow: hidden` plus every other section's fixed sizing (leaving
+       `.cell-wrap` to fill what's left, below) keeps the whole screen inside
+       it with nothing to scroll. */
+    height: 100dvh;
+    overflow: hidden;
     padding: var(--spacing-5) var(--spacing-4);
   }
 
@@ -222,16 +236,30 @@
     color: var(--color-ink-muted);
   }
 
+  .cell-wrap {
+    /* Takes exactly whatever vertical room the flex column has left after
+       the header/prompt/cell-footer/grades take theirs -- the column's
+       total height can never exceed `.drill`'s, so nothing here forces a
+       scroll. `min-height: 0` lets it shrink below its content's natural
+       minimum instead of the (larger) automatic default. */
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    container-type: size;
+  }
+
   .cell {
     /* Square at every size: `toGridRelative` normalizes x and y
        independently, so a non-square cell would replay stored strokes
-       distorted. The width cap has to mirror the height cap, or a bound
-       `max-height` alone leaves the cell wider than tall. */
-    width: 100%;
-    max-width: min(100%, 60vh);
-    aspect-ratio: 1 / 1;
-    max-height: 60vh;
-    align-self: center;
+       distorted. `cqw`/`cqh` are relative to `.cell-wrap`'s actual box (from
+       the flex layout above), so the cell is always the largest square that
+       fits the room actually left -- never a guessed fraction of the
+       viewport that could be taller than what's really available. */
+    width: min(100cqw, 100cqh);
+    height: min(100cqw, 100cqh);
     border: 1px solid var(--color-grid-guide);
     border-radius: var(--radius-lg);
     background: var(--color-surface-canvas);
@@ -270,9 +298,11 @@
   }
 
   .grades {
+    /* No `margin-top: auto` needed -- `.cell-wrap` is the column's one
+       flex-grow item, so it alone absorbs whatever space is left and
+       `.grades` always sits directly under it. */
     display: flex;
     gap: var(--spacing-2);
-    margin-top: auto;
   }
 
   .btn {
