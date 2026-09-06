@@ -16,16 +16,25 @@
   import { onMount, tick, untrack } from 'svelte';
   import type { Card, Script } from '../../domain/cards';
   import type { InkSurface } from '../../ports/ink-surface';
+  import type { Stroke } from '../../domain/ink';
+  import type { Attempt, SelfGrade } from '../../domain/attempt';
+  import type { AttemptRepository } from '../../ports/attempt-repository';
   import { pickRandomCard } from '../../domain/drill';
 
   interface Props {
     cards: Card[];
     inkSurface: InkSurface;
+    attemptRepository: AttemptRepository;
     /** Temporary: Story 1.9's "I'm done" replaces or absorbs this control. */
     onBack: () => void;
   }
 
-  const { cards, inkSurface, onBack }: Props = $props();
+  const { cards, inkSurface, attemptRepository, onBack }: Props = $props();
+
+  // Minted once per drill entry -- the composition root builds a fresh
+  // component per entry (same lifetime as `card`, below), so this is stable
+  // for every attempt this instance ever persists.
+  const sessionId = crypto.randomUUID();
 
   const scriptLabel: Record<Script, string> = {
     hiragana: 'Hiragana',
@@ -44,6 +53,20 @@
   // blank cell -- revealing nothing is itself an honest "I don't know".
   let revealed = $state(false);
 
+  // Story 1.5's persistence locals. None of these render anything -- `hasInk`
+  // above already drives the UI -- so they are plain `let`, not `$state`.
+  // Every completed stroke since the last Clear/grade, embedded verbatim into
+  // the persisted `Attempt`.
+  let strokes: Stroke[] = [];
+  // `performance.now()` when the current prompt appeared (and again after
+  // each grade, for the next one) -- the origin `timeToFirstStrokeMs` and
+  // `totalTimeMs` are both measured from.
+  let promptShownAt = performance.now();
+  // The first post-Clear stroke's `pointerdown` time, same clock as
+  // `promptShownAt` above. `undefined` until a stroke lands; stays
+  // `undefined` through a reveal-from-blank grade.
+  let firstStrokeStartedAt: number | undefined;
+
   // Selection is with replacement, so the counter can climb past the scope
   // size ("47 / 46") until Story 1.9 adds closure. The bar clamps at 100% --
   // and is never the only position signal, the text counter always shows.
@@ -59,12 +82,16 @@
 
   onMount(() => {
     if (!cell) return;
-    inkSurface.onStrokeComplete(() => {
+    inkSurface.onStrokeComplete((stroke, timing) => {
       // A reveal locks the cell to pointer input (see `.cell--locked`
       // below); this guards the same invariant at the state level in case a
       // stroke-complete notification is ever still in flight when it fires.
       if (revealed) return;
       hasInk = true;
+      strokes.push(stroke);
+      // Only the first stroke since the last Clear/grade sets this --
+      // `timeToFirstStrokeMs` measures to the *first* stroke, not the latest.
+      firstStrokeStartedAt ??= timing.startedAt;
     });
     inkSurface.mount(cell);
     return () => {
@@ -73,9 +100,14 @@
   });
 
   function handleClear(): void {
-    // Clear never advances and never grades: same prompt, empty cell.
+    // Clear never advances and never grades: same prompt, empty cell. Only
+    // the post-Clear stroke(s) may end up persisted, so the in-progress
+    // stroke bookkeeping resets too -- `promptShownAt` does not, since the
+    // prompt itself hasn't changed.
     inkSurface.clear();
     hasInk = false;
+    strokes = [];
+    firstStrokeStartedAt = undefined;
   }
 
   function handleReveal(): void {
@@ -86,14 +118,40 @@
     void tick().then(() => missedButton?.focus());
   }
 
-  function handleGrade(): void {
-    // Nothing is persisted this story (Stories 1.5/1.6 own attempts and
-    // tallies) and no toast is shown (Story 1.8) -- a grade only advances.
+  function handleGrade(grade: SelfGrade): void {
+    // A grade always persists an attempt, ink or not, reveal or not (I/O
+    // matrix) -- built and fired before the state below resets for the next
+    // card. Never awaited: persistence must not block advancing (Boundaries
+    // & Constraints), so a slow or failing write is logged, not blocking.
+    const gradedAt = performance.now();
+    const totalTimeMs = gradedAt - promptShownAt;
+    const timeToFirstStrokeMs =
+      firstStrokeStartedAt === undefined ? totalTimeMs : firstStrokeStartedAt - promptShownAt;
+    const attempt: Attempt = {
+      id: crypto.randomUUID(),
+      sessionId,
+      cardId: card.cardId,
+      timestamp: new Date().toISOString(),
+      timeToFirstStrokeMs,
+      totalTimeMs,
+      strokeCount: strokes.length,
+      revealUsed: revealed,
+      selfGrade: grade,
+      strokes,
+    };
+    void attemptRepository.add(attempt).then((result) => {
+      if (!result.ok) console.error('Failed to persist attempt:', result.error);
+    });
+
+    // No toast is shown (Story 1.8 owns that) -- a grade only advances.
     card = pickRandomCard(cards, card);
     position += 1;
     revealed = false;
     inkSurface.clear();
     hasInk = false;
+    strokes = [];
+    firstStrokeStartedAt = undefined;
+    promptShownAt = performance.now();
   }
 </script>
 
@@ -176,7 +234,7 @@
       class="btn btn--neutral"
       class:btn--dimmed={!hasInk && !revealed}
       disabled={!hasInk && !revealed}
-      onclick={handleGrade}
+      onclick={() => handleGrade('incorrect')}
       bind:this={missedButton}
     >
       Missed
@@ -186,7 +244,7 @@
       class="btn btn--primary"
       class:btn--dimmed={!hasInk && !revealed}
       disabled={!hasInk && !revealed}
-      onclick={handleGrade}
+      onclick={() => handleGrade('correct')}
     >
       Correct
     </button>

@@ -27,7 +27,7 @@
 // size (AD-11).
 
 import type { InkSurface } from '../../ports/ink-surface';
-import type { Stroke, StrokePoint } from '../../domain/ink';
+import type { Stroke, StrokePoint, StrokeTiming } from '../../domain/ink';
 import { pressureToWidth } from '../../domain/ink';
 import type { WidthPreset } from '../../domain/settings';
 
@@ -87,21 +87,23 @@ export class CanvasInkSurface implements InkSurface {
   private presenterWarned = false;
 
   private widthPreset: WidthPreset;
-  private strokeCompleteCb: ((stroke: Stroke) => void) | null = null;
+  private strokeCompleteCb: ((stroke: Stroke, timing: StrokeTiming) => void) | null = null;
 
-  // Completed strokes, kept in memory only so a resize (which blows away the
-  // backing store) can redraw them. Nothing persists them this story.
-  //
-  // Each carries the preset that was in force when it was drawn: a later
-  // `setWidthPreset` must leave already-drawn strokes exactly as they are, so
-  // replay cannot read `this.widthPreset`. The pairing lives here rather than
-  // on `Stroke` -- the domain type is the persisted shape (Story 1.5), and
-  // this is a rendering detail of the live cell.
-  private strokes: Array<{ stroke: Stroke; preset: WidthPreset }> = [];
+  // Completed strokes, kept in memory so a resize (which blows away the
+  // backing store) can redraw them -- and so `Stroke` itself is the exact
+  // persisted shape Story 1.5's callers embed in an `Attempt` (each stroke
+  // already carries the preset it was drawn with, so `replay()` below never
+  // has to consult `this.widthPreset` and a later `setWidthPreset` can't
+  // retroactively repaint old ink).
+  private strokes: Stroke[] = [];
   private currentPoints: StrokePoint[] = [];
   // The preset is read once at stroke start and used for the whole stroke,
   // so a mid-stroke Settings change can never split one stroke's width range.
   private currentPreset: WidthPreset;
+  // `performance.now()` at the in-progress stroke's `pointerdown` -- the
+  // timing authority Story 1.5's `timeToFirstStrokeMs` needs, since only this
+  // adapter sees the raw pointer event.
+  private currentStrokeStartedAt = 0;
 
   private activePointerId: number | null = null;
   private lastX = 0;
@@ -187,7 +189,7 @@ export class CanvasInkSurface implements InkSurface {
     this.redraw();
   }
 
-  onStrokeComplete(cb: (stroke: Stroke) => void): void {
+  onStrokeComplete(cb: (stroke: Stroke, timing: StrokeTiming) => void): void {
     // Single subscriber by contract -- a second registration replaces the
     // first rather than fanning out.
     this.strokeCompleteCb = cb;
@@ -240,7 +242,7 @@ export class CanvasInkSurface implements InkSurface {
 
   private redraw(): void {
     this.drawGuide();
-    for (const entry of this.strokes) this.replay(entry.stroke, entry.preset);
+    for (const stroke of this.strokes) this.replay(stroke);
   }
 
   /** Repaint the cell ground and the dashed cross-guide. The center dot is
@@ -300,11 +302,11 @@ export class CanvasInkSurface implements InkSurface {
   }
 
   /** Redraw a completed stroke from its grid-relative points (resize path),
-   * at the preset that was in force when it was drawn -- never the current
-   * one, or a preset change would silently repaint old ink. */
-  private replay(stroke: Stroke, preset: WidthPreset): void {
+   * at the preset it carries (the one in force when it was drawn) -- never
+   * `this.widthPreset`, or a preset change would silently repaint old ink. */
+  private replay(stroke: Stroke): void {
     const { width: w, height: h } = this.geometry();
-    const points = stroke.points;
+    const { points, widthPreset: preset } = stroke;
     const first = points[0];
     if (!first) return;
     if (points.length === 1) {
@@ -400,6 +402,7 @@ export class CanvasInkSurface implements InkSurface {
     }
 
     this.currentPreset = this.widthPreset;
+    this.currentStrokeStartedAt = performance.now();
     const pressure = CanvasInkSurface.normalizePressure(event);
     const width = pressureToWidth(pressure, this.currentPreset);
 
@@ -455,10 +458,11 @@ export class CanvasInkSurface implements InkSurface {
     this.currentPoints = [];
     if (points.length === 0) return;
 
-    const stroke: Stroke = { points };
-    this.strokes.push({ stroke, preset: this.currentPreset });
+    const stroke: Stroke = { points, widthPreset: this.currentPreset };
+    this.strokes.push(stroke);
+    const timing: StrokeTiming = { startedAt: this.currentStrokeStartedAt, endedAt: performance.now() };
     // Exactly one notification per completed stroke, never per pointer event.
-    this.strokeCompleteCb?.(stroke);
+    this.strokeCompleteCb?.(stroke, timing);
   };
 
   /** `pointercancel` means the stroke was aborted by the platform (palm

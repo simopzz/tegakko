@@ -18,10 +18,23 @@ export interface StrokePoint {
   pressure: number;
 }
 
-/** One completed stroke: pointerdown through pointerup/cancel. Nothing
- * persists this yet -- Story 1.5 does. */
+/** One completed stroke: pointerdown through pointerup/cancel. This is the
+ * persisted shape (Story 1.5, AD-4) -- `widthPreset` travels with the stroke
+ * itself (not a sibling field) so a later `setWidthPreset` can never
+ * retroactively change how an already-drawn stroke replays. */
 export interface Stroke {
   points: StrokePoint[];
+  widthPreset: WidthPreset;
+}
+
+/** Pointer-accurate stroke timing, in `performance.now()` ms (AD-2). Only the
+ * ink adapter sees the raw `pointerdown`/`pointerup` events these come from --
+ * `onStrokeComplete`'s callback-invocation time lags `endedAt` by however
+ * long Delegated Ink Trails' async rendering takes, so `Drill.svelte` can't
+ * compute this itself from when the callback merely happens to run. */
+export interface StrokeTiming {
+  startedAt: number;
+  endedAt: number;
 }
 
 /** Min/max stroke width in CSS px per preset, carried over verbatim from the
