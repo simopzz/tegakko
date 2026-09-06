@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CanvasInkSurface, type ContextFactory, type InkColors } from './canvas-ink-surface';
-import type { Stroke } from '../../domain/ink';
+import type { Stroke, StrokeTiming } from '../../domain/ink';
 import { pressureToWidth } from '../../domain/ink';
 
 // happy-dom implements no canvas 2D rendering context, so the adapter's
@@ -251,6 +251,43 @@ describe('CanvasInkSurface', () => {
     expect(onStroke).toHaveBeenCalledTimes(1);
     const stroke = onStroke.mock.calls[0]?.[0] as Stroke;
     expect(stroke.points).toHaveLength(4);
+  });
+
+  it('passes pointer-accurate startedAt/endedAt timing, fresh per stroke rather than stale from a previous one', () => {
+    // Real `performance.now()` readings throughout (not a mocked clock):
+    // happy-dom's own event dispatch reads `performance.now()` too (for
+    // `Event.timeStamp`), so stubbing the global clock would also shift
+    // those unrelated reads and desync the adapter's own two calls
+    // (pointerdown/pointerup) from whichever queued value the test expects.
+    const { surface, canvas } = mounted();
+    const onStroke = vi.fn();
+    surface.onStrokeComplete(onStroke);
+
+    writeStroke(canvas, [
+      [10, 10],
+      [20, 20],
+    ]);
+
+    // Force real, measurable elapsed time before the second stroke so its
+    // `startedAt` can't tie with the first by clock-resolution luck alone.
+    const until = performance.now() + 1;
+    while (performance.now() < until) {
+      /* busy-wait */
+    }
+
+    writeStroke(canvas, [
+      [30, 30],
+      [40, 40],
+    ]);
+
+    expect(onStroke).toHaveBeenCalledTimes(2);
+    const firstTiming = onStroke.mock.calls[0]?.[1] as StrokeTiming;
+    const secondTiming = onStroke.mock.calls[1]?.[1] as StrokeTiming;
+
+    expect(firstTiming.endedAt).toBeGreaterThanOrEqual(firstTiming.startedAt);
+    expect(secondTiming.endedAt).toBeGreaterThanOrEqual(secondTiming.startedAt);
+    // Not stale from the previous stroke.
+    expect(secondTiming.startedAt).toBeGreaterThan(firstTiming.startedAt);
   });
 
   it('records points grid-relative (0..1 within the cell), not in CSS px', () => {

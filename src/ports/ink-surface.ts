@@ -1,5 +1,5 @@
 // Port types reference only `domain/` types (AD-1).
-import type { Stroke } from '../domain/ink';
+import type { Stroke, StrokeTiming } from '../domain/ink';
 import type { WidthPreset } from '../domain/settings';
 
 /**
@@ -24,8 +24,11 @@ export interface InkSurface {
   destroy(): void;
   /** Empty the cell: ink gone, guide redrawn, center dot back. */
   clear(): void;
-  /** Register the single stroke-completion subscriber, replacing any previous one. */
-  onStrokeComplete(cb: (stroke: Stroke) => void): void;
+  /** Register the single stroke-completion subscriber, replacing any previous
+   * one. `timing` carries pointer-accurate `startedAt`/`endedAt`
+   * (`performance.now()` ms) -- only the adapter sees the raw pointer events
+   * these come from (Story 1.5, AD-2). */
+  onStrokeComplete(cb: (stroke: Stroke, timing: StrokeTiming) => void): void;
   /** Change the width range used from the *next* stroke onward; strokes
    * already drawn are unaffected. */
   setWidthPreset(preset: WidthPreset): void;

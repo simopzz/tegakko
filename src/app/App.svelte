@@ -10,6 +10,7 @@
   import Drill from '../adapters/ui/Drill.svelte';
   import Settings from '../adapters/ui/Settings.svelte';
   import { IdbSettingsRepository } from '../adapters/persistence/settings-repository';
+  import { IdbAttemptRepository } from '../adapters/persistence/attempt-repository';
   import { InMemoryCardRepository } from '../adapters/content/card-repository';
   import { CanvasInkSurface } from '../adapters/ink/canvas-ink-surface';
   import type { InkSurface } from '../ports/ink-surface';
@@ -18,6 +19,7 @@
   import type { Card } from '../domain/cards';
 
   const settingsRepository = new IdbSettingsRepository();
+  const attemptRepository = new IdbAttemptRepository();
   const cardRepository = new InMemoryCardRepository();
 
   // A canvas can't read CSS custom properties, so `theme.css`'s token values
@@ -102,6 +104,6 @@
   {:else if screen === 'settings'}
     <Settings {settingsRepository} onPresetChange={handlePresetChange} onBack={handleSettingsBack} />
   {:else if screen === 'drill' && inkSurface}
-    <Drill cards={drillCards} {inkSurface} onBack={handleDrillBack} />
+    <Drill cards={drillCards} {inkSurface} {attemptRepository} onBack={handleDrillBack} />
   {/if}
 {/if}
