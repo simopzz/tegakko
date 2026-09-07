@@ -15,15 +15,22 @@
   // the adapter owns that node's contents (AD-2).
   import { onMount, tick, untrack } from 'svelte';
   import type { Card, Script } from '../../domain/cards';
+  import { CARDS } from '../../domain/cards';
+  import type { Scope } from '../../domain/scope';
+  import { cardsInScope } from '../../domain/scope';
   import type { InkSurface } from '../../ports/ink-surface';
   import type { Stroke } from '../../domain/ink';
   import type { Attempt, SelfGrade } from '../../domain/attempt';
   import type { AttemptRepository } from '../../ports/attempt-repository';
   import type { TallyRepository } from '../../ports/tally-repository';
-  import { pickRandomCard } from '../../domain/drill';
+  import { selectNext } from '../../domain/drill';
 
   interface Props {
-    cards: Card[];
+    scope: Scope;
+    /** Session-start attempt history from the composition root, loaded once
+     * via `listAll()` at drill entry -- never re-fetched mid-session (Story
+     * 1.7). */
+    attempts: Attempt[];
     inkSurface: InkSurface;
     attemptRepository: AttemptRepository;
     tallyRepository: TallyRepository;
@@ -31,7 +38,13 @@
     onBack: () => void;
   }
 
-  const { cards, inkSurface, attemptRepository, tallyRepository, onBack }: Props = $props();
+  const { scope, attempts, inkSurface, attemptRepository, tallyRepository, onBack }: Props =
+    $props();
+
+  // `scope` is fixed for the lifetime of a drill entry (the composition root
+  // builds a fresh component per entry), so this drives the existing
+  // counter/progress bar exactly as the old `cards` prop did.
+  const cards = $derived(cardsInScope(CARDS, scope));
 
   // Minted once per drill entry -- the composition root builds a fresh
   // component per entry (same lifetime as `card`, below), so this is stable
@@ -43,11 +56,20 @@
     katakana: 'Katakana',
   };
 
-  // `untrack`: the first prompt is drawn once, at mount. `cards` is fixed for
+  // Plain `let`, not `$state` -- mirrors `strokes` below: nothing renders
+  // from this directly, it only feeds `selectNext` on the next grade. Seeded
+  // from the session-start `attempts` prop and appended to in-memory as new
+  // attempts are graded, never re-fetched (Story 1.7's Boundaries &
+  // Constraints). `untrack`: this is a deliberate one-shot seed, not a
+  // subscription to `attempts` -- Svelte otherwise warns
+  // (state_referenced_locally) about exactly that.
+  const sessionAttempts: Attempt[] = untrack(() => [...attempts]);
+
+  // `untrack`: the first prompt is drawn once, at mount. `scope` is fixed for
   // the lifetime of a drill entry (the composition root builds a fresh
   // component per entry), so capturing its initial value is the intent --
   // Svelte otherwise warns (state_referenced_locally) about exactly that.
-  let card = $state<Card>(untrack(() => pickRandomCard(cards)));
+  let card = $state<Card>(untrack(() => selectNext(sessionAttempts, scope)));
   let position = $state(1);
   let hasInk = $state(false);
   // Reveal (Story 1.4): active the instant a prompt appears, resets on every
@@ -141,6 +163,10 @@
       selfGrade: grade,
       strokes,
     };
+    // Appended synchronously, before the never-awaited persistence calls
+    // below, so `selectNext` (also below) always sees this attempt --
+    // persistence must not gate what the in-memory history reflects.
+    sessionAttempts.push(attempt);
     void attemptRepository
       .add(attempt)
       .then((result) => {
@@ -164,8 +190,10 @@
         });
     }
 
-    // No toast is shown (Story 1.8 owns that) -- a grade only advances.
-    card = pickRandomCard(cards, card);
+    // No toast is shown (Story 1.8 owns that) -- a grade only advances. Every
+    // in-scope card, including the one just graded, keeps a nonzero
+    // selection probability -- there is no previous-card exclusion.
+    card = selectNext(sessionAttempts, scope);
     position += 1;
     revealed = false;
     inkSurface.clear();

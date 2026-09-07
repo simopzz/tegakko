@@ -15,9 +15,10 @@
   import { InMemoryCardRepository } from '../adapters/content/card-repository';
   import { CanvasInkSurface } from '../adapters/ink/canvas-ink-surface';
   import type { InkSurface } from '../ports/ink-surface';
-  import { cardsInScope, FULL_SCOPE, type Scope } from '../domain/scope';
+  import { FULL_SCOPE, type Scope } from '../domain/scope';
   import { DEFAULT_SETTINGS, type WidthPreset } from '../domain/settings';
-  import type { Card } from '../domain/cards';
+  import type { Attempt } from '../domain/attempt';
+  import { err } from '../domain/result';
 
   const settingsRepository = new IdbSettingsRepository();
   const attemptRepository = new IdbAttemptRepository();
@@ -40,11 +41,21 @@
   // selection lives here -- that is what makes Back return to the picker with
   // the selection intact rather than reset to the full scope.
   let scope = $state<Scope>(FULL_SCOPE);
-  let drillCards = $state<Card[]>([]);
+  // Loaded once via `listAll()` at drill entry (Story 1.7) -- `Drill` seeds
+  // its own in-memory `sessionAttempts` from this and never asks this
+  // composition root to re-fetch mid-session.
+  let drillAttempts = $state<Attempt[]>([]);
   let widthPreset = $state<WidthPreset>(DEFAULT_SETTINGS.widthPreset);
   // A fresh instance per drill entry: `mount()` is called exactly once per
   // adapter instance, and `Drill.svelte`'s unmount cleanup calls `destroy()`.
   let inkSurface = $state<InkSurface | null>(null);
+  // Guards `handleStart` against re-entrancy: a double-tap on "Start
+  // writing" (realistic on a stylus tablet) would otherwise fire it twice
+  // before the first `listAll()` resolves, racing two `CanvasInkSurface`s
+  // into existence -- the losing one never mounted or `destroy()`ed, and
+  // `drillAttempts` seeded from whichever `listAll()` call happens to
+  // resolve last.
+  let starting = false;
 
   onMount(() => {
     void settingsRepository.get().then((result) => {
@@ -61,13 +72,32 @@
     screen = 'scope-picker';
   }
 
-  function handleStart(chosenScope: Scope): void {
-    scope = chosenScope;
-    drillCards = cardsInScope(cardRepository.getAll(), chosenScope);
-    const surface = new CanvasInkSurface({ colors: INK_COLORS });
-    surface.setWidthPreset(widthPreset);
-    inkSurface = surface;
-    screen = 'drill';
+  async function handleStart(chosenScope: Scope): Promise<void> {
+    // A second concurrent call (a double-tap while the first is still
+    // awaiting `listAll()`) is a no-op -- see `starting`'s declaration.
+    if (starting) return;
+    starting = true;
+    try {
+      scope = chosenScope;
+      // Loaded once per drill entry, never re-fetched mid-session (Story
+      // 1.7). Fails open to `[]` on either failure path this codebase's
+      // adapters can take -- a resolved `{ok: false}` Result or an outright
+      // rejected promise -- the same as `Drill.svelte`'s
+      // `attemptRepository.add()`/`tallyRepository.increment()` calls. An
+      // unreadable attempt history just means `selectNext` falls back to
+      // its uniform floor rather than blocking the drill from starting.
+      const result = await attemptRepository.listAll().catch((error: unknown) => {
+        console.error('Failed to load attempt history:', error);
+        return err<Attempt[]>(error instanceof Error ? error : new Error(String(error)));
+      });
+      drillAttempts = result.ok ? result.value : [];
+      const surface = new CanvasInkSurface({ colors: INK_COLORS });
+      surface.setWidthPreset(widthPreset);
+      inkSurface = surface;
+      screen = 'drill';
+    } finally {
+      starting = false;
+    }
   }
 
   function handleDrillBack(): void {
@@ -98,6 +128,7 @@
   {:else if screen === 'scope-picker'}
     <ScopePicker
       {cardRepository}
+      {tallyRepository}
       onStart={handleStart}
       onSettings={handleOpenSettings}
       initialScope={scope}
@@ -106,6 +137,13 @@
   {:else if screen === 'settings'}
     <Settings {settingsRepository} onPresetChange={handlePresetChange} onBack={handleSettingsBack} />
   {:else if screen === 'drill' && inkSurface}
-    <Drill cards={drillCards} {inkSurface} {attemptRepository} {tallyRepository} onBack={handleDrillBack} />
+    <Drill
+      {scope}
+      attempts={drillAttempts}
+      {inkSurface}
+      {attemptRepository}
+      {tallyRepository}
+      onBack={handleDrillBack}
+    />
   {/if}
 {/if}
