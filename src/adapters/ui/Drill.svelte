@@ -141,9 +141,14 @@
       selfGrade: grade,
       strokes,
     };
-    void attemptRepository.add(attempt).then((result) => {
-      if (!result.ok) console.error('Failed to persist attempt:', result.error);
-    });
+    void attemptRepository
+      .add(attempt)
+      .then((result) => {
+        if (!result.ok) console.error('Failed to persist attempt:', result.error);
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to persist attempt:', error);
+      });
 
     // Every self-graded Missed bumps the card's running miss tally -- never
     // Correct (Boundaries & Constraints). Same never-awaited pattern as the

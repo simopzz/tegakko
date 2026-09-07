@@ -539,6 +539,27 @@ describe('Drill', () => {
       consoleError.mockRestore();
     });
 
+    it('advances and logs via console.error when attemptRepository.add() rejects instead of resolving a Result', async () => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const inkSurface = fakeInkSurface();
+      const attemptRepository = fakeAttemptRepository();
+      attemptRepository.add = () => Promise.reject(new Error('connection lost'));
+      const cards = [card('し'), card('つ')];
+      renderDrill({ cards, inkSurface, attemptRepository });
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Correct'));
+      await tick();
+      // Flush the rejected (never-thrown) promise the failed add() returns.
+      await Promise.resolve();
+      await tick();
+
+      expect(screen.getByText('2 / 2')).toBeTruthy();
+      expect(consoleError).toHaveBeenCalledWith('Failed to persist attempt:', expect.any(Error));
+
+      consoleError.mockRestore();
+    });
+
     it('persists revealUsed: true alongside a nonzero strokeCount when Reveal is tapped after writing', async () => {
       const inkSurface = fakeInkSurface();
       const attemptRepository = fakeAttemptRepository();
