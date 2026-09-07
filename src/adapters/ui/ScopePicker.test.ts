@@ -3,6 +3,9 @@ import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import ScopePicker from './ScopePicker.svelte';
 import { CARDS } from '../../domain/cards';
 import type { CardRepository } from '../../ports/card-repository';
+import type { TallyRepository } from '../../ports/tally-repository';
+import type { Tally } from '../../domain/tally';
+import type { Result } from '../../domain/result';
 
 // A `ui` adapter must never import a sibling adapter's implementation module
 // (AD-1's boundary rule, enforced by eslint-plugin-import-x here) -- so this
@@ -17,6 +20,20 @@ function realRepository(): CardRepository {
       if (!card) throw new Error(`Unknown cardId: ${cardId}`);
       return card;
     },
+  };
+}
+
+/** Fakes `TallyRepository` -- mirrors `Drill.test.ts`'s helper of the same
+ * shape, against `ports/tally-repository.ts`. `getAll()`'s result is
+ * configurable so tests can exercise both the happy path and the I/O
+ * matrix's fetch-failure fallback. */
+function fakeTallyRepository(
+  getAllResult: Result<Tally[]> = { ok: true, value: [] },
+): TallyRepository {
+  return {
+    getAll: () => Promise.resolve(getAllResult),
+    increment: () => Promise.resolve({ ok: true, value: undefined }),
+    decrement: () => Promise.resolve({ ok: true, value: undefined }),
   };
 }
 
@@ -51,6 +68,7 @@ describe('ScopePicker', () => {
   it('defaults to the full 158-card scope with a live "158 cards" count', () => {
     render(ScopePicker, {
       cardRepository: realRepository(),
+      tallyRepository: fakeTallyRepository(),
       onStart: vi.fn(),
       onSettings: vi.fn(),
     });
@@ -61,6 +79,7 @@ describe('ScopePicker', () => {
   it('renders the default selection as positive-variant script/set chip tags', () => {
     render(ScopePicker, {
       cardRepository: realRepository(),
+      tallyRepository: fakeTallyRepository(),
       onStart: vi.fn(),
       onSettings: vi.fn(),
     });
@@ -70,7 +89,13 @@ describe('ScopePicker', () => {
     expect(within(group).getByText('Katakana')).toBeTruthy();
     expect(within(group).getByText('Base')).toBeTruthy();
     expect(within(group).getByText('Yoon')).toBeTruthy();
-    for (const chip of group.children) {
+    // Every script/set chip is positive-variant -- the shaky chip (Story
+    // 1.7) is a separate `chip--missed` sibling, not one of these.
+    const scriptSetChips = [...group.children].filter(
+      (chip) => !chip.className.includes('chip--missed'),
+    );
+    expect(scriptSetChips.length).toBeGreaterThan(0);
+    for (const chip of scriptSetChips) {
       expect(chip.className).toContain('chip--positive');
     }
   });
@@ -78,6 +103,7 @@ describe('ScopePicker', () => {
   it('recomputes the live count immediately when narrowing to Hiragana + Base (46 cards)', async () => {
     render(ScopePicker, {
       cardRepository: realRepository(),
+      tallyRepository: fakeTallyRepository(),
       onStart: vi.fn(),
       onSettings: vi.fn(),
     });
@@ -91,6 +117,7 @@ describe('ScopePicker', () => {
   it('recomputes the live count when narrowing to Katakana only (79 cards)', async () => {
     render(ScopePicker, {
       cardRepository: realRepository(),
+      tallyRepository: fakeTallyRepository(),
       onStart: vi.fn(),
       onSettings: vi.fn(),
     });
@@ -103,6 +130,7 @@ describe('ScopePicker', () => {
   it('recomputes the live count when narrowing to Yoon only (66 cards)', async () => {
     render(ScopePicker, {
       cardRepository: realRepository(),
+      tallyRepository: fakeTallyRepository(),
       onStart: vi.fn(),
       onSettings: vi.fn(),
     });
@@ -115,6 +143,7 @@ describe('ScopePicker', () => {
   it('keeps exactly one active segment per pill group after a tap', async () => {
     render(ScopePicker, {
       cardRepository: realRepository(),
+      tallyRepository: fakeTallyRepository(),
       onStart: vi.fn(),
       onSettings: vi.fn(),
     });
@@ -128,7 +157,12 @@ describe('ScopePicker', () => {
 
   it('passes the exact narrowed {scripts, units} scope to onStart on "Start writing"', async () => {
     const onStart = vi.fn();
-    render(ScopePicker, { cardRepository: realRepository(), onStart, onSettings: vi.fn() });
+    render(ScopePicker, {
+      cardRepository: realRepository(),
+      tallyRepository: fakeTallyRepository(),
+      onStart,
+      onSettings: vi.fn(),
+    });
 
     await fireEvent.click(pill('Hiragana'));
     await fireEvent.click(pill('Base'));
@@ -139,7 +173,12 @@ describe('ScopePicker', () => {
 
   it('passes the full scope to onStart when nothing was narrowed', async () => {
     const onStart = vi.fn();
-    render(ScopePicker, { cardRepository: realRepository(), onStart, onSettings: vi.fn() });
+    render(ScopePicker, {
+      cardRepository: realRepository(),
+      tallyRepository: fakeTallyRepository(),
+      onStart,
+      onSettings: vi.fn(),
+    });
 
     await fireEvent.click(pill('Start writing'));
 
@@ -157,6 +196,7 @@ describe('ScopePicker', () => {
     // interactive-element markup, not a styled non-interactive <div>.
     render(ScopePicker, {
       cardRepository: realRepository(),
+      tallyRepository: fakeTallyRepository(),
       onStart: vi.fn(),
       onSettings: vi.fn(),
     });
@@ -173,7 +213,12 @@ describe('ScopePicker', () => {
   it('reaches Settings from the header link without touching the scope', async () => {
     const onSettings = vi.fn();
     const onStart = vi.fn();
-    render(ScopePicker, { cardRepository: realRepository(), onStart, onSettings });
+    render(ScopePicker, {
+      cardRepository: realRepository(),
+      tallyRepository: fakeTallyRepository(),
+      onStart,
+      onSettings,
+    });
 
     await fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
 
@@ -190,6 +235,7 @@ describe('ScopePicker', () => {
     // root -- otherwise Back silently resets the learner to the full scope.
     render(ScopePicker, {
       cardRepository: realRepository(),
+      tallyRepository: fakeTallyRepository(),
       onStart: vi.fn(),
       onSettings: vi.fn(),
       initialScope: { scripts: ['katakana'], units: ['yoon'] },
@@ -204,6 +250,7 @@ describe('ScopePicker', () => {
     const onScopeChange = vi.fn();
     render(ScopePicker, {
       cardRepository: realRepository(),
+      tallyRepository: fakeTallyRepository(),
       onStart: vi.fn(),
       onSettings: vi.fn(),
       onScopeChange,
@@ -220,6 +267,7 @@ describe('ScopePicker', () => {
   it('shrinks the rendered chips to match a narrowed Hiragana + Base selection', async () => {
     render(ScopePicker, {
       cardRepository: realRepository(),
+      tallyRepository: fakeTallyRepository(),
       onStart: vi.fn(),
       onSettings: vi.fn(),
     });
@@ -232,5 +280,100 @@ describe('ScopePicker', () => {
     expect(within(group).getByText('Base')).toBeTruthy();
     expect(within(group).queryByText('Katakana')).toBeNull();
     expect(within(group).queryByText('Yoon')).toBeNull();
+  });
+
+  // Story 1.7: the "N shaky" badge.
+  describe('shaky badge', () => {
+    it('shows "0 shaky" when no tallies exist', async () => {
+      render(ScopePicker, {
+        cardRepository: realRepository(),
+        tallyRepository: fakeTallyRepository({ ok: true, value: [] }),
+        onStart: vi.fn(),
+        onSettings: vi.fn(),
+      });
+
+      expect(await screen.findByText('0 shaky')).toBeTruthy();
+    });
+
+    it('shows "0 shaky" and stays usable when the tally fetch fails', async () => {
+      render(ScopePicker, {
+        cardRepository: realRepository(),
+        tallyRepository: fakeTallyRepository({ ok: false, error: new Error('IndexedDB blocked') }),
+        onStart: vi.fn(),
+        onSettings: vi.fn(),
+      });
+
+      expect(await screen.findByText('0 shaky')).toBeTruthy();
+      expect(screen.getByText('158 cards in scope')).toBeTruthy();
+    });
+
+    it('shows "0 shaky" and logs via console.error when getAll() rejects instead of resolving a Result', async () => {
+      // The resolved-`{ok: false}` fallback is covered above -- this proves
+      // the *other* failure path adapters can take (an outright rejected
+      // promise) is also handled, mirroring `Drill.test.ts`'s
+      // "...rejects instead of resolving a Result" tests.
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const tallyRepository: TallyRepository = {
+        getAll: () => Promise.reject(new Error('connection lost')),
+        increment: () => Promise.resolve({ ok: true, value: undefined }),
+        decrement: () => Promise.resolve({ ok: true, value: undefined }),
+      };
+      render(ScopePicker, {
+        cardRepository: realRepository(),
+        tallyRepository,
+        onStart: vi.fn(),
+        onSettings: vi.fn(),
+      });
+
+      expect(await screen.findByText('0 shaky')).toBeTruthy();
+      expect(screen.getByText('158 cards in scope')).toBeTruthy();
+      expect(consoleError).toHaveBeenCalledWith('Failed to load tallies:', expect.any(Error));
+
+      consoleError.mockRestore();
+    });
+
+    it('counts an in-scope card whose tally exceeds the in-scope average once fetched', async () => {
+      const heavy = CARDS.find((c) => c.script === 'hiragana' && c.kind === 'base')!;
+      render(ScopePicker, {
+        cardRepository: realRepository(),
+        tallyRepository: fakeTallyRepository({
+          ok: true,
+          value: [{ cardId: heavy.cardId, missCount: 10 }],
+        }),
+        onStart: vi.fn(),
+        onSettings: vi.fn(),
+      });
+
+      expect(await screen.findByText('1 shaky')).toBeTruthy();
+    });
+
+    it('recomputes on a script/set toggle -- only in-scope cards count toward the average', async () => {
+      // A miss tally on a katakana card must not count toward -- or inflate
+      // the average against -- a hiragana-only scope.
+      const katakanaCard = CARDS.find((c) => c.script === 'katakana' && c.kind === 'base')!;
+      const hiraganaCard = CARDS.find((c) => c.script === 'hiragana' && c.kind === 'base')!;
+      render(ScopePicker, {
+        cardRepository: realRepository(),
+        tallyRepository: fakeTallyRepository({
+          ok: true,
+          value: [
+            { cardId: katakanaCard.cardId, missCount: 10 },
+            { cardId: hiraganaCard.cardId, missCount: 5 },
+          ],
+        }),
+        onStart: vi.fn(),
+        onSettings: vi.fn(),
+      });
+
+      await screen.findByText('158 cards in scope');
+      // Full scope: both misses count toward the average -- neither
+      // dominates enough to necessarily exceed it on its own, but assert
+      // the narrowed case is what actually matters here.
+      await fireEvent.click(pill('Hiragana'));
+
+      // Narrowed to hiragana only: the katakana tally drops out entirely,
+      // leaving one heavily-missed card in scope.
+      expect(await screen.findByText('1 shaky')).toBeTruthy();
+    });
   });
 });

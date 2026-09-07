@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { DEFAULT_SETTINGS } from '../domain/settings';
 import { err, ok } from '../domain/result';
+import type { Result } from '../domain/result';
+import type { Attempt } from '../domain/attempt';
 
 const getMock = vi.fn();
 
@@ -26,6 +28,7 @@ vi.mock('../adapters/persistence/settings-repository', () => ({
 // Imported for its prototype only -- the composition root is the layer that
 // constructs concrete adapters, so this is where that wiring is observable.
 const { CanvasInkSurface } = await import('../adapters/ink/canvas-ink-surface');
+const { IdbAttemptRepository } = await import('../adapters/persistence/attempt-repository');
 const App = (await import('./App.svelte')).default;
 
 describe('App', () => {
@@ -71,6 +74,89 @@ describe('App', () => {
     expect(await screen.findByText('1 / 158')).toBeTruthy();
     // AD-2 / the black-canvas compositing bug: exactly one canvas, ever.
     expect(document.querySelectorAll('canvas')).toHaveLength(1);
+  });
+
+  it('falls back to an empty attempt history and still starts the drill when listAll() fails', async () => {
+    // Story 1.7: `handleStart` awaits `attemptRepository.listAll()` before
+    // entering the drill. A real `IdbAttemptRepository` already fails closed
+    // in this happy-dom environment (no `indexedDB` global), but that's
+    // incidental -- this spy makes the fallback path deliberate and asserted,
+    // the same way the settings-read fallback above is (mirrors that test's
+    // `vi.spyOn(CanvasInkSurface.prototype, ...)` pattern for stubbing one
+    // adapter method without mocking the whole module).
+    getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
+    const listAll = vi
+      .spyOn(IdbAttemptRepository.prototype, 'listAll')
+      .mockResolvedValue(err(new Error('IndexedDB blocked')));
+
+    render(App);
+
+    await screen.findByText('What are we testing today?');
+    await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
+
+    // The drill still starts -- `selectNext` falls back to its uniform floor
+    // rather than the failed fetch blocking entry.
+    expect(await screen.findByText('1 / 158')).toBeTruthy();
+
+    listAll.mockRestore();
+  });
+
+  it('falls back to an empty attempt history and still starts the drill when listAll() rejects instead of resolving a Result', async () => {
+    // The resolved-`{ok: false}` fallback is covered above -- this proves
+    // the *other* failure path adapters can take (an outright rejected
+    // promise) is also handled, mirroring `Drill.test.ts`'s
+    // "...rejects instead of resolving a Result" tests for
+    // `attemptRepository.add()`/`tallyRepository.increment()`.
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
+    const listAll = vi
+      .spyOn(IdbAttemptRepository.prototype, 'listAll')
+      .mockRejectedValue(new Error('connection lost'));
+
+    render(App);
+
+    await screen.findByText('What are we testing today?');
+    await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
+
+    // The drill still starts -- a rejected `listAll()` never leaves
+    // `handleStart` stuck on the Scope picker.
+    expect(await screen.findByText('1 / 158')).toBeTruthy();
+    expect(consoleError).toHaveBeenCalledWith('Failed to load attempt history:', expect.any(Error));
+
+    listAll.mockRestore();
+    consoleError.mockRestore();
+  });
+
+  it('ignores a second "Start writing" tap fired before the first listAll() resolves', async () => {
+    // A double-tap (realistic on a stylus tablet) must not race two
+    // `CanvasInkSurface`s into existence -- the `starting` guard makes the
+    // second call a no-op while the first is still in flight.
+    getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
+    let resolveListAll!: (value: Result<Attempt[]>) => void;
+    const listAll = vi
+      .spyOn(IdbAttemptRepository.prototype, 'listAll')
+      .mockReturnValue(
+        new Promise((resolve) => {
+          resolveListAll = resolve;
+        }),
+      );
+
+    render(App);
+
+    await screen.findByText('What are we testing today?');
+    const startButton = screen.getByRole('button', { name: 'Start writing' });
+    await fireEvent.click(startButton);
+    await fireEvent.click(startButton);
+
+    resolveListAll(ok([]));
+    await screen.findByText('1 / 158');
+
+    // Exactly one `listAll()` call reached the repository, and exactly one
+    // canvas exists -- the second tap's adapter was never constructed.
+    expect(listAll).toHaveBeenCalledTimes(1);
+    expect(document.querySelectorAll('canvas')).toHaveLength(1);
+
+    listAll.mockRestore();
   });
 
   it('carries a narrowed scope forward into the drill', async () => {

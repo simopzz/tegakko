@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import Drill from './Drill.svelte';
 import { CARDS, type Card } from '../../domain/cards';
+import { cardsInScope, type Scope } from '../../domain/scope';
 import type { InkSurface } from '../../ports/ink-surface';
 import type { Stroke, StrokeTiming } from '../../domain/ink';
 import type { WidthPreset } from '../../domain/settings';
@@ -10,6 +11,16 @@ import type { Attempt } from '../../domain/attempt';
 import type { AttemptRepository } from '../../ports/attempt-repository';
 import type { TallyRepository } from '../../ports/tally-repository';
 import type { Result } from '../../domain/result';
+
+// `selectNext` (Story 1.7) draws from the real `CARDS` catalog filtered by
+// `scope` -- a `Scope` can only narrow to a full script+kind combination
+// (minimum 33 cards), never to an arbitrary short list, so this file can no
+// longer force a specific first prompt via a hand-picked `cards` array. Two
+// fixed scopes stand in for the old ad hoc single/two-card fixtures; tests
+// that used to assert an exact prompt now read whichever card actually
+// rendered instead.
+const HIRAGANA_BASE_SCOPE: Scope = { scripts: ['hiragana'], units: ['base'] }; // 46 cards
+const HIRAGANA_YOON_SCOPE: Scope = { scripts: ['hiragana'], units: ['yoon'] }; // 33 cards
 
 // A `ui` adapter must never import a sibling adapter's implementation (AD-1),
 // so the ink surface is faked against the port -- the same way
@@ -111,9 +122,16 @@ function fakeTallyRepository(
   };
 }
 
-function card(grapheme: string): Card {
-  const found = CARDS.find((c) => c.grapheme === grapheme);
-  if (!found) throw new Error(`no card for ${grapheme}`);
+/** Reads the currently-rendered prompt's romaji, matched against `cards`
+ * (every candidate `selectNext` could have drawn from). Within a single
+ * script+kind scope every romaji is unique, so this unambiguously resolves
+ * back to the exact `Card` on screen. Generalizes the file's prior
+ * hardcoded `/^(shi|tsu)$/` idiom to an arbitrary scope. */
+function currentCard(cards: Card[]): Card {
+  const pattern = new RegExp(`^(${cards.map((c) => c.romaji).join('|')})$`);
+  const romaji = screen.getByText(pattern).textContent ?? '';
+  const found = cards.find((c) => c.romaji === romaji);
+  if (!found) throw new Error(`no card matches displayed romaji "${romaji}"`);
   return found;
 }
 
@@ -127,42 +145,51 @@ function grade(name: 'Missed' | 'Correct'): HTMLButtonElement {
  * does care. */
 function renderDrill(
   overrides: {
-    cards?: Card[];
+    scope?: Scope;
+    attempts?: Attempt[];
     inkSurface?: ReturnType<typeof fakeInkSurface>;
     attemptRepository?: ReturnType<typeof fakeAttemptRepository>;
     tallyRepository?: ReturnType<typeof fakeTallyRepository>;
     onBack?: () => void;
   } = {},
 ) {
-  const cards = overrides.cards ?? [card('あ')];
+  const scope = overrides.scope ?? HIRAGANA_BASE_SCOPE;
+  const attempts = overrides.attempts ?? [];
   const inkSurface = overrides.inkSurface ?? fakeInkSurface();
   const attemptRepository = overrides.attemptRepository ?? fakeAttemptRepository();
   const tallyRepository = overrides.tallyRepository ?? fakeTallyRepository();
   const onBack = overrides.onBack ?? vi.fn();
-  const result = render(Drill, { cards, inkSurface, attemptRepository, tallyRepository, onBack });
-  return { ...result, cards, inkSurface, attemptRepository, tallyRepository, onBack };
+  const result = render(Drill, {
+    scope,
+    attempts,
+    inkSurface,
+    attemptRepository,
+    tallyRepository,
+    onBack,
+  });
+  return { ...result, scope, attempts, inkSurface, attemptRepository, tallyRepository, onBack };
 }
 
 describe('Drill', () => {
   it('prompts with romaji plus the script name, and no grapheme', () => {
     // The grapheme is the answer -- Story 1.4's Reveal owns showing it.
-    renderDrill({ cards: [card('し')] });
+    renderDrill();
+    const cards = cardsInScope([...CARDS], HIRAGANA_BASE_SCOPE);
+    const target = currentCard(cards);
 
-    expect(screen.getByText('shi')).toBeTruthy();
+    expect(screen.getByText(target.romaji)).toBeTruthy();
     expect(screen.getByText('Hiragana')).toBeTruthy();
-    expect(screen.queryByText('し')).toBeNull();
+    expect(screen.queryByText(target.grapheme)).toBeNull();
   });
 
   it('starts the counter at "1 / N" for a scope of N cards', () => {
-    const cards = CARDS.filter((c) => c.script === 'hiragana' && c.kind === 'base');
-    renderDrill({ cards });
+    renderDrill({ scope: HIRAGANA_BASE_SCOPE });
 
     expect(screen.getByText('1 / 46')).toBeTruthy();
   });
 
   it('pairs the counter with a progress bar, never a bar alone', () => {
-    const cards = CARDS.filter((c) => c.script === 'hiragana' && c.kind === 'base');
-    renderDrill({ cards });
+    renderDrill({ scope: HIRAGANA_BASE_SCOPE });
 
     const bar = screen.getByRole('progressbar');
     expect(bar.getAttribute('aria-valuenow')).toBe('1');
@@ -172,7 +199,7 @@ describe('Drill', () => {
 
   it('mounts the ink surface exactly once, into a node Svelte leaves empty', () => {
     const inkSurface = fakeInkSurface();
-    renderDrill({ cards: [card('あ')], inkSurface });
+    renderDrill({ inkSurface });
 
     expect(inkSurface.mounts).toHaveLength(1);
     // The adapter owns this node's contents (AD-2): Svelte renders nothing
@@ -182,7 +209,7 @@ describe('Drill', () => {
 
   it('destroys the ink surface when the screen unmounts', () => {
     const inkSurface = fakeInkSurface();
-    const { unmount } = renderDrill({ cards: [card('あ')], inkSurface });
+    const { unmount } = renderDrill({ inkSurface });
 
     unmount();
 
@@ -190,7 +217,7 @@ describe('Drill', () => {
   });
 
   it('dims and disables Missed and Correct while the cell is blank', () => {
-    renderDrill({ cards: [card('あ')] });
+    renderDrill();
 
     for (const name of ['Missed', 'Correct'] as const) {
       expect(grade(name).disabled).toBe(true);
@@ -200,7 +227,7 @@ describe('Drill', () => {
 
   it('activates Missed and Correct once a stroke lands', async () => {
     const inkSurface = fakeInkSurface();
-    renderDrill({ cards: [card('あ')], inkSurface });
+    renderDrill({ inkSurface });
 
     await inkSurface.landStroke();
 
@@ -212,7 +239,7 @@ describe('Drill', () => {
 
   it('shows Clear only once ink exists, beside the self-grading line', async () => {
     const inkSurface = fakeInkSurface();
-    renderDrill({ cards: [card('あ')], inkSurface });
+    renderDrill({ inkSurface });
 
     expect(screen.getByText('Your call — nothing is checking the shape')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull();
@@ -223,8 +250,10 @@ describe('Drill', () => {
   });
 
   it('Clear empties the cell and re-dims the grades without advancing', async () => {
+    const cards = cardsInScope([...CARDS], HIRAGANA_BASE_SCOPE);
     const inkSurface = fakeInkSurface();
-    renderDrill({ cards: [card('し')], inkSurface });
+    renderDrill({ inkSurface });
+    const before = currentCard(cards);
 
     await inkSurface.landStroke();
     await fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
@@ -233,23 +262,23 @@ describe('Drill', () => {
     expect(grade('Correct').disabled).toBe(true);
     expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull();
     // Same prompt, same position.
-    expect(screen.getByText('shi')).toBeTruthy();
-    expect(screen.getByText('1 / 1')).toBeTruthy();
+    expect(currentCard(cards)).toBe(before);
+    expect(screen.getByText('1 / 46')).toBeTruthy();
   });
 
   for (const name of ['Missed', 'Correct'] as const) {
-    it(`${name} advances the counter and moves to a different prompt`, async () => {
-      const cards = [card('し'), card('つ')];
+    it(`${name} advances the counter and still shows a prompt from the scope`, async () => {
+      const cards = cardsInScope([...CARDS], HIRAGANA_BASE_SCOPE);
       const inkSurface = fakeInkSurface();
-      renderDrill({ cards, inkSurface });
+      renderDrill({ inkSurface });
 
-      const first = screen.getByText(/^(shi|tsu)$/).textContent;
       await inkSurface.landStroke();
       await fireEvent.click(grade(name));
 
-      expect(screen.getByText('2 / 2')).toBeTruthy();
-      // Never the card just graded -- a grade always visibly advances.
-      expect(screen.getByText(/^(shi|tsu)$/).textContent).not.toBe(first);
+      expect(screen.getByText('2 / 46')).toBeTruthy();
+      // Still a prompt from the scope -- selection may repeat the
+      // just-graded card (no previous-card exclusion, Story 1.7).
+      expect(() => currentCard(cards)).not.toThrow();
       // The cell is empty again and the grades are back to dimmed.
       expect(inkSurface.clears).toBe(1);
       expect(grade('Correct').disabled).toBe(true);
@@ -258,27 +287,28 @@ describe('Drill', () => {
 
   it('keeps counting past the scope size, with the bar clamped at full', async () => {
     // Selection is with replacement and nothing closes the session until
-    // Story 1.9 -- "3 / 2" is the intended behavior, not an overflow bug.
-    const cards = [card('し'), card('つ')];
+    // Story 1.9 -- overshooting the counter is the intended behavior, not
+    // an overflow bug. The smaller yoon scope keeps the loop below cheap.
+    const cards = cardsInScope([...CARDS], HIRAGANA_YOON_SCOPE);
     const inkSurface = fakeInkSurface();
-    renderDrill({ cards, inkSurface });
+    renderDrill({ scope: HIRAGANA_YOON_SCOPE, inkSurface });
 
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < cards.length; i++) {
       await inkSurface.landStroke();
       await fireEvent.click(grade('Correct'));
     }
 
-    expect(screen.getByText('3 / 2')).toBeTruthy();
+    expect(screen.getByText(`${cards.length + 1} / ${cards.length}`)).toBeTruthy();
     const fill = document.querySelector('.bar-fill') as HTMLElement;
     expect(fill.style.width).toBe('100%');
     // The visible counter overshoots, but the exposed progress value must
     // stay inside its own min/max or screen readers announce nonsense.
-    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('2');
+    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe(String(cards.length));
   });
 
   it('calls onBack from the temporary Back control', async () => {
     const onBack = vi.fn();
-    renderDrill({ cards: [card('あ')], onBack });
+    renderDrill({ onBack });
 
     await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
 
@@ -288,7 +318,7 @@ describe('Drill', () => {
   it('shows no post-grade toast or Undo', async () => {
     // Stories 1.6/1.8 own the tally toast and Undo, not this story.
     const inkSurface = fakeInkSurface();
-    renderDrill({ cards: [card('し'), card('つ')], inkSurface });
+    renderDrill({ inkSurface });
 
     await inkSurface.landStroke();
     await fireEvent.click(grade('Missed'));
@@ -304,14 +334,14 @@ describe('Drill', () => {
   }
 
   it('is active from the moment a prompt appears, before any stroke', () => {
-    renderDrill({ cards: [card('あ')] });
+    renderDrill();
 
     expect(reveal().disabled).toBe(false);
     expect(reveal().className).not.toContain('btn--dimmed');
   });
 
   it('unlocks Missed and Correct from a blank cell', async () => {
-    renderDrill({ cards: [card('あ')] });
+    renderDrill();
 
     await fireEvent.click(reveal());
 
@@ -321,18 +351,22 @@ describe('Drill', () => {
   });
 
   it('shows the empty Yours panel (no inked glyph) when revealed from blank', async () => {
-    renderDrill({ cards: [card('し')] });
+    const cards = cardsInScope([...CARDS], HIRAGANA_BASE_SCOPE);
+    renderDrill();
+    const target = currentCard(cards);
 
     await fireEvent.click(reveal());
 
     expect(screen.getByText('Yours')).toBeTruthy();
     expect(screen.getByText('Reference')).toBeTruthy();
-    expect(screen.getByText('し')).toBeTruthy();
+    expect(screen.getByText(target.grapheme)).toBeTruthy();
   });
 
   it('shows the Yours ink alongside the Reference glyph when revealed from written ink', async () => {
+    const cards = cardsInScope([...CARDS], HIRAGANA_BASE_SCOPE);
     const inkSurface = fakeInkSurface();
-    renderDrill({ cards: [card('し')], inkSurface });
+    renderDrill({ inkSurface });
+    const target = currentCard(cards);
 
     await inkSurface.landStroke();
     await fireEvent.click(reveal());
@@ -342,20 +376,23 @@ describe('Drill', () => {
     expect(inkSurface.mounts).toHaveLength(1);
     expect(inkSurface.destroys).toBe(0);
     expect(inkSurface.clears).toBe(0);
-    expect(screen.getByText('し')).toBeTruthy();
+    expect(screen.getByText(target.grapheme)).toBeTruthy();
   });
 
   it('does not clip a two-character yoon reference glyph', async () => {
-    renderDrill({ cards: [card('きゃ')] });
+    const cards = cardsInScope([...CARDS], HIRAGANA_YOON_SCOPE);
+    renderDrill({ scope: HIRAGANA_YOON_SCOPE });
+    const target = currentCard(cards);
+    expect(target.kind).toBe('yoon');
 
     await fireEvent.click(reveal());
 
-    const glyph = screen.getByText('きゃ');
+    const glyph = screen.getByText(target.grapheme);
     expect(glyph.className).toContain('glyph--yoon');
   });
 
   it('ties the Yours/Reference captions to their panels for assistive tech', async () => {
-    renderDrill({ cards: [card('し')] });
+    renderDrill();
 
     await fireEvent.click(reveal());
 
@@ -369,7 +406,7 @@ describe('Drill', () => {
 
   it('locks the ink cell to pointer input once revealed, so the reference cannot be traced', async () => {
     const inkSurface = fakeInkSurface();
-    renderDrill({ cards: [card('あ')], inkSurface });
+    renderDrill({ inkSurface });
 
     await inkSurface.landStroke();
     await fireEvent.click(reveal());
@@ -379,7 +416,7 @@ describe('Drill', () => {
   });
 
   it('moves focus to Missed so Reveal becoming disabled does not drop it to the page', async () => {
-    renderDrill({ cards: [card('あ')] });
+    renderDrill();
 
     await fireEvent.click(reveal());
     await tick();
@@ -388,11 +425,11 @@ describe('Drill', () => {
   });
 
   it('never assigns a grade on its own and becomes a dimmed "Revealed" label', async () => {
-    renderDrill({ cards: [card('あ')] });
+    renderDrill();
 
     await fireEvent.click(reveal());
 
-    expect(screen.getByText('1 / 1')).toBeTruthy();
+    expect(screen.getByText('1 / 46')).toBeTruthy();
     const revealedLabel = screen.getByRole('button', { name: 'Revealed' });
     expect(revealedLabel.hasAttribute('disabled')).toBe(true);
     expect(revealedLabel.className).toContain('btn--dimmed');
@@ -400,7 +437,7 @@ describe('Drill', () => {
 
   it('hides Clear and the disclaimer once revealed', async () => {
     const inkSurface = fakeInkSurface();
-    renderDrill({ cards: [card('あ')], inkSurface });
+    renderDrill({ inkSurface });
 
     await inkSurface.landStroke();
     await fireEvent.click(reveal());
@@ -410,13 +447,12 @@ describe('Drill', () => {
   });
 
   it('resets to the single-cell layout on the next prompt after a graded reveal', async () => {
-    const cards = [card('し'), card('つ')];
-    renderDrill({ cards });
+    renderDrill();
 
     await fireEvent.click(reveal());
     await fireEvent.click(grade('Missed'));
 
-    expect(screen.getByText('2 / 2')).toBeTruthy();
+    expect(screen.getByText('2 / 46')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Reveal' }).hasAttribute('disabled')).toBe(false);
     expect(screen.queryByText('Yours')).toBeNull();
     expect(screen.queryByText('Reference')).toBeNull();
@@ -424,15 +460,14 @@ describe('Drill', () => {
   });
 
   it('resets to the single-cell layout after grading a reveal that started from written ink', async () => {
-    const cards = [card('し'), card('つ')];
     const inkSurface = fakeInkSurface();
-    renderDrill({ cards, inkSurface });
+    renderDrill({ inkSurface });
 
     await inkSurface.landStroke();
     await fireEvent.click(reveal());
     await fireEvent.click(grade('Correct'));
 
-    expect(screen.getByText('2 / 2')).toBeTruthy();
+    expect(screen.getByText('2 / 46')).toBeTruthy();
     expect(screen.queryByText('Yours')).toBeNull();
     expect(screen.queryByText('Reference')).toBeNull();
     expect(screen.getByRole('button', { name: 'Reveal' }).hasAttribute('disabled')).toBe(false);
@@ -442,9 +477,11 @@ describe('Drill', () => {
   // Story 1.5: an Attempt is persisted on every grade.
   describe('attempt recording', () => {
     it('persists an attempt with every required field when graded after writing', async () => {
+      const cards = cardsInScope([...CARDS], HIRAGANA_BASE_SCOPE);
       const inkSurface = fakeInkSurface();
       const attemptRepository = fakeAttemptRepository();
-      renderDrill({ cards: [card('し')], inkSurface, attemptRepository });
+      renderDrill({ inkSurface, attemptRepository });
+      const target = currentCard(cards);
 
       await inkSurface.landStroke({ widthPreset: 'calligraphy' });
       await fireEvent.click(grade('Correct'));
@@ -454,7 +491,7 @@ describe('Drill', () => {
       const attempt = attemptRepository.adds[0]!;
       expect(attempt.id).toEqual(expect.any(String));
       expect(attempt.sessionId).toEqual(expect.any(String));
-      expect(attempt.cardId).toBe(card('し').cardId);
+      expect(attempt.cardId).toBe(target.cardId);
       // ISO-8601.
       expect(attempt.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
       expect(attempt.strokeCount).toBe(1);
@@ -469,7 +506,7 @@ describe('Drill', () => {
     it('persists a Missed grade as selfGrade "incorrect"', async () => {
       const inkSurface = fakeInkSurface();
       const attemptRepository = fakeAttemptRepository();
-      renderDrill({ cards: [card('し')], inkSurface, attemptRepository });
+      renderDrill({ inkSurface, attemptRepository });
 
       await inkSurface.landStroke();
       await fireEvent.click(grade('Missed'));
@@ -480,7 +517,7 @@ describe('Drill', () => {
 
     it('persists strokeCount 0, empty strokes, and revealUsed true when graded from a blank reveal', async () => {
       const attemptRepository = fakeAttemptRepository();
-      renderDrill({ cards: [card('し')], attemptRepository });
+      renderDrill({ attemptRepository });
 
       await fireEvent.click(reveal());
       await fireEvent.click(grade('Correct'));
@@ -499,7 +536,7 @@ describe('Drill', () => {
     it('persists only the post-Clear stroke(s) when ink is cleared and rewritten before grading', async () => {
       const inkSurface = fakeInkSurface();
       const attemptRepository = fakeAttemptRepository();
-      renderDrill({ cards: [card('し')], inkSurface, attemptRepository });
+      renderDrill({ inkSurface, attemptRepository });
 
       await inkSurface.landStroke({ x: 0.1, y: 0.1 });
       await fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
@@ -520,10 +557,8 @@ describe('Drill', () => {
       const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
       const inkSurface = fakeInkSurface();
       const attemptRepository = fakeAttemptRepository({ ok: false, error: new Error('write failed') });
-      const cards = [card('し'), card('つ')];
-      renderDrill({ cards, inkSurface, attemptRepository });
+      renderDrill({ inkSurface, attemptRepository });
 
-      const first = screen.getByText(/^(shi|tsu)$/).textContent;
       await inkSurface.landStroke();
       await fireEvent.click(grade('Correct'));
       await tick();
@@ -532,8 +567,7 @@ describe('Drill', () => {
       await tick();
 
       // The screen still advances -- persistence never blocks the next card.
-      expect(screen.getByText('2 / 2')).toBeTruthy();
-      expect(screen.getByText(/^(shi|tsu)$/).textContent).not.toBe(first);
+      expect(screen.getByText('2 / 46')).toBeTruthy();
       expect(consoleError).toHaveBeenCalled();
 
       consoleError.mockRestore();
@@ -544,8 +578,7 @@ describe('Drill', () => {
       const inkSurface = fakeInkSurface();
       const attemptRepository = fakeAttemptRepository();
       attemptRepository.add = () => Promise.reject(new Error('connection lost'));
-      const cards = [card('し'), card('つ')];
-      renderDrill({ cards, inkSurface, attemptRepository });
+      renderDrill({ inkSurface, attemptRepository });
 
       await inkSurface.landStroke();
       await fireEvent.click(grade('Correct'));
@@ -554,7 +587,7 @@ describe('Drill', () => {
       await Promise.resolve();
       await tick();
 
-      expect(screen.getByText('2 / 2')).toBeTruthy();
+      expect(screen.getByText('2 / 46')).toBeTruthy();
       expect(consoleError).toHaveBeenCalledWith('Failed to persist attempt:', expect.any(Error));
 
       consoleError.mockRestore();
@@ -563,7 +596,7 @@ describe('Drill', () => {
     it('persists revealUsed: true alongside a nonzero strokeCount when Reveal is tapped after writing', async () => {
       const inkSurface = fakeInkSurface();
       const attemptRepository = fakeAttemptRepository();
-      renderDrill({ cards: [card('し')], inkSurface, attemptRepository });
+      renderDrill({ inkSurface, attemptRepository });
 
       await inkSurface.landStroke();
       await fireEvent.click(reveal());
@@ -578,10 +611,9 @@ describe('Drill', () => {
     });
 
     it("leaves a graded attempt's persisted strokes untouched once the next card accumulates its own", async () => {
-      const cards = [card('し'), card('つ')];
       const inkSurface = fakeInkSurface();
       const attemptRepository = fakeAttemptRepository();
-      renderDrill({ cards, inkSurface, attemptRepository });
+      renderDrill({ inkSurface, attemptRepository });
 
       await inkSurface.landStroke({ x: 0.2, y: 0.2 });
       await fireEvent.click(grade('Correct'));
@@ -605,10 +637,11 @@ describe('Drill', () => {
   // never touches it.
   describe('miss tally', () => {
     it('calls increment(cardId) exactly once when graded Missed', async () => {
+      const cards = cardsInScope([...CARDS], HIRAGANA_BASE_SCOPE);
       const inkSurface = fakeInkSurface();
       const tallyRepository = fakeTallyRepository();
-      const target = card('し');
-      renderDrill({ cards: [target], inkSurface, tallyRepository });
+      renderDrill({ inkSurface, tallyRepository });
+      const target = currentCard(cards);
 
       await inkSurface.landStroke();
       await fireEvent.click(grade('Missed'));
@@ -618,14 +651,12 @@ describe('Drill', () => {
     });
 
     it('increments the graded card, not the next prompt, in a multi-card scope', async () => {
+      const cards = cardsInScope([...CARDS], HIRAGANA_BASE_SCOPE);
       const inkSurface = fakeInkSurface();
       const tallyRepository = fakeTallyRepository();
-      const cards = [card('し'), card('つ')];
-      renderDrill({ cards, inkSurface, tallyRepository });
+      renderDrill({ inkSurface, tallyRepository });
+      const graded = currentCard(cards);
 
-      const first = screen.getByText(/^(shi|tsu)$/).textContent;
-      const graded = cards.find((c) => c.romaji === first);
-      if (!graded) throw new Error('no card matches the displayed prompt');
       await inkSurface.landStroke();
       await fireEvent.click(grade('Missed'));
       await tick();
@@ -636,7 +667,7 @@ describe('Drill', () => {
     it('never calls increment when graded Correct', async () => {
       const inkSurface = fakeInkSurface();
       const tallyRepository = fakeTallyRepository();
-      renderDrill({ cards: [card('し')], inkSurface, tallyRepository });
+      renderDrill({ inkSurface, tallyRepository });
 
       await inkSurface.landStroke();
       await fireEvent.click(grade('Correct'));
@@ -649,10 +680,8 @@ describe('Drill', () => {
       const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
       const inkSurface = fakeInkSurface();
       const tallyRepository = fakeTallyRepository({ ok: false, error: new Error('write failed') });
-      const cards = [card('し'), card('つ')];
-      renderDrill({ cards, inkSurface, tallyRepository });
+      renderDrill({ inkSurface, tallyRepository });
 
-      const first = screen.getByText(/^(shi|tsu)$/).textContent;
       await inkSurface.landStroke();
       await fireEvent.click(grade('Missed'));
       await tick();
@@ -660,8 +689,7 @@ describe('Drill', () => {
       await Promise.resolve();
       await tick();
 
-      expect(screen.getByText('2 / 2')).toBeTruthy();
-      expect(screen.getByText(/^(shi|tsu)$/).textContent).not.toBe(first);
+      expect(screen.getByText('2 / 46')).toBeTruthy();
       expect(consoleError).toHaveBeenCalledWith('Failed to increment tally:', expect.any(Error));
 
       consoleError.mockRestore();
@@ -672,8 +700,7 @@ describe('Drill', () => {
       const inkSurface = fakeInkSurface();
       const tallyRepository = fakeTallyRepository();
       tallyRepository.increment = () => Promise.reject(new Error('connection lost'));
-      const cards = [card('し'), card('つ')];
-      renderDrill({ cards, inkSurface, tallyRepository });
+      renderDrill({ inkSurface, tallyRepository });
 
       await inkSurface.landStroke();
       await fireEvent.click(grade('Missed'));
@@ -682,10 +709,78 @@ describe('Drill', () => {
       await Promise.resolve();
       await tick();
 
-      expect(screen.getByText('2 / 2')).toBeTruthy();
+      expect(screen.getByText('2 / 46')).toBeTruthy();
       expect(consoleError).toHaveBeenCalledWith('Failed to increment tally:', expect.any(Error));
 
       consoleError.mockRestore();
+    });
+  });
+
+  // Story 1.7: weak-spot-biased selection replaces uniform random.
+  describe('weak-spot-biased selection', () => {
+    it('seeds sessionAttempts from the attempts prop so history feeds the very first prompt, not just later picks', () => {
+      // A large, recent miss history for one arbitrary in-scope card
+      // dominates the weighted draw (weight ~1001 vs. every other card's
+      // floor of 1, out of a 46-card scope) -- a mid-range RNG draw (0.5)
+      // reliably lands in that card's cumulative slice regardless of its
+      // position in the catalog. This only happens if the initial pick at
+      // mount actually reads the seeded `attempts` prop, not just picks
+      // made after a grade.
+      const cards = cardsInScope([...CARDS], HIRAGANA_BASE_SCOPE);
+      const heavy = cards[10]!;
+      const attempts: Attempt[] = Array.from({ length: 1000 }, (_, i) => ({
+        id: `seed-${i}`,
+        sessionId: 'prior-session',
+        cardId: heavy.cardId,
+        timestamp: new Date().toISOString(),
+        timeToFirstStrokeMs: 100,
+        totalTimeMs: 200,
+        strokeCount: 1,
+        revealUsed: false,
+        selfGrade: 'incorrect',
+        strokes: [],
+      }));
+      const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+
+      renderDrill({ attempts });
+
+      expect(currentCard(cards)).toBe(heavy);
+
+      randomSpy.mockRestore();
+    });
+
+    it('never re-fetches attempts mid-session -- listAll() is not part of this component', () => {
+      // Drill takes `attempts` as a prop, seeded once from the composition
+      // root; it has no repository call of its own to load attempt history.
+      const attemptRepository = fakeAttemptRepository();
+      const listAllSpy = vi.spyOn(attemptRepository, 'listAll');
+      renderDrill({ attemptRepository });
+
+      expect(listAllSpy).not.toHaveBeenCalled();
+    });
+
+    it('can repeat the same card back-to-back (no previous-card exclusion)', async () => {
+      // A single Correct grade contributes zero score (a correct attempt
+      // never adds weight), so the weighted distribution is identical
+      // before and after it -- every candidate stays at its floor weight of
+      // 1. With Math.random() pinned to the same value both times, the
+      // cumulative-weight walk deterministically lands on the same card
+      // twice in a row, which only happens if `selectNext` never excludes
+      // the just-graded card (Story 1.7 supersedes Story 1.3's
+      // never-repeats-the-previous-card behavior).
+      const cards = cardsInScope([...CARDS], HIRAGANA_BASE_SCOPE);
+      const inkSurface = fakeInkSurface();
+      const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.4);
+      renderDrill({ inkSurface });
+      const first = currentCard(cards);
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Correct'));
+
+      expect(currentCard(cards)).toBe(first);
+      expect(screen.getByText('2 / 46')).toBeTruthy();
+
+      randomSpy.mockRestore();
     });
   });
 });

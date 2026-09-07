@@ -4,9 +4,11 @@
   // local routing. Pill-toggle groups commit immediately (no confirm step)
   // and drive a live card-count recompute -- see EXPERIENCE.md's Component
   // Patterns and this story's frozen Intent.
-  import { untrack } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import type { CardRepository } from '../../ports/card-repository';
+  import type { TallyRepository } from '../../ports/tally-repository';
   import { cardsInScope, FULL_SCOPE, type Scope } from '../../domain/scope';
+  import { countShaky, type Tally } from '../../domain/tally';
   import type { Script, CardKind } from '../../domain/cards';
 
   function capitalize(value: string): string {
@@ -15,7 +17,11 @@
 
   interface Props {
     cardRepository: CardRepository;
-    onStart: (scope: Scope) => void;
+    tallyRepository: TallyRepository;
+    /** The composition root's `handleStart` is `async` (it awaits
+     * `listAll()` before entering the drill) -- `void | Promise<void>`
+     * reflects that without forcing this component to await it itself. */
+    onStart: (scope: Scope) => void | Promise<void>;
     onSettings: () => void;
     /** Seeds the pill groups on mount. This screen is unmounted whenever the
      * drill or Settings is open, so the composition root -- not this
@@ -27,11 +33,27 @@
 
   const {
     cardRepository,
+    tallyRepository,
     onStart,
     onSettings,
     initialScope,
     onScopeChange,
   }: Props = $props();
+
+  // Fetched once on mount, fails open to `[]` -- mirrors `App.svelte`'s
+  // settings-read fallback (Story 1.7's I/O matrix: a tally-fetch failure
+  // still shows "0 shaky" rather than blocking the Scope picker).
+  let tallies = $state<Tally[]>([]);
+  onMount(() => {
+    void tallyRepository
+      .getAll()
+      .then((result) => {
+        if (result.ok) tallies = result.value;
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to load tallies:', error);
+      });
+  });
 
   // `$derived`, not a plain top-level read, so Svelte doesn't warn about
   // capturing only `cardRepository`'s initial value (state_referenced_locally)
@@ -71,6 +93,11 @@
   });
 
   const scopedCount = $derived(cardsInScope(allCards, scope).length);
+
+  // Informational only (Story 1.7's Boundaries & Constraints): recomputed
+  // live on every script/set toggle, but never fed back into `selectNext`'s
+  // weighting.
+  const shakyCount = $derived(countShaky(cardsInScope(allCards, scope), tallies));
 
   // Chip labels are derived from `scope` itself, not re-branched from
   // `scriptChoice`/`setChoice` a second time, so the chips the learner sees
@@ -188,6 +215,7 @@
         {#each setChipLabels as label (label)}
           <span class="chip chip--positive">{label}</span>
         {/each}
+        <span class="chip chip--missed">{shakyCount} shaky</span>
       </div>
     </div>
 
@@ -331,6 +359,11 @@
   .chip--positive {
     background: var(--color-positive-bg);
     color: var(--color-positive-fg);
+  }
+
+  .chip--missed {
+    background: var(--color-missed-bg);
+    color: var(--color-missed-fg);
   }
 
   .btn {
