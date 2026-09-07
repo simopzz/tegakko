@@ -2,7 +2,8 @@ import 'fake-indexeddb/auto';
 import { openDB } from 'idb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IdbTallyRepository } from './tally-repository';
-import { DB_NAME } from './db';
+import { ATTEMPTS_STORE, DB_NAME, openTegakkoDb, SETTINGS_STORE } from './db';
+import { DEFAULT_SETTINGS } from '../../domain/settings';
 
 function resetDb(): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -112,6 +113,19 @@ describe('IdbTallyRepository', () => {
         db.createObjectStore('attempts', { keyPath: 'id' });
       },
     });
+    await legacyDb.put('settings', { ...DEFAULT_SETTINGS, penCheckShown: true }, 'singleton');
+    await legacyDb.put('attempts', {
+      id: 'seed-attempt-1',
+      sessionId: 'seed-session-1',
+      cardId: 'あ:hiragana',
+      timestamp: new Date(0).toISOString(),
+      timeToFirstStrokeMs: 100,
+      totalTimeMs: 200,
+      strokeCount: 0,
+      revealUsed: false,
+      selfGrade: 'incorrect',
+      strokes: [],
+    });
     legacyDb.close();
 
     const repo = new IdbTallyRepository();
@@ -120,6 +134,15 @@ describe('IdbTallyRepository', () => {
     // The v2->v3 upgrade must have fired and created `tallies`, or this
     // rejects/fails instead of succeeding.
     expect(result).toEqual({ ok: true, value: undefined });
+
+    // The upgrade must not have disturbed the pre-existing stores' rows.
+    const db = await openTegakkoDb();
+    try {
+      expect(await db.get(SETTINGS_STORE, 'singleton')).toMatchObject({ penCheckShown: true });
+      expect((await db.get(ATTEMPTS_STORE, 'seed-attempt-1'))?.cardId).toBe('あ:hiragana');
+    } finally {
+      db.close();
+    }
   });
 });
 

@@ -596,6 +596,22 @@ describe('Drill', () => {
       expect(tallyRepository.increments).toEqual([target.cardId]);
     });
 
+    it('increments the graded card, not the next prompt, in a multi-card scope', async () => {
+      const inkSurface = fakeInkSurface();
+      const tallyRepository = fakeTallyRepository();
+      const cards = [card('し'), card('つ')];
+      renderDrill({ cards, inkSurface, tallyRepository });
+
+      const first = screen.getByText(/^(shi|tsu)$/).textContent;
+      const graded = cards.find((c) => c.romaji === first);
+      if (!graded) throw new Error('no card matches the displayed prompt');
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Missed'));
+      await tick();
+
+      expect(tallyRepository.increments).toEqual([graded.cardId]);
+    });
+
     it('never calls increment when graded Correct', async () => {
       const inkSurface = fakeInkSurface();
       const tallyRepository = fakeTallyRepository();
@@ -625,6 +641,27 @@ describe('Drill', () => {
 
       expect(screen.getByText('2 / 2')).toBeTruthy();
       expect(screen.getByText(/^(shi|tsu)$/).textContent).not.toBe(first);
+      expect(consoleError).toHaveBeenCalledWith('Failed to increment tally:', expect.any(Error));
+
+      consoleError.mockRestore();
+    });
+
+    it('advances and logs via console.error when increment() rejects instead of resolving a Result', async () => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const inkSurface = fakeInkSurface();
+      const tallyRepository = fakeTallyRepository();
+      tallyRepository.increment = () => Promise.reject(new Error('connection lost'));
+      const cards = [card('し'), card('つ')];
+      renderDrill({ cards, inkSurface, tallyRepository });
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Missed'));
+      await tick();
+      // Flush the rejected (never-thrown) promise the failed increment() returns.
+      await Promise.resolve();
+      await tick();
+
+      expect(screen.getByText('2 / 2')).toBeTruthy();
       expect(consoleError).toHaveBeenCalledWith('Failed to increment tally:', expect.any(Error));
 
       consoleError.mockRestore();

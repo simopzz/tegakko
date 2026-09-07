@@ -149,9 +149,14 @@
     // Correct (Boundaries & Constraints). Same never-awaited pattern as the
     // attempt write above: persistence must not block advancing.
     if (grade === 'incorrect') {
-      void tallyRepository.increment(card.cardId).then((result) => {
-        if (!result.ok) console.error('Failed to increment tally:', result.error);
-      });
+      void tallyRepository
+        .increment(card.cardId)
+        .then((result) => {
+          if (!result.ok) console.error('Failed to increment tally:', result.error);
+        })
+        .catch((error: unknown) => {
+          console.error('Failed to increment tally:', error);
+        });
     }
 
     // No toast is shown (Story 1.8 owns that) -- a grade only advances.

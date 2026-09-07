@@ -1,7 +1,7 @@
 // Shared IndexedDB opener for every persistence adapter (Story 1.5).
 //
 // `settings`, `attempts`, and `tallies` are one `tegakko` database at one shared version
-// -- two independently-versioned `openDB` calls against the same DB name
+// -- separately-versioned `openDB` calls against the same DB name
 // would risk a `VersionError` the instant either repository bumps its own
 // version, so this file is the one place the schema and the version number
 // are declared, and every repository opens through `openTegakkoDb()` rather

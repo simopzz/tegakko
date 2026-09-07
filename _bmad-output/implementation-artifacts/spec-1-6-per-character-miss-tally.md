@@ -101,3 +101,23 @@ context: [
 
 **Manual checks (if no CLI):**
 - In a browser, grade a card Missed twice and once Correct, reload, and inspect IndexedDB devtools to confirm the `tallies` store holds `{cardId, missCount: 2}` for that card and no record changed on the Correct grade.
+
+### Review Findings (code review 2026-09-07, branch `feat/1-6-per-character-miss-tally` @ `60afffe`, 4 layers, 20 raw findings)
+
+- [x] [Review][Patch] Rejected `increment()` promise is never logged (AC4 violation) [src/adapters/ui/Drill.svelte:152] — `void tallyRepository.increment(...).then(...)` has no `.catch()`, so a rejection becomes an unhandled rejection instead of the `console.error` AC4 (`rejects or resolves {ok:false}`) and the I/O-matrix row require; the failure test only injects `{ok:false}`, never a `mockRejectedValue`.
+- [x] [Review][Patch] Miss-tally test cannot catch a wrong-card regression [src/adapters/ui/Drill.test.ts:597] — the increment-on-Missed test uses a single-card scope where `pickRandomCard` repeats the same card, and the two-card failure test never asserts `increments` contents; moving the `increment` call after the `card = pickRandomCard(...)` reassignment stays green while attributing every multi-card Missed to the wrong kana.
+- [x] [Review][Patch] `db.ts` header comment still says "two" versioned `openDB` calls [src/adapters/persistence/db.ts:4] — first line was updated to three stores, but the rationale line below still reads "`two` independently-versioned `openDB` calls".
+- [x] [Review][Patch] Migration test does not prove pre-existing data survives v2->v3 [src/adapters/persistence/tally-repository.test.ts:316] — asserts `increment()` succeeds against an upgraded legacy db but never reads back the pre-seeded `settings`/`attempts` rows.
+- [x] [Review][Defer] `resetDb()` resolves on `onblocked`, risking stale-db cross-test pollution [src/adapters/persistence/tally-repository.test.ts:218] — deferred: pre-existing shared pattern (identical in `attempt-repository.test.ts` and `settings-repository.test.ts`); all repository impls close connections in `finally`, so `blocked` is unlikely; fix belongs as one shared test helper, not in this story alone.
+- [x] [Review][Defer] No `blocked`/`versionchange` handling on the `DB_VERSION` upgrade [src/adapters/persistence/db.ts:45] — deferred: pre-existing since the 1->2 bump, affects all three stores equally; already tracked in `deferred-work.md` (2026-09-07 entry). This pass adds: a `blocked` handler alone is insufficient — old connections must also close on `versionchange`, otherwise the upgrade can never proceed.
+
+**Rejected:**
+- `false` — decrement zero-row "unbounded growth": store is bounded by the 158-card catalog and the spec matrix explicitly mandates clamp-at-zero.
+- `false` — missing `cardId` shape check (blind + edge): `cardId` comes from the static catalog's natural key via `card.cardId`; no caller can produce an empty id.
+- `false` — attempts/tallies divergence on split failure: spec mandates independent fire-and-forget writes for both; cross-repo atomicity is out of scope (undo owns consistency in 1.8).
+- `false` — corrupt/NaN `missCount` propagation (x2): no writer can produce a non-integer count; only this repository writes the store, always with numeric literals.
+- `false` — undefined `tallyRepository` prop crash: prop is type-required and the composition root passes it; reachable only via contract violation.
+- `false` — synchronous-throw guard on `void ...then(...)`: `async` methods convert sync throws to rejections; fakes return promises.
+- `false` — AC2 "before the next prompt" literal sequencing (acceptance): code correctly implements the Boundaries "do not block advancing" intent (same as `attemptRepository.add`); wording-only, same verdict as triage #10.
+- `low` rejected — v1->v3 direct-upgrade test: `contains` guards handle any version jump provably; a v1 install skipping 1.5 is unlikely and the test adds setup for no new information.
+- spec-edit rejected — spec frontmatter `status: done` / `iteration: 0` vs sprint-status `review` + triage log: real mismatch, but the fix edits the spec under review, out of scope for a code loopback.
