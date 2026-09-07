@@ -19,17 +19,19 @@
   import type { Stroke } from '../../domain/ink';
   import type { Attempt, SelfGrade } from '../../domain/attempt';
   import type { AttemptRepository } from '../../ports/attempt-repository';
+  import type { TallyRepository } from '../../ports/tally-repository';
   import { pickRandomCard } from '../../domain/drill';
 
   interface Props {
     cards: Card[];
     inkSurface: InkSurface;
     attemptRepository: AttemptRepository;
+    tallyRepository: TallyRepository;
     /** Temporary: Story 1.9's "I'm done" replaces or absorbs this control. */
     onBack: () => void;
   }
 
-  const { cards, inkSurface, attemptRepository, onBack }: Props = $props();
+  const { cards, inkSurface, attemptRepository, tallyRepository, onBack }: Props = $props();
 
   // Minted once per drill entry -- the composition root builds a fresh
   // component per entry (same lifetime as `card`, below), so this is stable
@@ -139,9 +141,28 @@
       selfGrade: grade,
       strokes,
     };
-    void attemptRepository.add(attempt).then((result) => {
-      if (!result.ok) console.error('Failed to persist attempt:', result.error);
-    });
+    void attemptRepository
+      .add(attempt)
+      .then((result) => {
+        if (!result.ok) console.error('Failed to persist attempt:', result.error);
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to persist attempt:', error);
+      });
+
+    // Every self-graded Missed bumps the card's running miss tally -- never
+    // Correct (Boundaries & Constraints). Same never-awaited pattern as the
+    // attempt write above: persistence must not block advancing.
+    if (grade === 'incorrect') {
+      void tallyRepository
+        .increment(card.cardId)
+        .then((result) => {
+          if (!result.ok) console.error('Failed to increment tally:', result.error);
+        })
+        .catch((error: unknown) => {
+          console.error('Failed to increment tally:', error);
+        });
+    }
 
     // No toast is shown (Story 1.8 owns that) -- a grade only advances.
     card = pickRandomCard(cards, card);

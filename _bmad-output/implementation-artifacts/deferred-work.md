@@ -76,3 +76,18 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-3-write-from-memory-drill-loop-ink-width-setting.md`
   summary: `epic-1-context.md`'s rewrite drops the scope/full-scope-completion link and the quantified 5-minute idle default (same item already tracked above; re-flagged independently in this review pass).
   evidence: Confirmed still present and unresolved as of this diff. Pre-existing at `baseline_commit`, not caused by this change; fix requires editing an agent-context file, so it stays deferred here as well rather than being patched.
+
+## Deferred from: code review of spec-1-6-per-character-miss-tally, review pass (2026-09-07)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-6-per-character-miss-tally.md`
+  summary: `resetDb()` in persistence tests resolves on `onblocked`, so a blocked `deleteDatabase` can let the next test run against a stale database.
+  evidence: Identical `req.onblocked = () => resolve()` pattern in `tally-repository.test.ts:218`, `attempt-repository.test.ts`, and `settings-repository.test.ts`. Pre-existing shared pattern (not introduced by Story 1.6); all repository impls close connections in `finally`, so `blocked` is unlikely. Fix belongs once as a shared test helper (retry/wait instead of resolve), not per story file.
+  severity: low (unverified in practice).
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-6-per-character-miss-tally.md`
+  summary: Amendment to the sibling 2026-09-07 `blocked`-handler entry below: a `blocked` handler alone is insufficient — open connections must also close on `versionchange`, otherwise the upgrade can never proceed.
+  evidence: `db.ts`'s `openDB()` defines only `upgrade()`. Same pre-existing scope (all three stores, since 1->2); folds into the existing entry's fix, recorded separately so the retry/close half is not lost.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-6-per-character-miss-tally.md`
+  summary: `openTegakkoDb()` in `db.ts` has no `blocked` handler, so a stale IndexedDB connection held open in another tab can hang the `DB_VERSION` upgrade -- and every persistence call -- indefinitely with no error surfaced.
+  evidence: `db.ts`'s `openDB()` call defines only `upgrade()`, not `blocked()`. Pre-existing since the 1->2 bump (Story 1.5), not introduced by Story 1.6's 2->3 bump; affects `settings`/`attempts`/`tallies` equally, so the fix belongs once in `db.ts` for all three stores, not in a single story's diff. Low likelihood for a typically single-instance installed PWA, but the consequence (an indefinite, silent hang) is severe if two tabs/windows are ever open simultaneously across a version bump.
