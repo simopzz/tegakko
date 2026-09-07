@@ -76,3 +76,9 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-3-write-from-memory-drill-loop-ink-width-setting.md`
   summary: `epic-1-context.md`'s rewrite drops the scope/full-scope-completion link and the quantified 5-minute idle default (same item already tracked above; re-flagged independently in this review pass).
   evidence: Confirmed still present and unresolved as of this diff. Pre-existing at `baseline_commit`, not caused by this change; fix requires editing an agent-context file, so it stays deferred here as well rather than being patched.
+
+## Deferred from: code review of spec-1-6-per-character-miss-tally (2026-09-07)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-6-per-character-miss-tally.md`
+  summary: `openTegakkoDb()` in `db.ts` has no `blocked` handler, so a stale IndexedDB connection held open in another tab can hang the `DB_VERSION` upgrade -- and every persistence call -- indefinitely with no error surfaced.
+  evidence: `db.ts`'s `openDB()` call defines only `upgrade()`, not `blocked()`. Pre-existing since the 1->2 bump (Story 1.5), not introduced by Story 1.6's 2->3 bump; affects `settings`/`attempts`/`tallies` equally, so the fix belongs once in `db.ts` for all three stores, not in a single story's diff. Low likelihood for a typically single-instance installed PWA, but the consequence (an indefinite, silent hang) is severe if two tabs/windows are ever open simultaneously across a version bump.

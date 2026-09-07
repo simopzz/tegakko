@@ -8,6 +8,7 @@ import type { Stroke, StrokeTiming } from '../../domain/ink';
 import type { WidthPreset } from '../../domain/settings';
 import type { Attempt } from '../../domain/attempt';
 import type { AttemptRepository } from '../../ports/attempt-repository';
+import type { TallyRepository } from '../../ports/tally-repository';
 import type { Result } from '../../domain/result';
 
 // A `ui` adapter must never import a sibling adapter's implementation (AD-1),
@@ -85,6 +86,31 @@ function fakeAttemptRepository(
   };
 }
 
+/** Fakes `TallyRepository`, recording every `increment()`/`decrement()` call
+ * -- mirrors `fakeAttemptRepository` above, against
+ * `ports/tally-repository.ts`. */
+function fakeTallyRepository(
+  incrementResult: Result<void> = { ok: true, value: undefined },
+): TallyRepository & { increments: string[]; decrements: string[] } {
+  const increments: string[] = [];
+  const decrements: string[] = [];
+  return {
+    increments,
+    decrements,
+    getAll() {
+      return Promise.resolve({ ok: true, value: [] });
+    },
+    increment(cardId: string) {
+      increments.push(cardId);
+      return Promise.resolve(incrementResult);
+    },
+    decrement(cardId: string) {
+      decrements.push(cardId);
+      return Promise.resolve({ ok: true, value: undefined });
+    },
+  };
+}
+
 function card(grapheme: string): Card {
   const found = CARDS.find((c) => c.grapheme === grapheme);
   if (!found) throw new Error(`no card for ${grapheme}`);
@@ -104,15 +130,17 @@ function renderDrill(
     cards?: Card[];
     inkSurface?: ReturnType<typeof fakeInkSurface>;
     attemptRepository?: ReturnType<typeof fakeAttemptRepository>;
+    tallyRepository?: ReturnType<typeof fakeTallyRepository>;
     onBack?: () => void;
   } = {},
 ) {
   const cards = overrides.cards ?? [card('あ')];
   const inkSurface = overrides.inkSurface ?? fakeInkSurface();
   const attemptRepository = overrides.attemptRepository ?? fakeAttemptRepository();
+  const tallyRepository = overrides.tallyRepository ?? fakeTallyRepository();
   const onBack = overrides.onBack ?? vi.fn();
-  const result = render(Drill, { cards, inkSurface, attemptRepository, onBack });
-  return { ...result, cards, inkSurface, attemptRepository, onBack };
+  const result = render(Drill, { cards, inkSurface, attemptRepository, tallyRepository, onBack });
+  return { ...result, cards, inkSurface, attemptRepository, tallyRepository, onBack };
 }
 
 describe('Drill', () => {
@@ -549,6 +577,57 @@ describe('Drill', () => {
 
       expect(firstAttempt.strokes).toEqual(firstStrokesSnapshot);
       expect(firstAttempt.strokes).toHaveLength(1);
+    });
+  });
+
+  // Story 1.6: every self-graded Missed bumps the card's tally; Correct
+  // never touches it.
+  describe('miss tally', () => {
+    it('calls increment(cardId) exactly once when graded Missed', async () => {
+      const inkSurface = fakeInkSurface();
+      const tallyRepository = fakeTallyRepository();
+      const target = card('し');
+      renderDrill({ cards: [target], inkSurface, tallyRepository });
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Missed'));
+      await tick();
+
+      expect(tallyRepository.increments).toEqual([target.cardId]);
+    });
+
+    it('never calls increment when graded Correct', async () => {
+      const inkSurface = fakeInkSurface();
+      const tallyRepository = fakeTallyRepository();
+      renderDrill({ cards: [card('し')], inkSurface, tallyRepository });
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Correct'));
+      await tick();
+
+      expect(tallyRepository.increments).toEqual([]);
+    });
+
+    it('advances and logs a tally persistence failure via console.error, without blocking', async () => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const inkSurface = fakeInkSurface();
+      const tallyRepository = fakeTallyRepository({ ok: false, error: new Error('write failed') });
+      const cards = [card('し'), card('つ')];
+      renderDrill({ cards, inkSurface, tallyRepository });
+
+      const first = screen.getByText(/^(shi|tsu)$/).textContent;
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Missed'));
+      await tick();
+      // Flush the resolved (never-thrown) promise the failed increment() returns.
+      await Promise.resolve();
+      await tick();
+
+      expect(screen.getByText('2 / 2')).toBeTruthy();
+      expect(screen.getByText(/^(shi|tsu)$/).textContent).not.toBe(first);
+      expect(consoleError).toHaveBeenCalledWith('Failed to increment tally:', expect.any(Error));
+
+      consoleError.mockRestore();
     });
   });
 });
