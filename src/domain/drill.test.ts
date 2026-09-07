@@ -1,10 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { selectNext } from './drill';
+import { selectNext, undoLastGrade } from './drill';
 import { CARDS } from './cards';
 import { cardsInScope } from './scope';
 import type { Card } from './cards';
 import type { Attempt } from './attempt';
 import type { Scope } from './scope';
+import type { AttemptRepository } from '../ports/attempt-repository';
+import type { TallyRepository } from '../ports/tally-repository';
+import type { Result } from './result';
+import { ok, err } from './result';
 
 const SCOPE: Scope = { scripts: ['hiragana'], units: ['base'] };
 
@@ -181,5 +185,81 @@ describe('selectNext', () => {
       const r = (i % 100) / 100;
       expect(ids.has(selectNext([], SCOPE, () => r).cardId)).toBe(true);
     }
+  });
+});
+
+function fakeAttemptRepository(
+  deleteLastResult: Result<void> = ok(undefined),
+): AttemptRepository & { deleteLastCalls: string[] } {
+  const deleteLastCalls: string[] = [];
+  return {
+    deleteLastCalls,
+    add: () => Promise.resolve(ok(undefined)),
+    listBySession: () => Promise.resolve(ok([])),
+    listAll: () => Promise.resolve(ok([])),
+    deleteLast: (sessionId: string) => {
+      deleteLastCalls.push(sessionId);
+      return Promise.resolve(deleteLastResult);
+    },
+  };
+}
+
+function fakeTallyRepository(
+  decrementResult: Result<void> = ok(undefined),
+): TallyRepository & { decrementCalls: string[] } {
+  const decrementCalls: string[] = [];
+  return {
+    decrementCalls,
+    getAll: () => Promise.resolve(ok([])),
+    increment: () => Promise.resolve(ok(undefined)),
+    decrement: (cardId: string) => {
+      decrementCalls.push(cardId);
+      return Promise.resolve(decrementResult);
+    },
+  };
+}
+
+describe('undoLastGrade', () => {
+  it('deletes the last attempt and decrements the tally when the grade was incorrect', async () => {
+    const attemptRepository = fakeAttemptRepository();
+    const tallyRepository = fakeTallyRepository();
+
+    const result = await undoLastGrade('session-1', 'card-1', true, attemptRepository, tallyRepository);
+
+    expect(result.ok).toBe(true);
+    expect(attemptRepository.deleteLastCalls).toEqual(['session-1']);
+    expect(tallyRepository.decrementCalls).toEqual(['card-1']);
+  });
+
+  it('deletes only, without decrementing, when the grade was correct', async () => {
+    const attemptRepository = fakeAttemptRepository();
+    const tallyRepository = fakeTallyRepository();
+
+    const result = await undoLastGrade('session-1', 'card-1', false, attemptRepository, tallyRepository);
+
+    expect(result.ok).toBe(true);
+    expect(attemptRepository.deleteLastCalls).toEqual(['session-1']);
+    expect(tallyRepository.decrementCalls).toEqual([]);
+  });
+
+  it('propagates a deleteLast failure without ever calling decrement', async () => {
+    const failure = err<void>(new Error('delete failed'));
+    const attemptRepository = fakeAttemptRepository(failure);
+    const tallyRepository = fakeTallyRepository();
+
+    const result = await undoLastGrade('session-1', 'card-1', true, attemptRepository, tallyRepository);
+
+    expect(result).toBe(failure);
+    expect(tallyRepository.decrementCalls).toEqual([]);
+  });
+
+  it('propagates a decrement failure', async () => {
+    const attemptRepository = fakeAttemptRepository();
+    const failure = err<void>(new Error('decrement failed'));
+    const tallyRepository = fakeTallyRepository(failure);
+
+    const result = await undoLastGrade('session-1', 'card-1', true, attemptRepository, tallyRepository);
+
+    expect(result).toBe(failure);
   });
 });

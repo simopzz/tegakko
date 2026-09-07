@@ -23,7 +23,9 @@
   import type { Attempt, SelfGrade } from '../../domain/attempt';
   import type { AttemptRepository } from '../../ports/attempt-repository';
   import type { TallyRepository } from '../../ports/tally-repository';
-  import { selectNext } from '../../domain/drill';
+  import type { Tally } from '../../domain/tally';
+  import type { Result } from '../../domain/result';
+  import { selectNext, undoLastGrade } from '../../domain/drill';
 
   interface Props {
     scope: Scope;
@@ -31,6 +33,10 @@
      * via `listAll()` at drill entry -- never re-fetched mid-session (Story
      * 1.7). */
     attempts: Attempt[];
+    /** Session-start tally snapshot from the composition root, loaded once
+     * via `getAll()` at drill entry -- mirrors `attempts` above, never
+     * re-fetched mid-session (Story 1.8). */
+    tallies: Tally[];
     inkSurface: InkSurface;
     attemptRepository: AttemptRepository;
     tallyRepository: TallyRepository;
@@ -38,7 +44,7 @@
     onBack: () => void;
   }
 
-  const { scope, attempts, inkSurface, attemptRepository, tallyRepository, onBack }: Props =
+  const { scope, attempts, tallies, inkSurface, attemptRepository, tallyRepository, onBack }: Props =
     $props();
 
   // `scope` is fixed for the lifetime of a drill entry (the composition root
@@ -65,6 +71,15 @@
   // (state_referenced_locally) about exactly that.
   const sessionAttempts: Attempt[] = untrack(() => [...attempts]);
 
+  // Plain, mirrors `sessionAttempts` above -- seeded once from the
+  // session-start `tallies` prop, updated in-memory as grades/undos happen,
+  // never re-fetched (Story 1.8's Boundaries & Constraints). Deliberately a
+  // plain `Map`, not `SvelteMap`: nothing renders from it directly (its only
+  // readers are `handleGrade`'s `tallyCount` computation and `handleUndo`'s
+  // decrement), so it needs no reactivity of its own.
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- plain, non-rendering lookup; see comment above.
+  const cardTallies = new Map(untrack(() => tallies.map((t) => [t.cardId, t.missCount])));
+
   // `untrack`: the first prompt is drawn once, at mount. `scope` is fixed for
   // the lifetime of a drill entry (the composition root builds a fresh
   // component per entry), so capturing its initial value is the intent --
@@ -76,6 +91,28 @@
   // grade alongside `hasInk`. Once true it unlocks Missed/Correct even from a
   // blank cell -- revealing nothing is itself an honest "I don't know".
   let revealed = $state(false);
+
+  // Story 1.8's deferred-advance toast. Set the instant a grade is submitted
+  // (`handleGrade`), cleared by either `handleUndo` or `handleNext`. While
+  // set, Missed/Correct/Reveal stay disabled and the prompt/ink/strokes are
+  // exactly as they were the instant the grade fired -- the advance itself
+  // (selectNext/clear/reset) is deferred to `handleNext`, so Undo needs no
+  // restore mechanism.
+  let graded = $state<{ cardId: string; grade: SelfGrade; tallyCount: number | null } | null>(
+    null,
+  );
+  // The in-flight `add()`/`increment()` promises fired by the grade `graded`
+  // describes -- `handleUndo` awaits both before calling `deleteLast`/
+  // `decrement`, so a fast Undo can never race the write it's meant to
+  // reverse (Boundaries & Constraints). Plain, not `$state`: nothing renders
+  // from these.
+  let pendingAttemptWrite: Promise<Result<void>> | undefined;
+  let pendingTallyWrite: Promise<Result<void>> | undefined;
+  // Guards `handleUndo` against re-entrancy: a double-tap on "Undo" (or a
+  // stray double keyboard activation) before its `await`s settle would
+  // otherwise pop `sessionAttempts` and call `undoLastGrade` twice for one
+  // grade (mirrors `App.svelte`'s `starting` guard on `handleStart`).
+  let undoing = $state(false);
 
   // Story 1.5's persistence locals. None of these render anything -- `hasInk`
   // above already drives the UI -- so they are plain `let`, not `$state`.
@@ -103,6 +140,13 @@
   // stops being the focused element, and most browsers drop focus to
   // `<body>` rather than leaving it on the control the user just pressed.
   let missedButton: HTMLButtonElement | undefined;
+  // Focus target after a grade fires and the toast appears: Missed/Correct
+  // become `disabled` the same way Reveal does above, so focus would
+  // otherwise drop to `<body>` right as two new controls (Undo/Next
+  // character) appear. `$state`, unlike `missedButton` above: this one binds
+  // inside a conditional (`{#if graded}`) block, so it's rebound/unbound on
+  // every toast show/hide rather than once at mount.
+  let undoButton: HTMLButtonElement | undefined = $state();
 
   onMount(() => {
     if (!cell) return;
@@ -164,11 +208,16 @@
       strokes,
     };
     // Appended synchronously, before the never-awaited persistence calls
-    // below, so `selectNext` (also below) always sees this attempt --
+    // below, so `selectNext` (in `handleNext`) always sees this attempt --
     // persistence must not gate what the in-memory history reflects.
     sessionAttempts.push(attempt);
-    void attemptRepository
-      .add(attempt)
+    // Captured (not awaited here) so `handleUndo` can await the same
+    // promise before calling `deleteLast` -- a fast Undo could otherwise
+    // race the write it's meant to reverse. The logging chain below still
+    // fires independently and never blocks advancing.
+    const attemptWrite = attemptRepository.add(attempt);
+    pendingAttemptWrite = attemptWrite;
+    void attemptWrite
       .then((result) => {
         if (!result.ok) console.error('Failed to persist attempt:', result.error);
       })
@@ -180,19 +229,42 @@
     // Correct (Boundaries & Constraints). Same never-awaited pattern as the
     // attempt write above: persistence must not block advancing.
     if (grade === 'incorrect') {
-      void tallyRepository
-        .increment(card.cardId)
+      const tallyWrite = tallyRepository.increment(card.cardId);
+      pendingTallyWrite = tallyWrite;
+      void tallyWrite
         .then((result) => {
           if (!result.ok) console.error('Failed to increment tally:', result.error);
         })
         .catch((error: unknown) => {
           console.error('Failed to increment tally:', error);
         });
+    } else {
+      pendingTallyWrite = undefined;
     }
 
-    // No toast is shown (Story 1.8 owns that) -- a grade only advances. Every
-    // in-scope card, including the one just graded, keeps a nonzero
-    // selection probability -- there is no previous-card exclusion.
+    // Defer the advance (selectNext/clear/reset) to `handleNext` -- the
+    // toast shows instead, offering Undo (always) and the new cumulative
+    // tally (only on Missed). Committed here (not just computed) so a later
+    // Missed grade on the same card this session reads the updated count
+    // instead of the stale pre-grade one -- `handleUndo`'s decrement is what
+    // reverses exactly this write.
+    let tallyCount: number | null = null;
+    if (grade === 'incorrect') {
+      tallyCount = (cardTallies.get(card.cardId) ?? 0) + 1;
+      cardTallies.set(card.cardId, tallyCount);
+    }
+    graded = { cardId: card.cardId, grade, tallyCount };
+    // Move focus onto Undo, the same way Reveal moves it onto Missed:
+    // Missed/Correct/Reveal just went `disabled`, and the toast's two
+    // controls are new to the page.
+    void tick().then(() => undoButton?.focus());
+  }
+
+  function handleNext(): void {
+    // Exactly the advance block that used to run at the end of `handleGrade`
+    // (Story 1.8 defers it to here). Every in-scope card, including the one
+    // just graded, keeps a nonzero selection probability -- there is no
+    // previous-card exclusion.
     card = selectNext(sessionAttempts, scope);
     position += 1;
     revealed = false;
@@ -201,6 +273,72 @@
     strokes = [];
     firstStrokeStartedAt = undefined;
     promptShownAt = performance.now();
+    graded = null;
+    pendingAttemptWrite = undefined;
+    pendingTallyWrite = undefined;
+  }
+
+  async function handleUndo(): Promise<void> {
+    // Re-entrancy guard: a double-tap before the `await`s below settle would
+    // otherwise run everything from here down twice for one grade (pop
+    // `sessionAttempts` twice, decrement `cardTallies` twice, call
+    // `undoLastGrade` twice).
+    if (!graded || undoing) return;
+    undoing = true;
+    try {
+      const { cardId, grade } = graded;
+      // Await the pending writes first -- a fast Undo must never race the
+      // store it's meant to reverse (Boundaries & Constraints). Their
+      // resolved `Result` (not just settlement) matters below: a write that
+      // never actually landed has nothing in the store for `undoLastGrade`
+      // to reverse.
+      const attemptWriteResult = await pendingAttemptWrite?.catch(
+        (error: unknown): Result<void> => ({
+          ok: false,
+          error: error instanceof Error ? error : new Error(String(error)),
+        }),
+      );
+      const tallyWriteResult =
+        grade === 'incorrect'
+          ? await pendingTallyWrite?.catch(
+              (error: unknown): Result<void> => ({
+                ok: false,
+                error: error instanceof Error ? error : new Error(String(error)),
+              }),
+            )
+          : undefined;
+
+      // Unconditional, regardless of the repository calls' outcome below --
+      // the in-memory mirrors must reflect "this grade never happened"
+      // either way.
+      sessionAttempts.pop();
+      if (grade === 'incorrect') {
+        cardTallies.set(cardId, Math.max(0, (cardTallies.get(cardId) ?? 0) - 1));
+      }
+
+      // Only reverse what the store actually recorded: if `add()` never
+      // succeeded, nothing was persisted for `deleteLast` to remove, and
+      // calling it anyway would delete an unrelated, previously-persisted
+      // attempt for this session instead of no-op'ing. Same reasoning for
+      // `decrement` against a failed `increment()`.
+      if (attemptWriteResult?.ok) {
+        const wasIncorrect = grade === 'incorrect' && tallyWriteResult?.ok === true;
+        const result = await undoLastGrade(
+          sessionId,
+          cardId,
+          wasIncorrect,
+          attemptRepository,
+          tallyRepository,
+        );
+        if (!result.ok) console.error('Failed to undo grade:', result.error);
+      }
+
+      graded = null;
+      pendingAttemptWrite = undefined;
+      pendingTallyWrite = undefined;
+    } finally {
+      undoing = false;
+    }
   }
 </script>
 
@@ -272,8 +410,8 @@
     <button
       type="button"
       class="btn btn--neutral"
-      class:btn--dimmed={revealed}
-      disabled={revealed}
+      class:btn--dimmed={revealed || graded !== null}
+      disabled={revealed || graded !== null}
       onclick={handleReveal}
     >
       {revealed ? 'Revealed' : 'Reveal'}
@@ -281,8 +419,8 @@
     <button
       type="button"
       class="btn btn--neutral"
-      class:btn--dimmed={!hasInk && !revealed}
-      disabled={!hasInk && !revealed}
+      class:btn--dimmed={(!hasInk && !revealed) || graded !== null}
+      disabled={(!hasInk && !revealed) || graded !== null}
       onclick={() => handleGrade('incorrect')}
       bind:this={missedButton}
     >
@@ -291,13 +429,46 @@
     <button
       type="button"
       class="btn btn--primary"
-      class:btn--dimmed={!hasInk && !revealed}
-      disabled={!hasInk && !revealed}
+      class:btn--dimmed={(!hasInk && !revealed) || graded !== null}
+      disabled={(!hasInk && !revealed) || graded !== null}
       onclick={() => handleGrade('correct')}
     >
       Correct
     </button>
   </div>
+
+  {#if graded}
+    <div class="toast" role="status">
+      <p class="toast-message">
+        {#if graded.tallyCount !== null}
+          Missed {graded.tallyCount}
+        {:else}
+          Correct
+        {/if}
+      </p>
+      <div class="toast-actions">
+        <button
+          type="button"
+          class="btn btn--neutral toast-btn"
+          disabled={undoing}
+          class:btn--dimmed={undoing}
+          onclick={handleUndo}
+          bind:this={undoButton}
+        >
+          Undo
+        </button>
+        <button
+          type="button"
+          class="btn btn--primary toast-btn"
+          disabled={undoing}
+          class:btn--dimmed={undoing}
+          onclick={handleNext}
+        >
+          Next character
+        </button>
+      </div>
+    </div>
+  {/if}
 </main>
 
 <style>
@@ -560,5 +731,55 @@
   .btn--dimmed {
     opacity: 0.4;
     cursor: default;
+  }
+
+  /* Story 1.8's deferred-advance toast: an overlay, not a flex-column
+     sibling -- `.drill` is fixed to `100dvh` with nothing to scroll (see
+     `.drill` above), and this can appear/disappear on every grade without
+     reflowing the rest of the screen. */
+  .toast {
+    position: fixed;
+    left: var(--spacing-4);
+    right: var(--spacing-4);
+    bottom: var(--spacing-4);
+    /* Only fixed-position element on this screen today, but pinned above
+       anything that could later share that positioning (e.g. a future
+       modal) rather than leaving stacking order to source order alone. */
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-3);
+    padding: var(--spacing-3) var(--spacing-4);
+    border-radius: var(--radius-lg);
+    background: var(--color-ink);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  }
+
+  .toast-message {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--color-surface-card);
+  }
+
+  .toast-actions {
+    display: flex;
+    gap: var(--spacing-2);
+    flex: none;
+  }
+
+  .toast-btn {
+    flex: none;
+    min-height: 44px;
+    padding: 0 var(--spacing-3);
+    font-size: 0.95rem;
+  }
+
+  .toast-btn.btn--neutral {
+    background: transparent;
+    color: var(--color-surface-card);
+    border-color: var(--color-surface-card);
   }
 </style>
