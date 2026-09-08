@@ -18,6 +18,7 @@
   import { FULL_SCOPE, type Scope } from '../domain/scope';
   import { DEFAULT_SETTINGS, type WidthPreset } from '../domain/settings';
   import type { Attempt } from '../domain/attempt';
+  import type { Tally } from '../domain/tally';
   import { err } from '../domain/result';
 
   const settingsRepository = new IdbSettingsRepository();
@@ -45,6 +46,9 @@
   // its own in-memory `sessionAttempts` from this and never asks this
   // composition root to re-fetch mid-session.
   let drillAttempts = $state<Attempt[]>([]);
+  // Loaded once via `getAll()` at drill entry (Story 1.8) -- mirrors
+  // `drillAttempts` above, never re-fetched mid-session.
+  let drillTallies = $state<Tally[]>([]);
   let widthPreset = $state<WidthPreset>(DEFAULT_SETTINGS.widthPreset);
   // A fresh instance per drill entry: `mount()` is called exactly once per
   // adapter instance, and `Drill.svelte`'s unmount cleanup calls `destroy()`.
@@ -91,6 +95,14 @@
         return err<Attempt[]>(error instanceof Error ? error : new Error(String(error)));
       });
       drillAttempts = result.ok ? result.value : [];
+      // Same fail-open pattern as `drillAttempts` above -- an unreadable
+      // tally store just means the toast's cumulative count starts from an
+      // empty baseline rather than blocking the drill from starting.
+      const tallyResult = await tallyRepository.getAll().catch((error: unknown) => {
+        console.error('Failed to load tallies:', error);
+        return err<Tally[]>(error instanceof Error ? error : new Error(String(error)));
+      });
+      drillTallies = tallyResult.ok ? tallyResult.value : [];
       const surface = new CanvasInkSurface({ colors: INK_COLORS });
       surface.setWidthPreset(widthPreset);
       inkSurface = surface;
@@ -140,6 +152,7 @@
     <Drill
       {scope}
       attempts={drillAttempts}
+      tallies={drillTallies}
       {inkSurface}
       {attemptRepository}
       {tallyRepository}

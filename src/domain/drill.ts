@@ -13,6 +13,9 @@ import { CARDS } from './cards';
 import type { Scope } from './scope';
 import { cardsInScope } from './scope';
 import type { Attempt } from './attempt';
+import type { AttemptRepository } from '../ports/attempt-repository';
+import type { TallyRepository } from '../ports/tally-repository';
+import { ok, type Result } from './result';
 
 const HALF_LIFE_DAYS = 7;
 const MS_PER_DAY = 86_400_000;
@@ -101,4 +104,23 @@ export function selectNext(
     throw new Error('selectNext: index out of range');
   }
   return last;
+}
+
+/** Reverse the just-graded attempt (Story 1.8): atomically sequences
+ * `attemptRepository.deleteLast(sessionId)` then, only when the grade being
+ * undone was `'incorrect'`, `tallyRepository.decrement(cardId)`. A `'correct'`
+ * grade never touched the tally, so undoing one never calls `decrement`
+ * either. Returns early on a failed `deleteLast` -- never attempts the
+ * decrement over a delete that didn't happen. */
+export async function undoLastGrade(
+  sessionId: string,
+  cardId: string,
+  wasIncorrect: boolean,
+  attemptRepository: AttemptRepository,
+  tallyRepository: TallyRepository,
+): Promise<Result<void>> {
+  const deleted = await attemptRepository.deleteLast(sessionId);
+  if (!deleted.ok) return deleted;
+  if (wasIncorrect) return tallyRepository.decrement(cardId);
+  return ok(undefined);
 }

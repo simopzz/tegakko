@@ -10,6 +10,7 @@ import type { WidthPreset } from '../../domain/settings';
 import type { Attempt } from '../../domain/attempt';
 import type { AttemptRepository } from '../../ports/attempt-repository';
 import type { TallyRepository } from '../../ports/tally-repository';
+import type { Tally } from '../../domain/tally';
 import type { Result } from '../../domain/result';
 
 // `selectNext` (Story 1.7) draws from the real `CARDS` catalog filtered by
@@ -77,10 +78,13 @@ function fakeInkSurface(): InkSurface & {
  * pattern as `fakeInkSurface` above, against `ports/attempt-repository.ts`. */
 function fakeAttemptRepository(
   addResult: Result<void> = { ok: true, value: undefined },
-): AttemptRepository & { adds: Attempt[] } {
+  deleteLastResult: Result<void> = { ok: true, value: undefined },
+): AttemptRepository & { adds: Attempt[]; deletes: string[] } {
   const adds: Attempt[] = [];
+  const deletes: string[] = [];
   return {
     adds,
+    deletes,
     add(attempt: Attempt) {
       adds.push(attempt);
       return Promise.resolve(addResult);
@@ -91,8 +95,9 @@ function fakeAttemptRepository(
     listAll() {
       return Promise.resolve({ ok: true, value: [] });
     },
-    deleteLast() {
-      return Promise.resolve({ ok: true, value: undefined });
+    deleteLast(sessionId: string) {
+      deletes.push(sessionId);
+      return Promise.resolve(deleteLastResult);
     },
   };
 }
@@ -102,6 +107,7 @@ function fakeAttemptRepository(
  * `ports/tally-repository.ts`. */
 function fakeTallyRepository(
   incrementResult: Result<void> = { ok: true, value: undefined },
+  decrementResult: Result<void> = { ok: true, value: undefined },
 ): TallyRepository & { increments: string[]; decrements: string[] } {
   const increments: string[] = [];
   const decrements: string[] = [];
@@ -117,7 +123,7 @@ function fakeTallyRepository(
     },
     decrement(cardId: string) {
       decrements.push(cardId);
-      return Promise.resolve({ ok: true, value: undefined });
+      return Promise.resolve(decrementResult);
     },
   };
 }
@@ -139,6 +145,29 @@ function grade(name: 'Missed' | 'Correct'): HTMLButtonElement {
   return screen.getByRole('button', { name }) as HTMLButtonElement;
 }
 
+/** The toast's "Next character" control -- clears the toast and runs the
+ * advance that used to happen synchronously inside `handleGrade` (Story
+ * 1.8 defers it behind this tap). */
+function nextCharacter(): HTMLButtonElement {
+  return screen.getByRole('button', { name: 'Next character' }) as HTMLButtonElement;
+}
+
+/** The toast's Undo control -- reverses the just-graded attempt. */
+function undo(): HTMLButtonElement {
+  return screen.getByRole('button', { name: 'Undo' }) as HTMLButtonElement;
+}
+
+/** `handleUndo` chains several sequential `await`s (the pending attempt/tally
+ * writes, then `deleteLast`, then `decrement`) -- a single `tick()` only
+ * flushes Svelte's own pending-update queue, not that whole promise chain.
+ * A macrotask (`setTimeout`) always runs after every microtask queued so
+ * far, however deep the chain, so this reliably drains it before the
+ * trailing `tick()` lets Svelte re-render from the settled state. */
+async function flushAsync(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await tick();
+}
+
 /** `render(Drill, ...)` with both port fakes defaulted, so call sites that
  * don't care about ink/attempt persistence don't have to construct both
  * fakes every time -- pass an override to capture a reference when a test
@@ -147,6 +176,7 @@ function renderDrill(
   overrides: {
     scope?: Scope;
     attempts?: Attempt[];
+    tallies?: Tally[];
     inkSurface?: ReturnType<typeof fakeInkSurface>;
     attemptRepository?: ReturnType<typeof fakeAttemptRepository>;
     tallyRepository?: ReturnType<typeof fakeTallyRepository>;
@@ -155,6 +185,7 @@ function renderDrill(
 ) {
   const scope = overrides.scope ?? HIRAGANA_BASE_SCOPE;
   const attempts = overrides.attempts ?? [];
+  const tallies = overrides.tallies ?? [];
   const inkSurface = overrides.inkSurface ?? fakeInkSurface();
   const attemptRepository = overrides.attemptRepository ?? fakeAttemptRepository();
   const tallyRepository = overrides.tallyRepository ?? fakeTallyRepository();
@@ -162,12 +193,22 @@ function renderDrill(
   const result = render(Drill, {
     scope,
     attempts,
+    tallies,
     inkSurface,
     attemptRepository,
     tallyRepository,
     onBack,
   });
-  return { ...result, scope, attempts, inkSurface, attemptRepository, tallyRepository, onBack };
+  return {
+    ...result,
+    scope,
+    attempts,
+    tallies,
+    inkSurface,
+    attemptRepository,
+    tallyRepository,
+    onBack,
+  };
 }
 
 describe('Drill', () => {
@@ -274,6 +315,7 @@ describe('Drill', () => {
 
       await inkSurface.landStroke();
       await fireEvent.click(grade(name));
+      await fireEvent.click(nextCharacter());
 
       expect(screen.getByText('2 / 46')).toBeTruthy();
       // Still a prompt from the scope -- selection may repeat the
@@ -296,6 +338,7 @@ describe('Drill', () => {
     for (let i = 0; i < cards.length; i++) {
       await inkSurface.landStroke();
       await fireEvent.click(grade('Correct'));
+      await fireEvent.click(nextCharacter());
     }
 
     expect(screen.getByText(`${cards.length + 1} / ${cards.length}`)).toBeTruthy();
@@ -313,20 +356,6 @@ describe('Drill', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
 
     expect(onBack).toHaveBeenCalledTimes(1);
-  });
-
-  it('shows no post-grade toast or Undo', async () => {
-    // Stories 1.6/1.8 own the tally toast and Undo, not this story.
-    const inkSurface = fakeInkSurface();
-    renderDrill({ inkSurface });
-
-    await inkSurface.landStroke();
-    await fireEvent.click(grade('Missed'));
-
-    expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Next character' })).toBeNull();
-    // No cumulative tally readout either -- Story 1.6 introduces that.
-    expect(screen.queryByText(/missed \d+/i)).toBeNull();
   });
 
   function reveal(): HTMLButtonElement {
@@ -451,6 +480,7 @@ describe('Drill', () => {
 
     await fireEvent.click(reveal());
     await fireEvent.click(grade('Missed'));
+    await fireEvent.click(nextCharacter());
 
     expect(screen.getByText('2 / 46')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Reveal' }).hasAttribute('disabled')).toBe(false);
@@ -466,6 +496,7 @@ describe('Drill', () => {
     await inkSurface.landStroke();
     await fireEvent.click(reveal());
     await fireEvent.click(grade('Correct'));
+    await fireEvent.click(nextCharacter());
 
     expect(screen.getByText('2 / 46')).toBeTruthy();
     expect(screen.queryByText('Yours')).toBeNull();
@@ -565,6 +596,7 @@ describe('Drill', () => {
       // Flush the resolved (never-thrown) promise the failed add() returns.
       await Promise.resolve();
       await tick();
+      await fireEvent.click(nextCharacter());
 
       // The screen still advances -- persistence never blocks the next card.
       expect(screen.getByText('2 / 46')).toBeTruthy();
@@ -586,6 +618,7 @@ describe('Drill', () => {
       // Flush the rejected (never-thrown) promise the failed add() returns.
       await Promise.resolve();
       await tick();
+      await fireEvent.click(nextCharacter());
 
       expect(screen.getByText('2 / 46')).toBeTruthy();
       expect(consoleError).toHaveBeenCalledWith('Failed to persist attempt:', expect.any(Error));
@@ -623,9 +656,11 @@ describe('Drill', () => {
       const firstAttempt = attemptRepository.adds[0]!;
       const firstStrokesSnapshot = firstAttempt.strokes.map((s) => ({ ...s }));
 
-      // The next card accumulates its own stroke(s) -- `handleGrade` must
-      // have reassigned `strokes = []` for the next card rather than ever
+      // The next card accumulates its own stroke(s) -- `handleNext` (Story
+      // 1.8 defers the advance here, off the grade itself) must have
+      // reassigned `strokes = []` for the next card rather than ever
       // mutating the array already handed to the first attempt.
+      await fireEvent.click(nextCharacter());
       await inkSurface.landStroke({ x: 0.8, y: 0.8 });
 
       expect(firstAttempt.strokes).toEqual(firstStrokesSnapshot);
@@ -688,6 +723,7 @@ describe('Drill', () => {
       // Flush the resolved (never-thrown) promise the failed increment() returns.
       await Promise.resolve();
       await tick();
+      await fireEvent.click(nextCharacter());
 
       expect(screen.getByText('2 / 46')).toBeTruthy();
       expect(consoleError).toHaveBeenCalledWith('Failed to increment tally:', expect.any(Error));
@@ -708,6 +744,7 @@ describe('Drill', () => {
       // Flush the rejected (never-thrown) promise the failed increment() returns.
       await Promise.resolve();
       await tick();
+      await fireEvent.click(nextCharacter());
 
       expect(screen.getByText('2 / 46')).toBeTruthy();
       expect(consoleError).toHaveBeenCalledWith('Failed to increment tally:', expect.any(Error));
@@ -776,11 +813,231 @@ describe('Drill', () => {
 
       await inkSurface.landStroke();
       await fireEvent.click(grade('Correct'));
+      await fireEvent.click(nextCharacter());
 
       expect(currentCard(cards)).toBe(first);
       expect(screen.getByText('2 / 46')).toBeTruthy();
 
       randomSpy.mockRestore();
+    });
+  });
+
+  // Story 1.8: grading defers the advance behind a toast (Undo, plus "Next
+  // character") instead of advancing immediately.
+  describe('undo last grade', () => {
+    it('replaces Missed/Correct with a dimmed Reveal and a wide Next character while the toast is showing (A4)', async () => {
+      const inkSurface = fakeInkSurface();
+      renderDrill({ inkSurface });
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Missed'));
+
+      expect(reveal().disabled).toBe(true);
+      expect(screen.queryByRole('button', { name: 'Missed' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Correct' })).toBeNull();
+      expect(nextCharacter()).toBeTruthy();
+    });
+
+    it('shows a cumulative tally on Missed but not on Correct', async () => {
+      const inkSurface = fakeInkSurface();
+      renderDrill({ inkSurface, tallies: [] });
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Missed'));
+
+      expect(screen.getByText(/missed 1/i)).toBeTruthy();
+
+      await fireEvent.click(undo());
+      await flushAsync();
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Correct'));
+
+      expect(screen.queryByText(/missed \d+/i)).toBeNull();
+      expect(undo()).toBeTruthy();
+    });
+
+    it('Undo after Missed deletes the last attempt, decrements the tally, and re-enables grading without clearing ink', async () => {
+      const cards = cardsInScope([...CARDS], HIRAGANA_BASE_SCOPE);
+      const inkSurface = fakeInkSurface();
+      const attemptRepository = fakeAttemptRepository();
+      const tallyRepository = fakeTallyRepository();
+      renderDrill({ inkSurface, attemptRepository, tallyRepository });
+      const target = currentCard(cards);
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Missed'));
+      await tick();
+      await fireEvent.click(undo());
+      await flushAsync();
+
+      expect(attemptRepository.deletes.length).toBeGreaterThan(0);
+      expect(tallyRepository.decrements).toEqual([target.cardId]);
+      // No advance happened -- same prompt, same position, toast gone.
+      expect(currentCard(cards)).toBe(target);
+      expect(screen.getByText('1 / 46')).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Next character' })).toBeNull();
+      // Grading re-enabled and the ink from before the grade is untouched --
+      // clearing is deferred to "Next character", never to Undo.
+      expect(grade('Correct').disabled).toBe(false);
+      expect(inkSurface.clears).toBe(0);
+    });
+
+    it('Undo after Correct deletes the last attempt but never calls decrement', async () => {
+      const inkSurface = fakeInkSurface();
+      const attemptRepository = fakeAttemptRepository();
+      const tallyRepository = fakeTallyRepository();
+      renderDrill({ inkSurface, attemptRepository, tallyRepository });
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Correct'));
+      await tick();
+      await fireEvent.click(undo());
+      await flushAsync();
+
+      expect(attemptRepository.deletes.length).toBeGreaterThan(0);
+      expect(tallyRepository.decrements).toEqual([]);
+    });
+
+    it('restores the tally-display count so re-grading Missed on the same card shows 1 again, not 2', async () => {
+      const inkSurface = fakeInkSurface();
+      renderDrill({ inkSurface });
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Missed'));
+      expect(screen.getByText(/missed 1/i)).toBeTruthy();
+
+      await fireEvent.click(undo());
+      await flushAsync();
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Missed'));
+
+      expect(screen.getByText(/missed 1/i)).toBeTruthy();
+    });
+
+    it('awaits the pending add()/increment() writes before calling deleteLast/decrement, even when Undo is tapped immediately', async () => {
+      const inkSurface = fakeInkSurface();
+      let resolveAdd!: (value: Result<void>) => void;
+      const attemptRepository = fakeAttemptRepository();
+      attemptRepository.add = () =>
+        new Promise((resolve) => {
+          resolveAdd = resolve;
+        });
+      const tallyRepository = fakeTallyRepository();
+      renderDrill({ inkSurface, attemptRepository, tallyRepository });
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Missed'));
+      // Undo tapped before the pending add() resolves.
+      await fireEvent.click(undo());
+
+      expect(attemptRepository.deletes).toEqual([]);
+
+      resolveAdd({ ok: true, value: undefined });
+      await flushAsync();
+
+      // Only once add() resolves does the undo actually run deleteLast.
+      expect(attemptRepository.deletes.length).toBeGreaterThan(0);
+    });
+
+    it('clears the toast and advances normally when deleteLast fails, logging via console.error', async () => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const inkSurface = fakeInkSurface();
+      const attemptRepository = fakeAttemptRepository(
+        { ok: true, value: undefined },
+        { ok: false, error: new Error('delete failed') },
+      );
+      renderDrill({ inkSurface, attemptRepository });
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Missed'));
+      await tick();
+      await fireEvent.click(undo());
+      await flushAsync();
+
+      expect(consoleError).toHaveBeenCalledWith('Failed to undo grade:', expect.any(Error));
+      // Still returns to the written (pre-advance) state -- never blocks.
+      expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
+      expect(grade('Correct').disabled).toBe(false);
+
+      consoleError.mockRestore();
+    });
+
+    it('shows an increasing cumulative tally when the same card is missed twice without an intervening Undo', async () => {
+      // `Math.random` pinned to 0 always selects `candidates[0]` regardless
+      // of weight (the cumulative-weight walk's first comparison `0 <
+      // weights[0]` is always true) -- deterministically the same card both
+      // times, unlike the back-to-back-Correct test above whose determinism
+      // instead relies on a Correct grade never changing the weights.
+      const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+      const inkSurface = fakeInkSurface();
+      renderDrill({ inkSurface });
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Missed'));
+      expect(screen.getByText(/missed 1/i)).toBeTruthy();
+
+      await fireEvent.click(nextCharacter());
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Missed'));
+
+      expect(screen.getByText(/missed 2/i)).toBeTruthy();
+
+      randomSpy.mockRestore();
+    });
+
+    it('guards against a double-tap on Undo running the reversal twice', async () => {
+      const inkSurface = fakeInkSurface();
+      const attemptRepository = fakeAttemptRepository();
+      const tallyRepository = fakeTallyRepository();
+      renderDrill({ inkSurface, attemptRepository, tallyRepository });
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Missed'));
+      await tick();
+
+      const undoBtn = undo();
+      // Both dispatched before either's internal `await`s settle -- the
+      // second call must see `undoing` already `true` and bail, regardless
+      // of whether the DOM's `disabled` attribute has re-rendered yet.
+      const firstClick = fireEvent.click(undoBtn);
+      const secondClick = fireEvent.click(undoBtn);
+      await firstClick;
+      await secondClick;
+      await flushAsync();
+
+      expect(attemptRepository.deletes.length).toBe(1);
+      expect(tallyRepository.decrements.length).toBe(1);
+    });
+
+    it('does not call deleteLast when add() failed, so it never deletes an unrelated persisted attempt', async () => {
+      const inkSurface = fakeInkSurface();
+      const attemptRepository = fakeAttemptRepository({ ok: false, error: new Error('add failed') });
+      renderDrill({ inkSurface, attemptRepository });
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Correct'));
+      await tick();
+      await fireEvent.click(undo());
+      await flushAsync();
+
+      expect(attemptRepository.deletes).toEqual([]);
+    });
+
+    it('does not call decrement when increment() failed, only deleteLast', async () => {
+      const inkSurface = fakeInkSurface();
+      const attemptRepository = fakeAttemptRepository();
+      const tallyRepository = fakeTallyRepository({ ok: false, error: new Error('increment failed') });
+      renderDrill({ inkSurface, attemptRepository, tallyRepository });
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Missed'));
+      await tick();
+      await fireEvent.click(undo());
+      await flushAsync();
+
+      expect(attemptRepository.deletes.length).toBeGreaterThan(0);
+      expect(tallyRepository.decrements).toEqual([]);
     });
   });
 });
