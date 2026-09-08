@@ -201,6 +201,29 @@ describe('App', () => {
     expect(screen.getByRole('radio', { name: 'Katakana' }).className).toContain('pill--active');
   });
 
+  it('navigates from the Session summary\'s "History" link to the History screen', async () => {
+    getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
+
+    render(App);
+
+    await screen.findByText('What are we testing today?');
+    await fireEvent.click(screen.getByRole('radio', { name: 'Katakana' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
+    await screen.findByText('1 / 79');
+    await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
+
+    await screen.findByRole('button', { name: 'Another round' });
+    await fireEvent.click(screen.getByRole('button', { name: 'History' }));
+
+    expect(await screen.findByText('No sessions yet. Finish a drill to see it here.')).toBeTruthy();
+
+    // "Back" from History always returns to the Scope picker, even when
+    // History was opened from the Session summary.
+    await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+
+    await screen.findByText('What are we testing today?');
+  });
+
   it('reaches Settings from the Scope-picker header and back again, selection intact', async () => {
     getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
 
@@ -277,6 +300,24 @@ describe('App', () => {
     await screen.findByText('1 / 158');
 
     expect(setWidthPreset).toHaveBeenCalledWith('calligraphy');
+  });
+
+  it('reaches History from the Scope-picker header, then returns to the Scope picker via Back', async () => {
+    getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
+
+    render(App);
+
+    await screen.findByText('What are we testing today?');
+    await fireEvent.click(screen.getByRole('radio', { name: 'Yoon' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'History' }));
+
+    expect(await screen.findByText('No sessions yet. Finish a drill to see it here.')).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+
+    await screen.findByText('What are we testing today?');
+    expect(screen.getByText('66 cards in scope')).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Yoon' }).className).toContain('pill--active');
   });
 
   it('governs the live Drill session with the idleTimeoutMs persisted in Settings, not the default', async () => {

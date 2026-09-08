@@ -10,6 +10,7 @@
   import Drill from '../adapters/ui/Drill.svelte';
   import Settings from '../adapters/ui/Settings.svelte';
   import SessionSummary from '../adapters/ui/SessionSummary.svelte';
+  import History from '../adapters/ui/History.svelte';
   import { IdbSettingsRepository } from '../adapters/persistence/settings-repository';
   import { IdbAttemptRepository } from '../adapters/persistence/attempt-repository';
   import { IdbTallyRepository } from '../adapters/persistence/tally-repository';
@@ -146,6 +147,17 @@
     screen = 'scope-picker';
   }
 
+  function handleOpenHistory(): void {
+    screen = 'history';
+  }
+
+  // History's own "Back" always returns to the Scope picker, even when
+  // opened from the Session summary -- Design Notes: avoids adding
+  // "previous screen" state for a single-portrait, no-router app.
+  function handleHistoryBack(): void {
+    screen = 'scope-picker';
+  }
+
   function handlePresetChange(preset: WidthPreset): void {
     widthPreset = preset;
     // A live surface (there is none while Settings is open today, but the
@@ -164,6 +176,7 @@
       {tallyRepository}
       onStart={handleStart}
       onSettings={handleOpenSettings}
+      onHistory={handleOpenHistory}
       initialScope={scope}
       onScopeChange={(next) => (scope = next)}
     />
@@ -182,6 +195,8 @@
       onClose={handleDrillClose}
     />
   {:else if screen === 'summary' && summary}
-    <SessionSummary {summary} onAgain={handleSummaryAgain} />
+    <SessionSummary {summary} onAgain={handleSummaryAgain} onHistory={handleOpenHistory} />
+  {:else if screen === 'history'}
+    <History {sessionRepository} onBack={handleHistoryBack} />
   {/if}
 {/if}

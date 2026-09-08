@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import Drill from './Drill.svelte';
+import DrillScopeHarness from './DrillScopeHarness.svelte';
 import { CARDS, type Card } from '../../domain/cards';
 import { cardsInScope, type Scope } from '../../domain/scope';
 import type { InkSurface } from '../../ports/ink-surface';
@@ -1114,6 +1115,33 @@ describe('Drill', () => {
       expect(sessionRepository.adds).toHaveLength(1);
       expect(sessionRepository.adds[0]?.cardsAttempted).toBe(0);
       expect(sessionRepository.adds[0]?.accuracy).toBe(0);
+    });
+
+    it('persists a structured-cloneable session record when scope arrives as reactive state', async () => {
+      // Mounted through DrillScopeHarness so `scope` is a live `$state`
+      // proxy -- what App.svelte actually passes -- not a plain fixture.
+      // Handing that proxy to IndexedDB verbatim throws a DataCloneError,
+      // so the session silently never persists (only a console.error
+      // remains) and History stays empty. The record must therefore survive
+      // a clone round-trip here, which is the exact contract IDB requires.
+      const sessionRepository = fakeSessionRepository();
+      render(DrillScopeHarness, {
+        attempts: [],
+        tallies: [],
+        inkSurface: fakeInkSurface(),
+        attemptRepository: fakeAttemptRepository(),
+        tallyRepository: fakeTallyRepository(),
+        sessionRepository,
+        idleTimeoutMs: 300_000,
+        onClose: vi.fn(),
+      });
+
+      await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
+
+      expect(sessionRepository.adds).toHaveLength(1);
+      const record = sessionRepository.adds[0]!;
+      expect(() => structuredClone(record)).not.toThrow();
+      expect(structuredClone(record).scope).toEqual(HIRAGANA_BASE_SCOPE);
     });
 
     it('closes with "explicit" even while the post-grade toast (Undo/"Next character") is showing', async () => {

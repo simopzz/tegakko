@@ -15,9 +15,10 @@
   interface Props {
     summary: SessionSummaryView;
     onAgain: () => void;
+    onHistory: () => void;
   }
 
-  const { summary, onAgain }: Props = $props();
+  const { summary, onAgain, onHistory }: Props = $props();
 
   // Move keyboard/screen-reader focus onto the summary heading on entry:
   // the Drill instance just unmounted (focus would otherwise drop to
@@ -45,6 +46,9 @@
 
 <main class="summary">
   <div class="card">
+    <div class="header">
+      <button type="button" class="link" onclick={onHistory}>History</button>
+    </div>
     <h1 class="label" tabindex="-1" bind:this={heading}>Session summary</h1>
 
     <div class="hero">
@@ -108,6 +112,23 @@
     display: flex;
     flex-direction: column;
     gap: var(--spacing-4);
+  }
+
+  .header {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .link {
+    min-height: 56px;
+    padding: 0 var(--spacing-2);
+    border: none;
+    background: transparent;
+    color: var(--color-accent-strong);
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
   }
 
   .label {

@@ -471,7 +471,14 @@
     const summary = buildSummary(thisSessionAttempts, cardTallies, reason, timeMs);
     // `sessionId`, not a fresh UUID -- keeps the persisted `Session.id`
     // correlated with this session's own `Attempt.sessionId` values.
-    const record = buildSessionRecord(sessionId, scope, thisSessionAttempts, reason, dateIso);
+    // `$state.snapshot`: `scope` arrives as a Svelte 5 deep proxy (App's
+    // `$state` plus `$props()` re-wrapping), and a proxy is not
+    // structured-cloneable -- handing it to `sessionRepository.add()`
+    // verbatim makes IndexedDB reject the write with a DataCloneError, so
+    // the session silently never persists (only a console.error remains).
+    // Snapshot to plain data at this boundary; every other record field is
+    // already plain (`strokes` is deliberately a non-`$state` local above).
+    const record = buildSessionRecord(sessionId, $state.snapshot(scope), thisSessionAttempts, reason, dateIso);
     // Fire-and-forget, logged on failure, same as every other write in this
     // codebase (Boundaries & Constraints) -- it must never block reaching
     // the Summary screen.

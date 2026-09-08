@@ -23,6 +23,7 @@
      * reflects that without forcing this component to await it itself. */
     onStart: (scope: Scope) => void | Promise<void>;
     onSettings: () => void;
+    onHistory: () => void;
     /** Seeds the pill groups on mount. This screen is unmounted whenever the
      * drill or Settings is open, so the composition root -- not this
      * component -- is what keeps a selection alive across a Back
@@ -36,6 +37,7 @@
     tallyRepository,
     onStart,
     onSettings,
+    onHistory,
     initialScope,
     onScopeChange,
   }: Props = $props();
@@ -122,7 +124,10 @@
          one primary action per screen, and that is "Start writing". -->
     <div class="header">
       <p class="label">Scope</p>
-      <button type="button" class="link" onclick={onSettings}>Settings</button>
+      <div class="header-links">
+        <button type="button" class="link" onclick={onHistory}>History</button>
+        <button type="button" class="link" onclick={onSettings}>Settings</button>
+      </div>
     </div>
     <h1 class="heading">What are we testing today?</h1>
 
@@ -249,6 +254,12 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--spacing-3);
+  }
+
+  .header-links {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
   }
 
   .link {

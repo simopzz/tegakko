@@ -103,3 +103,7 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-8-undo-last-grade.md`
   summary: `Drill.svelte`'s `cardTallies` map is seeded directly from the `tallies` prop's `missCount` values with no defensive guard against a corrupted/malformed persisted value (negative, `NaN`, non-integer).
   evidence: `domain/drill.ts`'s `score()` already guards a malformed `timestamp` (`Number.isNaN(parsed)`) for the same class of concern (defending against corrupted IndexedDB data), establishing precedent that this codebase does treat persisted-data corruption as worth guarding against; `cardTallies`'s seed has no equivalent guard, so a corrupted `missCount` would surface as a `NaN`/negative toast count with no fallback.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-10-session-history-view.md`
+  summary: `History.svelte` shows no loading affordance (spinner/skeleton) between mounting and `sessionRepository.list()` resolving.
+  evidence: Pre-existing gap, not introduced by this story -- `Settings.svelte` has the identical `{#if loaded}`-gated pattern with no loading state, unmodified by this diff; History merely inherits an already-accepted convention.
