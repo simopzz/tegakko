@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import Drill from './Drill.svelte';
@@ -12,6 +12,8 @@ import type { AttemptRepository } from '../../ports/attempt-repository';
 import type { TallyRepository } from '../../ports/tally-repository';
 import type { Tally } from '../../domain/tally';
 import type { Result } from '../../domain/result';
+import type { SessionRepository } from '../../ports/session-repository';
+import type { Session, SessionSummaryView } from '../../domain/session';
 
 // `selectNext` (Story 1.7) draws from the real `CARDS` catalog filtered by
 // `scope` -- a `Scope` can only narrow to a full script+kind combination
@@ -128,6 +130,25 @@ function fakeTallyRepository(
   };
 }
 
+/** Fakes `SessionRepository`, recording every `add()` call -- mirrors
+ * `fakeAttemptRepository`/`fakeTallyRepository` above, against
+ * `ports/session-repository.ts`. */
+function fakeSessionRepository(
+  addResult: Result<void> = { ok: true, value: undefined },
+): SessionRepository & { adds: Session[] } {
+  const adds: Session[] = [];
+  return {
+    adds,
+    add(session: Session) {
+      adds.push(session);
+      return Promise.resolve(addResult);
+    },
+    list() {
+      return Promise.resolve({ ok: true, value: [] });
+    },
+  };
+}
+
 /** Reads the currently-rendered prompt's romaji, matched against `cards`
  * (every candidate `selectNext` could have drawn from). Within a single
  * script+kind scope every romaji is unique, so this unambiguously resolves
@@ -180,7 +201,9 @@ function renderDrill(
     inkSurface?: ReturnType<typeof fakeInkSurface>;
     attemptRepository?: ReturnType<typeof fakeAttemptRepository>;
     tallyRepository?: ReturnType<typeof fakeTallyRepository>;
-    onBack?: () => void;
+    sessionRepository?: ReturnType<typeof fakeSessionRepository>;
+    idleTimeoutMs?: number;
+    onClose?: (summary: SessionSummaryView) => void;
   } = {},
 ) {
   const scope = overrides.scope ?? HIRAGANA_BASE_SCOPE;
@@ -189,7 +212,9 @@ function renderDrill(
   const inkSurface = overrides.inkSurface ?? fakeInkSurface();
   const attemptRepository = overrides.attemptRepository ?? fakeAttemptRepository();
   const tallyRepository = overrides.tallyRepository ?? fakeTallyRepository();
-  const onBack = overrides.onBack ?? vi.fn();
+  const sessionRepository = overrides.sessionRepository ?? fakeSessionRepository();
+  const idleTimeoutMs = overrides.idleTimeoutMs ?? 300_000;
+  const onClose = overrides.onClose ?? vi.fn();
   const result = render(Drill, {
     scope,
     attempts,
@@ -197,7 +222,9 @@ function renderDrill(
     inkSurface,
     attemptRepository,
     tallyRepository,
-    onBack,
+    sessionRepository,
+    idleTimeoutMs,
+    onClose,
   });
   return {
     ...result,
@@ -207,7 +234,9 @@ function renderDrill(
     inkSurface,
     attemptRepository,
     tallyRepository,
-    onBack,
+    sessionRepository,
+    idleTimeoutMs,
+    onClose,
   };
 }
 
@@ -349,13 +378,14 @@ describe('Drill', () => {
     expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe(String(cards.length));
   });
 
-  it('calls onBack from the temporary Back control', async () => {
-    const onBack = vi.fn();
-    renderDrill({ onBack });
+  it('calls onClose with an explicit-closure summary from "I\'m done"', async () => {
+    const onClose = vi.fn();
+    renderDrill({ onClose });
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
 
-    expect(onBack).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledWith(expect.objectContaining({ closureReason: 'explicit' }));
   });
 
   function reveal(): HTMLButtonElement {
@@ -1038,6 +1068,464 @@ describe('Drill', () => {
 
       expect(attemptRepository.deletes.length).toBeGreaterThan(0);
       expect(tallyRepository.decrements).toEqual([]);
+    });
+  });
+
+  // Story 1.9: a session closes explicitly ("I'm done"), on full-scope
+  // completion (via the existing "Next character" tap), or retroactively on
+  // detected inactivity -- every closure persists a `Session` record and
+  // hands the composition root a `SessionSummaryView`.
+  describe('session closure', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    function priorLifetimeAttempts(cards: Card[]): Attempt[] {
+      // A different session's full coverage of every in-scope card --
+      // `attempts` seeds `sessionAttempts` (Story 1.7's lifetime history for
+      // weak-spot selection), never `thisSessionAttempts` (this drill
+      // entry's own attempts, Story 1.9).
+      return cards.map((c, i) => ({
+        id: `prior-${i}`,
+        sessionId: 'prior-session',
+        cardId: c.cardId,
+        timestamp: new Date(Date.now() - 86_400_000).toISOString(),
+        timeToFirstStrokeMs: 100,
+        totalTimeMs: 200,
+        strokeCount: 1,
+        revealUsed: false,
+        selfGrade: 'correct',
+        strokes: [],
+      }));
+    }
+
+    it('closes with a zero-attempt summary when "I\'m done" is tapped before any grade', async () => {
+      const onClose = vi.fn();
+      const sessionRepository = fakeSessionRepository();
+      renderDrill({ onClose, sessionRepository });
+
+      await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
+
+      expect(onClose).toHaveBeenCalledTimes(1);
+      const summary = onClose.mock.calls[0]?.[0] as SessionSummaryView;
+      expect(summary.closureReason).toBe('explicit');
+      expect(summary.accuracy).toBe(0);
+      expect(summary.missed).toEqual([]);
+      expect(sessionRepository.adds).toHaveLength(1);
+      expect(sessionRepository.adds[0]?.cardsAttempted).toBe(0);
+      expect(sessionRepository.adds[0]?.accuracy).toBe(0);
+    });
+
+    it('closes with "explicit" even while the post-grade toast (Undo/"Next character") is showing', async () => {
+      const inkSurface = fakeInkSurface();
+      const onClose = vi.fn();
+      const sessionRepository = fakeSessionRepository();
+      renderDrill({ inkSurface, onClose, sessionRepository });
+
+      // Grade a card first -- the toast is now showing and the deferred
+      // advance (Story 1.8) hasn't run yet.
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Correct'));
+      await tick();
+
+      await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
+
+      // "I'm done" is never gated by the toast state -- it closes with
+      // whatever was already graded, not with the deferred advance applied.
+      expect(onClose).toHaveBeenCalledTimes(1);
+      const summary = onClose.mock.calls[0]?.[0] as SessionSummaryView;
+      expect(summary.closureReason).toBe('explicit');
+      expect(summary.accuracy).toBe(1);
+      expect(sessionRepository.adds[0]?.cardsAttempted).toBe(1);
+    });
+
+    it('closes with "full-scope" (no explicit control) once every in-scope card has been graded', async () => {
+      // With every grade Correct, a card's weak-spot weight never rises
+      // above the uniform floor of 1 (a correct attempt never adds score) --
+      // pinning `Math.random` to `i / cards.length` in sequence therefore
+      // deterministically walks `selectNext` through every distinct
+      // candidate in catalog order, guaranteeing full coverage in exactly
+      // `cards.length` draws.
+      const cards = cardsInScope([...CARDS], HIRAGANA_YOON_SCOPE); // 33 cards
+      let call = 0;
+      const randomSpy = vi.spyOn(Math, 'random').mockImplementation(() => call++ / cards.length);
+      const inkSurface = fakeInkSurface();
+      const onClose = vi.fn();
+      const sessionRepository = fakeSessionRepository();
+      renderDrill({ scope: HIRAGANA_YOON_SCOPE, inkSurface, onClose, sessionRepository });
+
+      let lastCard: Card | undefined;
+      for (let i = 0; i < cards.length; i++) {
+        lastCard = currentCard(cards);
+        await inkSurface.landStroke();
+        await fireEvent.click(grade('Correct'));
+        await fireEvent.click(nextCharacter());
+      }
+
+      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(onClose).toHaveBeenCalledWith(expect.objectContaining({ closureReason: 'full-scope' }));
+      expect(sessionRepository.adds).toHaveLength(1);
+      expect(sessionRepository.adds[0]?.closureReason).toBe('full-scope');
+      expect(sessionRepository.adds[0]?.cardsAttempted).toBe(cards.length);
+      // No next prompt was drawn on the closing tap -- the same card that
+      // was just graded is still what's on screen.
+      expect(currentCard(cards)).toBe(lastCard);
+
+      randomSpy.mockRestore();
+    });
+
+    it('keeps the drill open when Undo reverses the scope-completing grade (no onClose)', async () => {
+      const cards = cardsInScope([...CARDS], HIRAGANA_YOON_SCOPE); // 33 cards
+      let call = 0;
+      const randomSpy = vi.spyOn(Math, 'random').mockImplementation(() => call++ / cards.length);
+      const inkSurface = fakeInkSurface();
+      const onClose = vi.fn();
+      renderDrill({ scope: HIRAGANA_YOON_SCOPE, inkSurface, onClose });
+
+      // Grade the first 32 distinct cards normally.
+      for (let i = 0; i < cards.length - 1; i++) {
+        await inkSurface.landStroke();
+        await fireEvent.click(grade('Correct'));
+        await fireEvent.click(nextCharacter());
+      }
+
+      // The 33rd (and last) grade completes the scope, but Story 1.8's
+      // deferred advance still shows the normal toast/Undo -- closure only
+      // fires on "Next character", not on the grade itself.
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Correct'));
+      expect(onClose).not.toHaveBeenCalled();
+
+      await fireEvent.click(undo());
+      await flushAsync();
+
+      expect(onClose).not.toHaveBeenCalled();
+
+      randomSpy.mockRestore();
+    });
+
+    it('closes as "inactivity" on resume once idle time has elapsed, backdating date/time to the last interaction, not "now"', async () => {
+      vi.useFakeTimers();
+      const start = new Date('2026-01-01T00:00:00.000Z').getTime();
+      vi.setSystemTime(start);
+      const onClose = vi.fn();
+      const sessionRepository = fakeSessionRepository();
+      renderDrill({ idleTimeoutMs: 300_000, onClose, sessionRepository });
+
+      // An interaction partway through -- `lastInteractionAt` moves to here.
+      const interactionAt = start + 60_000;
+      vi.setSystemTime(interactionAt);
+      await fireEvent.click(screen.getByRole('button', { name: 'Reveal' }));
+
+      // Resume well past the idle threshold measured from that interaction.
+      const resumeAt = interactionAt + 300_000 + 120_000;
+      vi.setSystemTime(resumeAt);
+      document.dispatchEvent(new Event('visibilitychange'));
+      await tick();
+
+      expect(onClose).toHaveBeenCalledTimes(1);
+      const summary = onClose.mock.calls[0]?.[0] as SessionSummaryView;
+      expect(summary.closureReason).toBe('inactivity');
+      expect(sessionRepository.adds).toHaveLength(1);
+      expect(sessionRepository.adds[0]?.date).toBe(new Date(interactionAt).toISOString());
+      expect(sessionRepository.adds[0]?.date).not.toBe(new Date(resumeAt).toISOString());
+    });
+
+    it('also closes as "inactivity" on a window focus event, same as visibilitychange', async () => {
+      vi.useFakeTimers();
+      const start = new Date('2026-01-01T00:00:00.000Z').getTime();
+      vi.setSystemTime(start);
+      const onClose = vi.fn();
+      renderDrill({ idleTimeoutMs: 300_000, onClose });
+
+      vi.setSystemTime(start + 300_000);
+      window.dispatchEvent(new Event('focus'));
+      await tick();
+
+      expect(onClose).toHaveBeenCalledWith(expect.objectContaining({ closureReason: 'inactivity' }));
+    });
+
+    it('removes the visibilitychange/focus listeners on unmount, so a torn-down instance never fires onClose', async () => {
+      vi.useFakeTimers();
+      const start = new Date('2026-01-01T00:00:00.000Z').getTime();
+      vi.setSystemTime(start);
+      const onClose = vi.fn();
+      const { unmount } = renderDrill({ idleTimeoutMs: 300_000, onClose });
+
+      unmount();
+
+      vi.setSystemTime(start + 300_000);
+      document.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new Event('focus'));
+      await tick();
+
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it('closes as "inactivity" with a zero-attempt summary when idled past the threshold with no interaction at all', async () => {
+      vi.useFakeTimers();
+      const start = new Date('2026-01-01T00:00:00.000Z').getTime();
+      vi.setSystemTime(start);
+      const onClose = vi.fn();
+      const sessionRepository = fakeSessionRepository();
+      renderDrill({ idleTimeoutMs: 300_000, onClose, sessionRepository });
+
+      // No grade, stroke, or reveal ever happens -- idle from the moment of
+      // mount.
+      vi.setSystemTime(start + 300_000);
+      document.dispatchEvent(new Event('visibilitychange'));
+      await tick();
+
+      expect(onClose).toHaveBeenCalledTimes(1);
+      const summary = onClose.mock.calls[0]?.[0] as SessionSummaryView;
+      expect(summary.closureReason).toBe('inactivity');
+      expect(summary.accuracy).toBe(0);
+      expect(summary.missed).toEqual([]);
+      expect(sessionRepository.adds).toHaveLength(1);
+      expect(sessionRepository.adds[0]?.cardsAttempted).toBe(0);
+      expect(sessionRepository.adds[0]?.accuracy).toBe(0);
+    });
+
+    it('closes as "inactivity" on a stray interaction past the idle threshold, dropping that interaction rather than recording it', async () => {
+      vi.useFakeTimers();
+      const start = new Date('2026-01-01T00:00:00.000Z').getTime();
+      vi.setSystemTime(start);
+      const inkSurface = fakeInkSurface();
+      const onClose = vi.fn();
+      const attemptRepository = fakeAttemptRepository();
+      renderDrill({ idleTimeoutMs: 300_000, inkSurface, onClose, attemptRepository });
+
+      vi.setSystemTime(start + 300_000);
+      await inkSurface.landStroke();
+
+      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(onClose).toHaveBeenCalledWith(expect.objectContaining({ closureReason: 'inactivity' }));
+      // The triggering stroke never lands as ink and is never graded/persisted.
+      expect(attemptRepository.adds).toEqual([]);
+    });
+
+    it('never reclassifies "I\'m done" as inactivity, regardless of elapsed idle time', async () => {
+      vi.useFakeTimers();
+      const start = new Date('2026-01-01T00:00:00.000Z').getTime();
+      vi.setSystemTime(start);
+      const onClose = vi.fn();
+      renderDrill({ idleTimeoutMs: 300_000, onClose });
+
+      vi.setSystemTime(start + 10 * 300_000);
+      await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
+
+      expect(onClose).toHaveBeenCalledWith(expect.objectContaining({ closureReason: 'explicit' }));
+    });
+
+    it('never blocks reaching the Summary when sessionRepository.add() fails, logging via console.error', async () => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const onClose = vi.fn();
+      const sessionRepository = fakeSessionRepository({ ok: false, error: new Error('write failed') });
+      renderDrill({ onClose, sessionRepository });
+
+      await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
+      await flushAsync();
+
+      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(consoleError).toHaveBeenCalledWith('Failed to persist session:', expect.any(Error));
+
+      consoleError.mockRestore();
+    });
+
+    it('carries revealCount and wall-clock timeMs into the closed summary', async () => {
+      vi.useFakeTimers();
+      const start = new Date('2026-01-01T00:00:00.000Z').getTime();
+      vi.setSystemTime(start);
+      const onClose = vi.fn();
+      renderDrill({ onClose });
+
+      // Reveal (no stroke needed -- revealing nothing is itself an honest
+      // "I don't know") then grade: this attempt carries `revealUsed`.
+      await fireEvent.click(screen.getByRole('button', { name: 'Reveal' }));
+      await fireEvent.click(grade('Missed'));
+
+      vi.setSystemTime(start + 90_000);
+      await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
+
+      expect(onClose).toHaveBeenCalledTimes(1);
+      const summary = onClose.mock.calls[0]?.[0] as SessionSummaryView;
+      expect(summary.revealCount).toBe(1);
+      expect(summary.timeMs).toBe(90_000);
+    });
+
+    // Closure-during-Undo guards (review): a resume event, an explicit
+    // close, or a stray interaction landing while `handleUndo`'s pending
+    // writes are still in flight must neither bump the idle clock nor
+    // close/persist ahead of that Undo's reversal.
+    function renderDrillWithGatedAttemptWrite(idleTimeoutMs = 300_000): {
+      inkSurface: ReturnType<typeof fakeInkSurface>;
+      onClose: ReturnType<typeof vi.fn>;
+      sessionRepository: ReturnType<typeof fakeSessionRepository>;
+      releaseAttemptWrite: (result: Result<void>) => void;
+    } {
+      let releaseAttemptWrite!: (result: Result<void>) => void;
+      const gated = new Promise<Result<void>>((resolve) => {
+        releaseAttemptWrite = resolve;
+      });
+      const attemptRepository = fakeAttemptRepository();
+      const recorded: Attempt[] = attemptRepository.adds;
+      attemptRepository.add = vi.fn((attempt: Attempt) => {
+        recorded.push(attempt);
+        return gated;
+      });
+      const inkSurface = fakeInkSurface();
+      const onClose = vi.fn();
+      const sessionRepository = fakeSessionRepository();
+      renderDrill({ idleTimeoutMs, inkSurface, attemptRepository, onClose, sessionRepository });
+      return { inkSurface, onClose, sessionRepository, releaseAttemptWrite };
+    }
+
+    it('does not close on resume while an Undo is still reversing', async () => {
+      vi.useFakeTimers();
+      const start = new Date('2026-01-01T00:00:00.000Z').getTime();
+      vi.setSystemTime(start);
+      const { inkSurface, onClose, sessionRepository, releaseAttemptWrite } =
+        renderDrillWithGatedAttemptWrite();
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Correct'));
+      await fireEvent.click(undo());
+      await tick();
+
+      vi.setSystemTime(start + 600_000);
+      document.dispatchEvent(new Event('visibilitychange'));
+      await tick();
+
+      expect(onClose).not.toHaveBeenCalled();
+      expect(sessionRepository.adds).toEqual([]);
+
+      vi.useRealTimers();
+      releaseAttemptWrite({ ok: true, value: undefined });
+      await flushAsync();
+
+      // The Undo reversed normally and the drill stayed open -- no close.
+      expect(onClose).not.toHaveBeenCalled();
+      expect(sessionRepository.adds).toEqual([]);
+    });
+
+    it('does not close via "I\'m done" while an Undo is still reversing', async () => {
+      const inkSurface = fakeInkSurface();
+      let releaseAttemptWrite!: (result: Result<void>) => void;
+      const gated = new Promise<Result<void>>((resolve) => {
+        releaseAttemptWrite = resolve;
+      });
+      const attemptRepository = fakeAttemptRepository();
+      const recorded: Attempt[] = attemptRepository.adds;
+      attemptRepository.add = vi.fn((attempt: Attempt) => {
+        recorded.push(attempt);
+        return gated;
+      });
+      const onClose = vi.fn();
+      const sessionRepository = fakeSessionRepository();
+      renderDrill({ inkSurface, attemptRepository, onClose, sessionRepository });
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Correct'));
+      await fireEvent.click(undo());
+      await tick();
+
+      // "I'm done" has no `disabled={undoing}` (unlike Next), so this tap is
+      // UI-reachable -- it must be dropped, not closed ahead of the reversal.
+      await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
+
+      expect(onClose).not.toHaveBeenCalled();
+      expect(sessionRepository.adds).toEqual([]);
+
+      releaseAttemptWrite({ ok: true, value: undefined });
+      await flushAsync();
+
+      expect(onClose).not.toHaveBeenCalled();
+      expect(sessionRepository.adds).toEqual([]);
+    });
+
+    it('drops a stray idle-eligible stroke arriving mid-Undo instead of closing as inactivity', async () => {
+      vi.useFakeTimers();
+      const start = new Date('2026-01-01T00:00:00.000Z').getTime();
+      vi.setSystemTime(start);
+      const { inkSurface, onClose, sessionRepository, releaseAttemptWrite } =
+        renderDrillWithGatedAttemptWrite();
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Correct'));
+      await fireEvent.click(undo());
+      await tick();
+
+      // Past the idle threshold, but an Undo is in flight: `recordInteraction`
+      // guards `undoing`, so this neither closes nor bumps the idle clock.
+      vi.setSystemTime(start + 600_000);
+      await inkSurface.landStroke();
+
+      expect(onClose).not.toHaveBeenCalled();
+      expect(sessionRepository.adds).toEqual([]);
+
+      vi.useRealTimers();
+      releaseAttemptWrite({ ok: true, value: undefined });
+      await flushAsync();
+
+      expect(onClose).not.toHaveBeenCalled();
+      expect(sessionRepository.adds).toEqual([]);
+    });
+
+    // Regression tests for the lifetime/session-scoping fix (review pass 1's
+    // bad_spec finding, Spec Change Log): `attempts` is the learner's entire
+    // *lifetime* history (seeds `sessionAttempts`, feeds `selectNext`), never
+    // this drill entry's own session -- only `thisSessionAttempts` (starts
+    // empty, populated by this entry's own grades) may ever feed
+    // `isScopeComplete`/`buildSummary`/`buildSessionRecord`.
+    it('does not auto-close after a single grade when the seeded lifetime attempts already cover the full scope', async () => {
+      const cards = cardsInScope([...CARDS], HIRAGANA_BASE_SCOPE); // 46 cards
+      const inkSurface = fakeInkSurface();
+      const onClose = vi.fn();
+      renderDrill({
+        scope: HIRAGANA_BASE_SCOPE,
+        attempts: priorLifetimeAttempts(cards),
+        inkSurface,
+        onClose,
+      });
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Correct'));
+      await fireEvent.click(nextCharacter());
+
+      // A returning learner who has already covered this scope before must
+      // not have their session auto-closed after a single grade -- the
+      // drill advances to a new prompt instead.
+      expect(onClose).not.toHaveBeenCalled();
+      expect(screen.getByText('2 / 46')).toBeTruthy();
+      expect(() => currentCard(cards)).not.toThrow();
+    });
+
+    it('reports only this session\'s attempts in the summary and persisted record, never the seeded lifetime total', async () => {
+      const cards = cardsInScope([...CARDS], HIRAGANA_BASE_SCOPE); // 46 cards
+      const inkSurface = fakeInkSurface();
+      const onClose = vi.fn();
+      const sessionRepository = fakeSessionRepository();
+      renderDrill({
+        scope: HIRAGANA_BASE_SCOPE,
+        attempts: priorLifetimeAttempts(cards),
+        inkSurface,
+        onClose,
+        sessionRepository,
+      });
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Correct'));
+      await fireEvent.click(nextCharacter());
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Missed'));
+      await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
+
+      expect(onClose).toHaveBeenCalledTimes(1);
+      const summary = onClose.mock.calls[0]?.[0] as SessionSummaryView;
+      expect(summary.accuracy).toBe(0.5);
+      expect(sessionRepository.adds).toHaveLength(1);
+      expect(sessionRepository.adds[0]?.cardsAttempted).toBe(2);
+      expect(sessionRepository.adds[0]?.accuracy).toBe(0.5);
     });
   });
 });

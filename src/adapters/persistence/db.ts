@@ -11,19 +11,21 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { Settings } from '../../domain/settings';
 import type { Attempt } from '../../domain/attempt';
 import type { Tally } from '../../domain/tally';
+import type { Session } from '../../domain/session';
 
 export const DB_NAME = 'tegakko';
-// v3: adds the `tallies` store (Story 1.6). `upgrade()` only re-runs when the
-// requested version exceeds a database's *stored* version -- a pre-existing
-// v2 database (settings+attempts only) would otherwise open at v2==2 forever
-// and never grow `tallies`, so this bump is required, not cosmetic. Same
-// reasoning as the prior 1->2 bump.
-export const DB_VERSION = 3;
+// v4: adds the `sessions` store (Story 1.9). `upgrade()` only re-runs when
+// the requested version exceeds a database's *stored* version -- a
+// pre-existing v3 database (settings+attempts+tallies only) would otherwise
+// open at v3==3 forever and never grow `sessions`, so this bump is required,
+// not cosmetic. Same reasoning as the prior 2->3 bump.
+export const DB_VERSION = 4;
 
 export const SETTINGS_STORE = 'settings';
 export const ATTEMPTS_STORE = 'attempts';
 export const ATTEMPTS_SESSION_INDEX = 'sessionId';
 export const TALLIES_STORE = 'tallies';
+export const SESSIONS_STORE = 'sessions';
 
 export interface TegakkoDb extends DBSchema {
   settings: {
@@ -38,6 +40,10 @@ export interface TegakkoDb extends DBSchema {
   tallies: {
     key: string;
     value: Tally;
+  };
+  sessions: {
+    key: string;
+    value: Session;
   };
 }
 
@@ -56,6 +62,9 @@ export function openTegakkoDb(): Promise<IDBPDatabase<TegakkoDb>> {
       }
       if (!db.objectStoreNames.contains(TALLIES_STORE)) {
         db.createObjectStore(TALLIES_STORE, { keyPath: 'cardId' });
+      }
+      if (!db.objectStoreNames.contains(SESSIONS_STORE)) {
+        db.createObjectStore(SESSIONS_STORE, { keyPath: 'id' });
       }
     },
   });
