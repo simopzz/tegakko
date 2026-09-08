@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import History from './History.svelte';
 import { formatDate } from './format-date';
 import type { SessionRepository } from '../../ports/session-repository';
@@ -199,6 +200,16 @@ describe('History', () => {
     expect(consoleError).toHaveBeenCalledWith('Failed to load sessions:', expect.any(Error));
 
     consoleError.mockRestore();
+  });
+
+  it('moves focus onto the history heading on entry', async () => {
+    render(History, {
+      sessionRepository: fakeSessionRepository({ ok: true, value: [] }),
+      onBack: vi.fn(),
+    });
+    await tick();
+
+    expect(document.activeElement?.textContent).toBe('History');
   });
 
   it('calls onBack when "Back" is tapped', async () => {

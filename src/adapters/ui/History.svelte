@@ -158,10 +158,6 @@
     color: var(--color-ink-muted);
   }
 
-  .label:focus {
-    outline: none;
-  }
-
   .sparkline {
     display: flex;
     align-items: flex-end;

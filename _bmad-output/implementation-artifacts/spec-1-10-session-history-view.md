@@ -75,6 +75,31 @@ baseline_commit: 'b486fec931a46b27299b01930f65c6a0d93ead02'
 - Given no sessions, then the sparkline is absent and the empty-state line renders with no call-to-action.
 - Given the Scope picker or Session Summary screen, then a "History" link opens History; "Back" returns to the Scope picker.
 
+### Review Findings (pass 2, 2026-09-08)
+
+Layers: Blind Hunter, Edge Case Hunter, Verification Gap, Acceptance Auditor (no violations).
+Triage: 1 decision-needed, 4 patch, 0 defer, 14 rejected (see appendix).
+
+- [ ] ~~[Review][Decision] History dates render in the viewer's local timezone~~ — rejected per human decision 2026-09-08: local day is the intended session day; current behavior stands, no code change.
+- [x] [Review][Patch] `formatDate` output is only self-checked [src/adapters/ui/History.test.ts] — every date expectation is computed with the same helper; add a literal-string assertion (dedicated `format-date` unit test).
+- [x] [Review][Patch] History entry focus shift runs unasserted [src/adapters/ui/History.svelte:37-38] — add a `document.activeElement` test mirroring `SessionSummary.test.ts:140-144`.
+- [x] [Review][Patch] Summary→History→Back path never clicks Back [src/app/App.test.ts:204] — extend the Summary-entry case to click "Back" and assert the Scope picker returns.
+- [x] [Review][Patch] Focus indicator removed from History heading [src/adapters/ui/History.svelte:161-163] — `.label:focus { outline: none; }` leaves keyboard users with no visible focus location on entry; delete the rule.
+
+Rejected appendix:
+- false: sparkline `aria-hidden` hides info from screen readers — refuted: rows expose every session's date + accuracy percentage (strictly more than the bars); hiding the redundant visual is correct.
+- rejected (spec-mandated): load failure renders the true-empty line — the I/O matrix explicitly requires identical fail-open rendering + `console.error`; changing it edits the spec.
+- false: `rampColorForAccuracy` unclamped for negative/NaN accuracy — refuted: sole accuracy producer `computeAccuracy` (`src/domain/session.ts:78-82`) returns `correct / attempts.length` (0 when empty), mathematically in `[0, 1]`; no reachable out-of-range input.
+- false: `sparklineSessions` silently wrong on unsorted input — refuted: sole caller passes `sortSessionsDescending` output; the parameter is named `sortedDescending`.
+- false: `loaded` stuck on header-only when sort/fetch throws — refuted: `.catch` converts rejection into an `err` Result and `loaded = true` runs in both branches (`History.svelte:47-61`); the pure string-compare sort on a typed array cannot throw, and the port type returns a Promise (no sync throw for conforming impls). Same refutation covers the non-array `ok` value and post-unmount state-write claims.
+- false: `screen = 'history'` lacks a union member — refuted: `src/adapters/ui/screens.ts:5` already includes `'history'`.
+- rejected (spec edit): spec frontmatter `status: 'done'` vs sprint-status `review` — process metadata; fixing it edits the spec under review.
+- rejected low: unbounded `<ul>` rows with no cap/virtualization — the spec's Never mandates no pagination with full listing, and added complexity is unwarranted at single-user drill scale.
+- false: Settings link navigation uncovered after the header restructure — refuted: `ScopePicker.test.ts:222-236` asserts it against the current header.
+- false: unknown `closureReason` falls through the switch — refuted: closed union (`src/domain/session.ts:17`), exhaustive switch, rejected by `tsc` at every call site.
+- false: `formatDate` renders "Invalid Date" — refuted: sole date producer `Drill.svelte:462` `toISOString()` always yields a parseable ISO string.
+- rejected low: never-settling `list()` promise leaves header-only screen — the idb adapter always settles; a timeout race adds complexity for an unreachable case.
+
 ## Implementation Notes
 
 - `rampColorForAccuracy` indexes an internal `as const` tuple (typed as `0 | 1 | 2 | 3 | 4`) rather than the exported `readonly string[]`, avoiding a `noUncheckedIndexedAccess` fallback/non-null assertion while still exporting `RAMP_COLORS` in the shape the spec calls for.

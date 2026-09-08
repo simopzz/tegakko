@@ -216,6 +216,12 @@ describe('App', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'History' }));
 
     expect(await screen.findByText('No sessions yet. Finish a drill to see it here.')).toBeTruthy();
+
+    // "Back" from History always returns to the Scope picker, even when
+    // History was opened from the Session summary.
+    await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+
+    await screen.findByText('What are we testing today?');
   });
 
   it('reaches Settings from the Scope-picker header and back again, selection intact', async () => {
