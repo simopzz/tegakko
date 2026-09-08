@@ -46,6 +46,13 @@ describe('isSessionIdle', () => {
     const lastInteractionAt = Date.now() - 10_000;
     expect(isSessionIdle(lastInteractionAt, 5000)).toBe(true);
   });
+
+  it('is false (never idle) when the clock moved backward past the last interaction', () => {
+    // Elapsed time clamps at 0 -- a backward system-clock adjustment must
+    // not report idle early or throw; detection simply waits for the clock
+    // to catch up (offline client, no server clock authority).
+    expect(isSessionIdle(2000, 1000, 1000)).toBe(false);
+  });
 });
 
 describe('isScopeComplete', () => {

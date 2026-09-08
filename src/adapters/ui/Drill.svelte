@@ -197,7 +197,11 @@
   // time has already elapsed, that interaction closes the session instead
   // of landing, and is itself dropped (Boundaries & Constraints).
   function recordInteraction(): boolean {
-    if (closed) return false;
+    // Guards `undoing` too (same reasoning as `checkIdleOnResume`/
+    // `handleExplicitClose`): an interaction landing mid-Undo must neither
+    // bump `lastInteractionAt` nor close/persist ahead of the in-flight
+    // reversal -- it is dropped, exactly like the idle-revealing interaction.
+    if (closed || undoing) return false;
     if (isSessionIdle(lastInteractionAt, idleTimeoutMs)) {
       closeSession('inactivity', lastInteractionAt);
       return false;

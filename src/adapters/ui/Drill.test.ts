@@ -1332,6 +1332,145 @@ describe('Drill', () => {
       consoleError.mockRestore();
     });
 
+    it('carries revealCount and wall-clock timeMs into the closed summary', async () => {
+      vi.useFakeTimers();
+      const start = new Date('2026-01-01T00:00:00.000Z').getTime();
+      vi.setSystemTime(start);
+      const onClose = vi.fn();
+      renderDrill({ onClose });
+
+      // Reveal (no stroke needed -- revealing nothing is itself an honest
+      // "I don't know") then grade: this attempt carries `revealUsed`.
+      await fireEvent.click(screen.getByRole('button', { name: 'Reveal' }));
+      await fireEvent.click(grade('Missed'));
+
+      vi.setSystemTime(start + 90_000);
+      await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
+
+      expect(onClose).toHaveBeenCalledTimes(1);
+      const summary = onClose.mock.calls[0]?.[0] as SessionSummaryView;
+      expect(summary.revealCount).toBe(1);
+      expect(summary.timeMs).toBe(90_000);
+    });
+
+    // Closure-during-Undo guards (review): a resume event, an explicit
+    // close, or a stray interaction landing while `handleUndo`'s pending
+    // writes are still in flight must neither bump the idle clock nor
+    // close/persist ahead of that Undo's reversal.
+    function renderDrillWithGatedAttemptWrite(idleTimeoutMs = 300_000): {
+      inkSurface: ReturnType<typeof fakeInkSurface>;
+      onClose: ReturnType<typeof vi.fn>;
+      sessionRepository: ReturnType<typeof fakeSessionRepository>;
+      releaseAttemptWrite: (result: Result<void>) => void;
+    } {
+      let releaseAttemptWrite!: (result: Result<void>) => void;
+      const gated = new Promise<Result<void>>((resolve) => {
+        releaseAttemptWrite = resolve;
+      });
+      const attemptRepository = fakeAttemptRepository();
+      const recorded: Attempt[] = attemptRepository.adds;
+      attemptRepository.add = vi.fn((attempt: Attempt) => {
+        recorded.push(attempt);
+        return gated;
+      });
+      const inkSurface = fakeInkSurface();
+      const onClose = vi.fn();
+      const sessionRepository = fakeSessionRepository();
+      renderDrill({ idleTimeoutMs, inkSurface, attemptRepository, onClose, sessionRepository });
+      return { inkSurface, onClose, sessionRepository, releaseAttemptWrite };
+    }
+
+    it('does not close on resume while an Undo is still reversing', async () => {
+      vi.useFakeTimers();
+      const start = new Date('2026-01-01T00:00:00.000Z').getTime();
+      vi.setSystemTime(start);
+      const { inkSurface, onClose, sessionRepository, releaseAttemptWrite } =
+        renderDrillWithGatedAttemptWrite();
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Correct'));
+      await fireEvent.click(undo());
+      await tick();
+
+      vi.setSystemTime(start + 600_000);
+      document.dispatchEvent(new Event('visibilitychange'));
+      await tick();
+
+      expect(onClose).not.toHaveBeenCalled();
+      expect(sessionRepository.adds).toEqual([]);
+
+      vi.useRealTimers();
+      releaseAttemptWrite({ ok: true, value: undefined });
+      await flushAsync();
+
+      // The Undo reversed normally and the drill stayed open -- no close.
+      expect(onClose).not.toHaveBeenCalled();
+      expect(sessionRepository.adds).toEqual([]);
+    });
+
+    it('does not close via "I\'m done" while an Undo is still reversing', async () => {
+      const inkSurface = fakeInkSurface();
+      let releaseAttemptWrite!: (result: Result<void>) => void;
+      const gated = new Promise<Result<void>>((resolve) => {
+        releaseAttemptWrite = resolve;
+      });
+      const attemptRepository = fakeAttemptRepository();
+      const recorded: Attempt[] = attemptRepository.adds;
+      attemptRepository.add = vi.fn((attempt: Attempt) => {
+        recorded.push(attempt);
+        return gated;
+      });
+      const onClose = vi.fn();
+      const sessionRepository = fakeSessionRepository();
+      renderDrill({ inkSurface, attemptRepository, onClose, sessionRepository });
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Correct'));
+      await fireEvent.click(undo());
+      await tick();
+
+      // "I'm done" has no `disabled={undoing}` (unlike Next), so this tap is
+      // UI-reachable -- it must be dropped, not closed ahead of the reversal.
+      await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
+
+      expect(onClose).not.toHaveBeenCalled();
+      expect(sessionRepository.adds).toEqual([]);
+
+      releaseAttemptWrite({ ok: true, value: undefined });
+      await flushAsync();
+
+      expect(onClose).not.toHaveBeenCalled();
+      expect(sessionRepository.adds).toEqual([]);
+    });
+
+    it('drops a stray idle-eligible stroke arriving mid-Undo instead of closing as inactivity', async () => {
+      vi.useFakeTimers();
+      const start = new Date('2026-01-01T00:00:00.000Z').getTime();
+      vi.setSystemTime(start);
+      const { inkSurface, onClose, sessionRepository, releaseAttemptWrite } =
+        renderDrillWithGatedAttemptWrite();
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Correct'));
+      await fireEvent.click(undo());
+      await tick();
+
+      // Past the idle threshold, but an Undo is in flight: `recordInteraction`
+      // guards `undoing`, so this neither closes nor bumps the idle clock.
+      vi.setSystemTime(start + 600_000);
+      await inkSurface.landStroke();
+
+      expect(onClose).not.toHaveBeenCalled();
+      expect(sessionRepository.adds).toEqual([]);
+
+      vi.useRealTimers();
+      releaseAttemptWrite({ ok: true, value: undefined });
+      await flushAsync();
+
+      expect(onClose).not.toHaveBeenCalled();
+      expect(sessionRepository.adds).toEqual([]);
+    });
+
     // Regression tests for the lifetime/session-scoping fix (review pass 1's
     // bad_spec finding, Spec Change Log): `attempts` is the learner's entire
     // *lifetime* history (seeds `sessionAttempts`, feeds `selectNext`), never

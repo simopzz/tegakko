@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import SessionSummary from './SessionSummary.svelte';
 import type { SessionSummaryView } from '../../domain/session';
 
@@ -104,5 +105,31 @@ describe('SessionSummary', () => {
 
     expect(screen.getByText('0%')).toBeTruthy();
     expect(screen.queryByText('Missed this time')).toBeNull();
+  });
+
+  it('renders the missed chips as a list so screen readers announce the group', () => {
+    render(
+      SessionSummary,
+      {
+        summary: fixture({
+          missed: [
+            { cardId: 'a:hiragana', grapheme: 'あ', script: 'hiragana', tallyCount: 3 },
+            { cardId: 'i:hiragana', grapheme: 'い', script: 'hiragana', tallyCount: 1 },
+          ],
+        }),
+        onAgain: vi.fn(),
+      },
+    );
+
+    const list = screen.getByRole('list', { name: 'Missed cards' });
+    expect(list).toBeTruthy();
+    expect(list.querySelectorAll(':scope > li').length).toBe(2);
+  });
+
+  it('moves focus onto the summary heading on entry', async () => {
+    render(SessionSummary, { summary: fixture(), onAgain: vi.fn() });
+    await tick();
+
+    expect(document.activeElement?.textContent).toBe('Session summary');
   });
 });

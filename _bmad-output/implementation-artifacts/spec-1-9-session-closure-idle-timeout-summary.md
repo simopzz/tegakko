@@ -160,3 +160,27 @@ While verifying, I found one additional small deviation from the Code Map (not a
 
 **Manual checks (if no CLI):**
 - In a real browser tab: start a drill, background the tab past the idle threshold, refocus — confirm the Summary screen appears with `closureReason: 'inactivity'` behavior (no way to assert the persisted reason from the UI alone, but the "you ended it" chip must be absent).
+
+### Review Findings (code review 2026-09-08, branch feat/1-9-session-closure-idle-timeout-summary vs main, 16 files +1871/-66)
+
+- [x] [Review][Patch] recordInteraction missing undoing guard [src/adapters/ui/Drill.svelte:199]
+- [x] [Review][Patch] No Drill-level revealCount/timeMs closure test [src/adapters/ui/Drill.test.ts]
+- [x] [Review][Patch] Settings boot-read failure note/inert state untested [src/adapters/ui/Settings.test.ts]
+- [x] [Review][Patch] Summary missed chips lack list semantics and entry focus [src/adapters/ui/SessionSummary.svelte:62]
+- [x] [Review][Patch] isSessionIdle unclamped against backward clock skew [src/domain/session.ts:54]
+- [x] [Review][Patch] Settings cross-control failure-note test gap [src/adapters/ui/Settings.svelte:47]
+- [x] [Review][Patch] Settings concurrent-save serialization test gap [src/adapters/ui/Settings.svelte:59]
+- [x] [Review][Patch] Drill closure-during-Undo guards untested [src/adapters/ui/Drill.svelte:217]
+
+Rejected:
+- false: saveQueue rejection-death — IdbSettingsRepository.save never throws (try/catch returns Result), so a poisoned queue is unreachable.
+- false: handleNext idle-vs-full-scope precedence — inactivity-first matches the documented every-interaction-through-recordInteraction rule and the dropped-interaction constraint; no AC defines otherwise.
+- rejected low: closeSession onClose try/finally leak — App always unmounts Drill on close and its handler never throws; fix would duplicate cleanup for a non-path.
+- false: buildSummary chip order — first-miss insertion order IS deterministic per session; no sort required by spec.
+- false: buildSummary unknown-card silent drop — thisSessionAttempts is built only from current CARDS this entry, so unknown ids are unreachable.
+- false: isScopeComplete global CARDS coupling — style preference with no named caller divergence or functional harm.
+- false: session-repository duplicate-id — sessionId is a per-entry UUID closed exactly once; retry/collision path unreachable.
+- false: formatTime 90:00 — unbounded M:SS is the specified format; hour-long sessions still read correctly.
+- false: buildSessionRecord no validation — call sites always pass crypto.randomUUID/ISO strings; pure-function garbage-in-garbage-out needs no guard.
+- false: stroke-while-revealed timer gap — cell is pointer-locked when revealed and reveal/grade taps already reset the timer; blocked strokes correctly don't.
+- false: zero/negative/NaN idleTimeoutMs — UI writes only 120/300/600k presets and DEFAULT 300k; corrupt-store values require external tampering, never shown reachable.

@@ -56,7 +56,12 @@ export function isSessionIdle(
   idleTimeoutMs: number,
   now: number = Date.now(),
 ): boolean {
-  return now - lastInteractionAt >= idleTimeoutMs;
+  // Clamped at 0: a backward system-clock adjustment mid-session would
+  // otherwise yield a negative elapsed time and delay idle detection until
+  // the clock catches up (device clock skew -- offline client, no server
+  // clock authority; mirrors `closeSession`'s `timeMs` clamp and
+  // `domain/drill.ts`'s `score()` clamp).
+  return Math.max(0, now - lastInteractionAt) >= idleTimeoutMs;
 }
 
 /** Whether every in-scope card has at least one attempt in `sessionAttempts`

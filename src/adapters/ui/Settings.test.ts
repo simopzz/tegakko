@@ -159,6 +159,80 @@ describe('Settings', () => {
     expect(settingsRepository.save).not.toHaveBeenCalled();
   });
 
+  it('shows the global read-failure note and leaves both pill groups inert', async () => {
+    const settingsRepository = repository(err(new Error('IndexedDB blocked')));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(Settings, { settingsRepository, onPresetChange: vi.fn(), onBack: vi.fn() });
+
+    await screen.findByRole('radiogroup', { name: 'Ink width' });
+    await screen.findByRole('radiogroup', { name: 'Idle close' });
+    expect(screen.getByText(/Couldn't load your settings/)).toBeTruthy();
+
+    // Neither toggle is usable without a known baseline -- both render
+    // inert rather than persisting records assembled from guesses.
+    for (const name of ['Subtle', 'Expressive', 'Calligraphy', '2 min', '5 min', '10 min'] as const) {
+      const segment = screen.getByRole('radio', { name });
+      expect(segment.getAttribute('aria-disabled')).toBe('true');
+      expect(segment.className).toContain('pill--inert');
+    }
+  });
+
+  it('keeps one control\'s failure note when the other control\'s active segment is tapped', async () => {
+    // Per-control notes (never a shared one): a failed width save's note
+    // must survive an unrelated tap on the idle toggle's active segment,
+    // without firing a spurious re-save.
+    const settingsRepository = repository(
+      ok({ ...STORED, idleTimeoutMs: 120_000 }),
+      err(new Error('quota exceeded')),
+    );
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(Settings, { settingsRepository, onPresetChange: vi.fn(), onBack: vi.fn() });
+
+    await screen.findByRole('radiogroup', { name: 'Ink width' });
+    await fireEvent.click(preset('Calligraphy'));
+    await screen.findByText(/won't stick/);
+    expect(settingsRepository.save).toHaveBeenCalledTimes(1);
+
+    await fireEvent.click(idlePreset('2 min'));
+
+    expect(settingsRepository.save).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/won't stick/)).toBeTruthy();
+  });
+
+  it('serializes overlapping width and idle saves so neither change is lost', async () => {
+    const settingsRepository = repository(ok({ ...STORED, idleTimeoutMs: 120_000 }));
+    let releaseFirst!: (result: Result<void>) => void;
+    const firstPending = new Promise<Result<void>>((resolve) => {
+      releaseFirst = resolve;
+    });
+    settingsRepository.save = vi
+      .fn()
+      .mockReturnValueOnce(firstPending)
+      .mockResolvedValue(ok(undefined));
+    render(Settings, { settingsRepository, onPresetChange: vi.fn(), onBack: vi.fn() });
+
+    await screen.findByRole('radiogroup', { name: 'Ink width' });
+    // Two rapid taps across controls before either save resolves -- without
+    // the queue, each would build its record from the same stale baseline
+    // and whichever resolved last would silently revert the other's change.
+    await fireEvent.click(preset('Calligraphy'));
+    await fireEvent.click(idlePreset('10 min'));
+    releaseFirst(ok(undefined));
+
+    for (let i = 0; i < 50 && settingsRepository.save.mock.calls.length < 2; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    expect(settingsRepository.save).toHaveBeenCalledTimes(2);
+    // The second payload accumulates onto the first's record instead of
+    // reverting it.
+    expect(settingsRepository.save).toHaveBeenNthCalledWith(2, {
+      widthPreset: 'calligraphy',
+      idleTimeoutMs: 600_000,
+      penCheckShown: true,
+    });
+  });
+
   it('calls onBack from the Back control', async () => {
     const onBack = vi.fn();
     render(Settings, {

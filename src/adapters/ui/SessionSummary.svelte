@@ -9,6 +9,7 @@
   // closure-reason mapping): only an explicit close ever carries the
   // positive "You ended it" chip -- the idle/full-scope distinction is a
   // History-surface concern (Story 1.10), out of scope for this screen.
+  import { onMount } from 'svelte';
   import type { SessionSummaryView } from '../../domain/session';
 
   interface Props {
@@ -17,6 +18,15 @@
   }
 
   const { summary, onAgain }: Props = $props();
+
+  // Move keyboard/screen-reader focus onto the summary heading on entry:
+  // the Drill instance just unmounted (focus would otherwise drop to
+  // `<body>`), and the missed chips are now list items whose group count
+  // is announced via the list semantics below.
+  let heading: HTMLHeadingElement | undefined = $state();
+  onMount(() => {
+    heading?.focus();
+  });
 
   const scriptLabel: Record<string, string> = {
     hiragana: 'Hiragana',
@@ -35,7 +45,7 @@
 
 <main class="summary">
   <div class="card">
-    <p class="label">Session summary</p>
+    <h1 class="label" tabindex="-1" bind:this={heading}>Session summary</h1>
 
     <div class="hero">
       <p class="accuracy">{Math.round(summary.accuracy * 100)}%</p>
@@ -62,16 +72,16 @@
     {#if summary.missed.length > 0}
       <div class="missed">
         <p class="group-label">Missed this time</p>
-        <div class="missed-chips">
+        <ul class="missed-chips" aria-label="Missed cards">
           {#each summary.missed as chip (chip.cardId)}
-            <span class="chip chip--missed">
+            <li class="chip chip--missed">
               <span class="chip-glyph">{chip.grapheme}</span>
               <span class="chip-count">
                 {scriptLabel[chip.script] ?? chip.script} · missed {chip.tallyCount}
               </span>
-            </span>
+            </li>
           {/each}
-        </div>
+        </ul>
       </div>
     {/if}
 
@@ -108,6 +118,10 @@
     text-transform: uppercase;
     font-size: 0.75rem;
     color: var(--color-ink-muted);
+  }
+
+  .label:focus {
+    outline: none;
   }
 
   .hero {
@@ -225,6 +239,9 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--spacing-1);
+    list-style: none;
+    margin: 0;
+    padding: 0;
   }
 
   .btn {
