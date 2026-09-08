@@ -9,21 +9,26 @@
   import ScopePicker from '../adapters/ui/ScopePicker.svelte';
   import Drill from '../adapters/ui/Drill.svelte';
   import Settings from '../adapters/ui/Settings.svelte';
+  import SessionSummary from '../adapters/ui/SessionSummary.svelte';
   import { IdbSettingsRepository } from '../adapters/persistence/settings-repository';
   import { IdbAttemptRepository } from '../adapters/persistence/attempt-repository';
   import { IdbTallyRepository } from '../adapters/persistence/tally-repository';
+  import { IdbSessionRepository } from '../adapters/persistence/session-repository';
   import { InMemoryCardRepository } from '../adapters/content/card-repository';
   import { CanvasInkSurface } from '../adapters/ink/canvas-ink-surface';
   import type { InkSurface } from '../ports/ink-surface';
+  import type { SessionRepository } from '../ports/session-repository';
   import { FULL_SCOPE, type Scope } from '../domain/scope';
   import { DEFAULT_SETTINGS, type WidthPreset } from '../domain/settings';
   import type { Attempt } from '../domain/attempt';
   import type { Tally } from '../domain/tally';
+  import type { SessionSummaryView } from '../domain/session';
   import { err } from '../domain/result';
 
   const settingsRepository = new IdbSettingsRepository();
   const attemptRepository = new IdbAttemptRepository();
   const tallyRepository = new IdbTallyRepository();
+  const sessionRepository: SessionRepository = new IdbSessionRepository();
   const cardRepository = new InMemoryCardRepository();
 
   // A canvas can't read CSS custom properties, so `theme.css`'s token values
@@ -50,6 +55,13 @@
   // `drillAttempts` above, never re-fetched mid-session.
   let drillTallies = $state<Tally[]>([]);
   let widthPreset = $state<WidthPreset>(DEFAULT_SETTINGS.widthPreset);
+  // Loaded once on boot, same as `widthPreset` -- Settings is unreachable
+  // while Drill is mounted (no nav path exists), so this never needs a
+  // live-reload mid-drill (Story 1.9's Boundaries & Constraints).
+  let idleTimeoutMs = $state<number>(DEFAULT_SETTINGS.idleTimeoutMs);
+  // Set by `handleDrillClose` when a Drill session closes (any reason);
+  // drives the `summary` screen below and is cleared on "Another round".
+  let summary = $state<SessionSummaryView | null>(null);
   // A fresh instance per drill entry: `mount()` is called exactly once per
   // adapter instance, and `Drill.svelte`'s unmount cleanup calls `destroy()`.
   let inkSurface = $state<InkSurface | null>(null);
@@ -67,7 +79,10 @@
       // we fall back to showing First Run rather than skipping it silently,
       // and the ink width stays at its default.
       screen = result.ok && result.value.penCheckShown ? 'scope-picker' : 'pen-check';
-      if (result.ok) widthPreset = result.value.widthPreset;
+      if (result.ok) {
+        widthPreset = result.value.widthPreset;
+        idleTimeoutMs = result.value.idleTimeoutMs;
+      }
       ready = true;
     });
   });
@@ -112,9 +127,15 @@
     }
   }
 
-  function handleDrillBack(): void {
-    screen = 'scope-picker';
+  function handleDrillClose(closedSummary: SessionSummaryView): void {
+    summary = closedSummary;
+    screen = 'summary';
     inkSurface = null;
+  }
+
+  function handleSummaryAgain(): void {
+    screen = 'scope-picker';
+    summary = null;
   }
 
   function handleOpenSettings(): void {
@@ -156,7 +177,11 @@
       {inkSurface}
       {attemptRepository}
       {tallyRepository}
-      onBack={handleDrillBack}
+      {sessionRepository}
+      {idleTimeoutMs}
+      onClose={handleDrillClose}
     />
+  {:else if screen === 'summary' && summary}
+    <SessionSummary {summary} onAgain={handleSummaryAgain} />
   {/if}
 {/if}

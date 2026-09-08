@@ -26,6 +26,9 @@
   import type { Tally } from '../../domain/tally';
   import type { Result } from '../../domain/result';
   import { selectNext, undoLastGrade } from '../../domain/drill';
+  import type { SessionRepository } from '../../ports/session-repository';
+  import type { ClosureReason, SessionSummaryView } from '../../domain/session';
+  import { isSessionIdle, isScopeComplete, buildSummary, buildSessionRecord } from '../../domain/session';
 
   interface Props {
     scope: Scope;
@@ -40,12 +43,26 @@
     inkSurface: InkSurface;
     attemptRepository: AttemptRepository;
     tallyRepository: TallyRepository;
-    /** Temporary: Story 1.9's "I'm done" replaces or absorbs this control. */
-    onBack: () => void;
+    sessionRepository: SessionRepository;
+    /** Loaded once at drill entry, same as `widthPreset`/`tallies` -- no
+     * live-reload mid-drill (Story 1.9's Boundaries & Constraints). */
+    idleTimeoutMs: number;
+    /** Fires on every session closure (explicit, full-scope, or inactivity)
+     * with the closed session's Summary view. */
+    onClose: (summary: SessionSummaryView) => void;
   }
 
-  const { scope, attempts, tallies, inkSurface, attemptRepository, tallyRepository, onBack }: Props =
-    $props();
+  const {
+    scope,
+    attempts,
+    tallies,
+    inkSurface,
+    attemptRepository,
+    tallyRepository,
+    sessionRepository,
+    idleTimeoutMs,
+    onClose,
+  }: Props = $props();
 
   // `scope` is fixed for the lifetime of a drill entry (the composition root
   // builds a fresh component per entry), so this drives the existing
@@ -56,6 +73,15 @@
   // component per entry (same lifetime as `card`, below), so this is stable
   // for every attempt this instance ever persists.
   const sessionId = crypto.randomUUID();
+
+  // Story 1.9's closure bookkeeping. `sessionStartedAt` is the origin
+  // `closeSession`'s `timeMs` measures from; `lastInteractionAt` is updated
+  // by every interaction (`recordInteraction`) and read-only otherwise --
+  // idle detection is retroactive, never a live timer (Boundaries &
+  // Constraints). `closed` guards every closure path against firing twice.
+  const sessionStartedAt = Date.now();
+  let lastInteractionAt = Date.now();
+  let closed = false;
 
   const scriptLabel: Record<Script, string> = {
     hiragana: 'Hiragana',
@@ -70,6 +96,18 @@
   // subscription to `attempts` -- Svelte otherwise warns
   // (state_referenced_locally) about exactly that.
   const sessionAttempts: Attempt[] = untrack(() => [...attempts]);
+
+  // Separate from `sessionAttempts` above -- starts empty, never seeded from
+  // the `attempts` prop (which is the learner's entire *lifetime* history,
+  // not this drill entry's). Populated only by this drill entry's own
+  // `handleGrade`/`handleUndo`, and is the only attempts array
+  // `isScopeComplete`/`buildSummary`/`buildSessionRecord` ever read from --
+  // routing those through `sessionAttempts` instead would auto-close a
+  // returning learner's session after a single grade and report lifetime
+  // totals on the Summary screen (Spec Change Log, review pass 1's
+  // `bad_spec` finding). `selectNext`'s two call sites are unaffected and
+  // keep reading `sessionAttempts`.
+  const thisSessionAttempts: Attempt[] = [];
 
   // Plain, mirrors `sessionAttempts` above -- seeded once from the
   // session-start `tallies` prop, updated in-memory as grades/undos happen,
@@ -128,9 +166,12 @@
   // `undefined` through a reveal-from-blank grade.
   let firstStrokeStartedAt: number | undefined;
 
-  // Selection is with replacement, so the counter can climb past the scope
-  // size ("47 / 46") until Story 1.9 adds closure. The bar clamps at 100% --
-  // and is never the only position signal, the text counter always shows.
+  // Selection is with replacement, so the counter can still climb past the
+  // scope size ("47 / 46") on a repeat draw before every distinct in-scope
+  // card has been attempted -- full-scope closure (Story 1.9) only fires
+  // once `isScopeComplete` is true, not merely once `position` catches up to
+  // `cards.length`. The bar clamps at 100% -- and is never the only position
+  // signal, the text counter always shows.
   const progress = $derived(Math.min(1, position / Math.max(1, cards.length)));
 
   // Assigned by `bind:this` before `onMount` runs; typed as possibly
@@ -151,6 +192,35 @@
   // every toast show/hide rather than once at mount.
   let undoButton: HTMLButtonElement | undefined = $state();
 
+  // Story 1.9's idle-detection mechanism: retroactive, never a live timer.
+  // Every interaction routes through `recordInteraction` first -- if idle
+  // time has already elapsed, that interaction closes the session instead
+  // of landing, and is itself dropped (Boundaries & Constraints).
+  function recordInteraction(): boolean {
+    if (closed) return false;
+    if (isSessionIdle(lastInteractionAt, idleTimeoutMs)) {
+      closeSession('inactivity', lastInteractionAt);
+      return false;
+    }
+    lastInteractionAt = Date.now();
+    return true;
+  }
+
+  // Fired on `visibilitychange`/`focus` (below): the same idle check as
+  // `recordInteraction`, but never updates `lastInteractionAt` itself -- a
+  // resume is not, on its own, proof of presence the way an actual
+  // interaction is. Guards `undoing` too: firing mid-Undo (its pending
+  // attempt/tally writes still in flight) would otherwise close/persist the
+  // session counting the not-yet-reversed grade while the in-flight Undo
+  // still reverses it afterward, desyncing the persisted session from the
+  // attempts/tallies store.
+  function checkIdleOnResume(): void {
+    if (undoing) return;
+    if (isSessionIdle(lastInteractionAt, idleTimeoutMs)) {
+      closeSession('inactivity', lastInteractionAt);
+    }
+  }
+
   onMount(() => {
     if (!cell) return;
     inkSurface.onStrokeComplete((stroke, timing) => {
@@ -158,6 +228,11 @@
       // below); this guards the same invariant at the state level in case a
       // stroke-complete notification is ever still in flight when it fires.
       if (revealed) return;
+      // A stroke is itself an interaction: if it arrives idle-eligible, it
+      // closes the session instead of landing -- the interaction that
+      // reveals an idle session is dropped, never recorded as part of the
+      // closed session (Boundaries & Constraints).
+      if (!recordInteraction()) return;
       hasInk = true;
       strokes.push(stroke);
       // Only the first stroke since the last Clear/grade sets this --
@@ -165,12 +240,20 @@
       firstStrokeStartedAt ??= timing.startedAt;
     });
     inkSurface.mount(cell);
+    // Idle detection is retroactive, never a live timer: every resume
+    // (`visibilitychange`/`focus`) re-checks elapsed idle time against
+    // `lastInteractionAt` instead of a running countdown.
+    document.addEventListener('visibilitychange', checkIdleOnResume);
+    window.addEventListener('focus', checkIdleOnResume);
     return () => {
       inkSurface.destroy();
+      document.removeEventListener('visibilitychange', checkIdleOnResume);
+      window.removeEventListener('focus', checkIdleOnResume);
     };
   });
 
   function handleClear(): void {
+    if (!recordInteraction()) return;
     // Clear never advances and never grades: same prompt, empty cell. Only
     // the post-Clear stroke(s) may end up persisted, so the in-progress
     // stroke bookkeeping resets too -- `promptShownAt` does not, since the
@@ -182,6 +265,7 @@
   }
 
   function handleReveal(): void {
+    if (!recordInteraction()) return;
     // Never assigns a grade -- Missed/Correct stay required afterward.
     revealed = true;
     // Move focus onto the newly-active Missed button so a keyboard/screen
@@ -190,6 +274,7 @@
   }
 
   function handleGrade(grade: SelfGrade): void {
+    if (!recordInteraction()) return;
     // A grade always persists an attempt, ink or not, reveal or not (I/O
     // matrix) -- built and fired before the state below resets for the next
     // card. Never awaited: persistence must not block advancing (Boundaries
@@ -214,6 +299,10 @@
     // below, so `selectNext` (in `handleNext`) always sees this attempt --
     // persistence must not gate what the in-memory history reflects.
     sessionAttempts.push(attempt);
+    // This drill entry's own attempts only (Story 1.9) -- feeds
+    // `isScopeComplete`/`buildSummary`/`buildSessionRecord`, never
+    // `selectNext` (that keeps reading `sessionAttempts` above).
+    thisSessionAttempts.push(attempt);
     // Captured (not awaited here) so `handleUndo` can await the same
     // promise before calling `deleteLast` -- a fast Undo could otherwise
     // race the write it's meant to reverse. The logging chain below still
@@ -264,6 +353,17 @@
   }
 
   function handleNext(): void {
+    if (!recordInteraction()) return;
+    // Full-scope closure (Story 1.9) rides this existing tap rather than a
+    // new control: the scope-completing grade still shows the normal
+    // toast/Undo, and only tapping past it (here, with no next prompt to
+    // load) closes the session. Checked against `thisSessionAttempts` --
+    // this drill entry's own attempts, never the seeded lifetime history in
+    // `sessionAttempts` (Spec Change Log).
+    if (isScopeComplete(thisSessionAttempts, scope)) {
+      closeSession('full-scope', Date.now());
+      return;
+    }
     // Exactly the advance block that used to run at the end of `handleGrade`
     // (Story 1.8 defers it to here). Every in-scope card, including the one
     // just graded, keeps a nonzero selection probability -- there is no
@@ -282,6 +382,7 @@
   }
 
   async function handleUndo(): Promise<void> {
+    if (!recordInteraction()) return;
     // Re-entrancy guard: a double-tap before the `await`s below settle would
     // otherwise run everything from here down twice for one grade (pop
     // `sessionAttempts` twice, decrement `cardTallies` twice, call
@@ -315,6 +416,7 @@
       // the in-memory mirrors must reflect "this grade never happened"
       // either way.
       sessionAttempts.pop();
+      thisSessionAttempts.pop();
       if (grade === 'incorrect') {
         cardTallies.set(cardId, Math.max(0, (cardTallies.get(cardId) ?? 0) - 1));
       }
@@ -343,11 +445,59 @@
       undoing = false;
     }
   }
+
+  // Closes the session exactly once, regardless of which of the three
+  // triggers fired it (Boundaries & Constraints). An idle closure's
+  // `dateIso`/`timeMs` are backdated to `closedAt` (`lastInteractionAt`,
+  // when activity actually stopped) rather than credited to whenever the
+  // app happened to resume; every other closure uses `Date.now()`.
+  function closeSession(reason: ClosureReason, closedAt: number): void {
+    if (closed) return;
+    closed = true;
+    const effectiveClosedAt = reason === 'inactivity' ? closedAt : Date.now();
+    const dateIso = new Date(effectiveClosedAt).toISOString();
+    // Clamped at 0: a backward system-clock adjustment mid-session would
+    // otherwise yield a negative duration (device clock skew -- this is an
+    // offline client with no server clock authority, mirrors
+    // `domain/drill.ts`'s `score()` clamp).
+    const timeMs = Math.max(0, effectiveClosedAt - sessionStartedAt);
+    // `thisSessionAttempts`, never `sessionAttempts` -- the persisted record
+    // and the Summary view must reflect only this session's own attempts
+    // (Spec Change Log).
+    const summary = buildSummary(thisSessionAttempts, cardTallies, reason, timeMs);
+    // `sessionId`, not a fresh UUID -- keeps the persisted `Session.id`
+    // correlated with this session's own `Attempt.sessionId` values.
+    const record = buildSessionRecord(sessionId, scope, thisSessionAttempts, reason, dateIso);
+    // Fire-and-forget, logged on failure, same as every other write in this
+    // codebase (Boundaries & Constraints) -- it must never block reaching
+    // the Summary screen.
+    void sessionRepository
+      .add(record)
+      .then((result) => {
+        if (!result.ok) console.error('Failed to persist session:', result.error);
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to persist session:', error);
+      });
+    onClose(summary);
+  }
+
+  // "I'm done" always closes with `closureReason: 'explicit'` immediately,
+  // regardless of elapsed idle time -- never routed through
+  // `recordInteraction`/gated by the idle check, so a deliberate close is
+  // never confusingly relabeled as an idle one (Boundaries & Constraints).
+  // Guards `undoing` too, same reasoning as `checkIdleOnResume` above -- a
+  // tap landing mid-Undo must not close/persist the session ahead of that
+  // Undo's still-in-flight reversal.
+  function handleExplicitClose(): void {
+    if (closed || undoing) return;
+    closeSession('explicit', Date.now());
+  }
 </script>
 
 <main class="drill">
   <header class="header">
-    <button type="button" class="back" onclick={onBack}>Back</button>
+    <button type="button" class="back" onclick={handleExplicitClose}>I'm done</button>
     <div class="progress">
       <p class="counter">{position} / {cards.length}</p>
       <div

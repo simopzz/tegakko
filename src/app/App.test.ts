@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { DEFAULT_SETTINGS } from '../domain/settings';
 import { err, ok } from '../domain/result';
 import type { Result } from '../domain/result';
@@ -34,6 +35,10 @@ const App = (await import('./App.svelte')).default;
 describe('App', () => {
   beforeEach(() => {
     getMock.mockReset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('shows First Run on a fresh install (penCheckShown: false)', async () => {
@@ -172,7 +177,7 @@ describe('App', () => {
     expect(await screen.findByText('1 / 46')).toBeTruthy();
   });
 
-  it('returns from the drill to the Scope picker with the selection intact', async () => {
+  it('closes the drill to the Session summary, then returns to the Scope picker with the selection intact', async () => {
     getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
 
     render(App);
@@ -181,13 +186,19 @@ describe('App', () => {
     await fireEvent.click(screen.getByRole('radio', { name: 'Katakana' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
     await screen.findByText('1 / 79');
-    await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    // "I'm done" closes the session -- Story 1.9 -- and lands on the Session
+    // summary, not directly back on the Scope picker.
+    await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
+
+    expect(await screen.findByRole('button', { name: 'Another round' })).toBeTruthy();
+    // The drill's canvas went with it -- the adapter was destroyed.
+    expect(document.querySelectorAll('canvas')).toHaveLength(0);
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Another round' }));
 
     await screen.findByText('What are we testing today?');
     expect(screen.getByText('79 cards in scope')).toBeTruthy();
     expect(screen.getByRole('radio', { name: 'Katakana' }).className).toContain('pill--active');
-    // The drill's canvas went with it -- the adapter was destroyed.
-    expect(document.querySelectorAll('canvas')).toHaveLength(0);
   });
 
   it('reaches Settings from the Scope-picker header and back again, selection intact', async () => {
@@ -241,7 +252,9 @@ describe('App', () => {
     await screen.findByText('What are we testing today?');
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
     await screen.findByText('1 / 158');
-    await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
+    await screen.findByRole('button', { name: 'Another round' });
+    await fireEvent.click(screen.getByRole('button', { name: 'Another round' }));
     await screen.findByText('What are we testing today?');
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
     await screen.findByText('1 / 158');
@@ -264,5 +277,31 @@ describe('App', () => {
     await screen.findByText('1 / 158');
 
     expect(setWidthPreset).toHaveBeenCalledWith('calligraphy');
+  });
+
+  it('governs the live Drill session with the idleTimeoutMs persisted in Settings, not the default', async () => {
+    // Mirrors `widthPreset` propagation above -- the composition root reads
+    // `idleTimeoutMs` once on boot (App.svelte:82-85) and passes it into
+    // `<Drill>`, which uses it (not `DEFAULT_SETTINGS.idleTimeoutMs`) to
+    // govern idle closure.
+    getMock.mockResolvedValue(
+      ok({ ...DEFAULT_SETTINGS, penCheckShown: true, idleTimeoutMs: 120_000 }),
+    );
+
+    render(App);
+
+    await screen.findByText('What are we testing today?');
+    await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
+    await screen.findByText('1 / 158');
+
+    vi.useFakeTimers();
+    // Past the persisted 2-minute threshold but well under the 5-minute
+    // `DEFAULT_SETTINGS.idleTimeoutMs` -- this only closes the session if
+    // the loaded 120_000 value actually reached and governs the live Drill.
+    vi.setSystemTime(Date.now() + 120_000);
+    document.dispatchEvent(new Event('visibilitychange'));
+    await tick();
+
+    expect(screen.getByRole('button', { name: 'Another round' })).toBeTruthy();
   });
 });

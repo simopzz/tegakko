@@ -22,6 +22,10 @@ function preset(name: 'Subtle' | 'Expressive' | 'Calligraphy'): HTMLElement {
   return screen.getByRole('radio', { name });
 }
 
+function idlePreset(name: '2 min' | '5 min' | '10 min'): HTMLElement {
+  return screen.getByRole('radio', { name });
+}
+
 // A settings record whose non-width fields are deliberately *not* the
 // defaults -- a save that rebuilt the record from DEFAULT_SETTINGS instead of
 // the last-read one would silently reset these, and re-show First Run.
@@ -168,14 +172,115 @@ describe('Settings', () => {
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 
-  it('shows no idle-timeout control -- Story 1.9 adds that', async () => {
-    render(Settings, {
-      settingsRepository: repository(ok(STORED)),
-      onPresetChange: vi.fn(),
-      onBack: vi.fn(),
+  describe('idle-close threshold', () => {
+    it('preselects the idle preset the repository reports', async () => {
+      render(Settings, {
+        settingsRepository: repository(ok({ ...STORED, idleTimeoutMs: 120_000 })),
+        onPresetChange: vi.fn(),
+        onBack: vi.fn(),
+      });
+
+      await screen.findByRole('radiogroup', { name: 'Idle close' });
+      expect(idlePreset('2 min').getAttribute('aria-checked')).toBe('true');
+      expect(idlePreset('5 min').getAttribute('aria-checked')).toBe('false');
+      expect(idlePreset('10 min').getAttribute('aria-checked')).toBe('false');
     });
 
-    await screen.findByRole('radiogroup', { name: 'Ink width' });
-    expect(screen.queryByRole('radiogroup', { name: /idle/i })).toBeNull();
+    it('keeps exactly one segment active after a tap', async () => {
+      render(Settings, {
+        settingsRepository: repository(ok({ ...STORED, idleTimeoutMs: 120_000 })),
+        onPresetChange: vi.fn(),
+        onBack: vi.fn(),
+      });
+
+      await screen.findByRole('radiogroup', { name: 'Idle close' });
+      await fireEvent.click(idlePreset('10 min'));
+
+      expect(idlePreset('10 min').className).toContain('pill--active');
+      expect(idlePreset('2 min').className).not.toContain('pill--active');
+      expect(idlePreset('5 min').className).not.toContain('pill--active');
+    });
+
+    it('saves immediately, with no confirm step', async () => {
+      const settingsRepository = repository(ok({ ...STORED, idleTimeoutMs: 120_000 }));
+      render(Settings, { settingsRepository, onPresetChange: vi.fn(), onBack: vi.fn() });
+
+      await screen.findByRole('radiogroup', { name: 'Idle close' });
+      await fireEvent.click(idlePreset('10 min'));
+
+      expect(settingsRepository.save).toHaveBeenCalledTimes(1);
+    });
+
+    it('saves the last-read record with only idleTimeoutMs changed', async () => {
+      const settingsRepository = repository(ok({ ...STORED, idleTimeoutMs: 120_000 }));
+      render(Settings, { settingsRepository, onPresetChange: vi.fn(), onBack: vi.fn() });
+
+      await screen.findByRole('radiogroup', { name: 'Idle close' });
+      await fireEvent.click(idlePreset('10 min'));
+
+      // widthPreset and penCheckShown survive untouched.
+      expect(settingsRepository.save).toHaveBeenCalledWith({
+        widthPreset: 'subtle',
+        idleTimeoutMs: 600_000,
+        penCheckShown: true,
+      });
+    });
+
+    it('renders with the default idle preset and saves nothing when the read fails', async () => {
+      const settingsRepository = repository(err(new Error('IndexedDB blocked')));
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      render(Settings, { settingsRepository, onPresetChange: vi.fn(), onBack: vi.fn() });
+
+      await screen.findByRole('radiogroup', { name: 'Idle close' });
+      expect(idlePreset('5 min').getAttribute('aria-checked')).toBe('true');
+
+      await fireEvent.click(idlePreset('10 min'));
+      expect(settingsRepository.save).not.toHaveBeenCalled();
+      expect(idlePreset('5 min').getAttribute('aria-checked')).toBe('true');
+    });
+
+    it('keeps the tapped idle preset for this run when the save fails, with an inline note', async () => {
+      const settingsRepository = repository(
+        ok({ ...STORED, idleTimeoutMs: 120_000 }),
+        err(new Error('quota exceeded')),
+      );
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      render(Settings, { settingsRepository, onPresetChange: vi.fn(), onBack: vi.fn() });
+
+      await screen.findByRole('radiogroup', { name: 'Idle close' });
+      await fireEvent.click(idlePreset('10 min'));
+      await screen.findByText(/won't stick/);
+
+      expect(idlePreset('10 min').getAttribute('aria-checked')).toBe('true');
+    });
+
+    it('does not re-save when the already-active idle preset is tapped again', async () => {
+      const settingsRepository = repository(ok({ ...STORED, idleTimeoutMs: 120_000 }));
+      render(Settings, { settingsRepository, onPresetChange: vi.fn(), onBack: vi.fn() });
+
+      await screen.findByRole('radiogroup', { name: 'Idle close' });
+      await fireEvent.click(idlePreset('2 min'));
+
+      expect(settingsRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('renders no segment active when the stored idleTimeoutMs matches none of the three presets', async () => {
+      // STORED.idleTimeoutMs (90_000) is deliberately off-preset -- mirrors
+      // the ink-width toggle's coverage of an unrecognized stored value.
+      render(Settings, {
+        settingsRepository: repository(ok(STORED)),
+        onPresetChange: vi.fn(),
+        onBack: vi.fn(),
+      });
+
+      await screen.findByRole('radiogroup', { name: 'Idle close' });
+
+      expect(idlePreset('2 min').getAttribute('aria-checked')).toBe('false');
+      expect(idlePreset('5 min').getAttribute('aria-checked')).toBe('false');
+      expect(idlePreset('10 min').getAttribute('aria-checked')).toBe('false');
+      expect(idlePreset('2 min').className).not.toContain('pill--active');
+      expect(idlePreset('5 min').className).not.toContain('pill--active');
+      expect(idlePreset('10 min').className).not.toContain('pill--active');
+    });
   });
 });
