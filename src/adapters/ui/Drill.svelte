@@ -139,7 +139,10 @@
   // Focus target after Reveal fires (below): the button `disabled` there
   // stops being the focused element, and most browsers drop focus to
   // `<body>` rather than leaving it on the control the user just pressed.
-  let missedButton: HTMLButtonElement | undefined;
+  // `$state`: this binds inside the `{#if graded}...{:else}...{/if}` grades
+  // block (A4's action row swap), so it's rebound/unbound on every toast
+  // show/hide, not just once at mount.
+  let missedButton: HTMLButtonElement | undefined = $state();
   // Focus target after a grade fires and the toast appears: Missed/Correct
   // become `disabled` the same way Reveal does above, so focus would
   // otherwise drop to `<body>` right as two new controls (Undo/Next
@@ -360,7 +363,7 @@
     </div>
   </header>
 
-  <section class="prompt">
+  <section class="prompt" class:dimmed={graded !== null}>
     <p class="label">Write from memory</p>
     <p class="romaji">{card.romaji}</p>
     <p class="script">{scriptLabel[card.script]}</p>
@@ -376,7 +379,11 @@
        itself to whatever room is actually left after the header/prompt/
        footer/grades claim theirs, rather than guessing a fraction of the
        viewport and risking a taller-than-fits page. -->
-  <div class="cell-wrap" class:cell-wrap--revealed={revealed}>
+  <div
+    class="cell-wrap"
+    class:cell-wrap--revealed={revealed}
+    class:dimmed={graded !== null}
+  >
     <div class="panel">
       {#if revealed}<p class="label" id="yours-label">Yours</p>{/if}
       <div
@@ -397,7 +404,7 @@
     {/if}
   </div>
 
-  {#if !revealed}
+  {#if !revealed && !graded}
     <div class="cell-footer">
       <p class="disclaimer">Your call — nothing is checking the shape</p>
       {#if hasInk}
@@ -407,66 +414,82 @@
   {/if}
 
   <div class="grades">
-    <button
-      type="button"
-      class="btn btn--neutral"
-      class:btn--dimmed={revealed || graded !== null}
-      disabled={revealed || graded !== null}
-      onclick={handleReveal}
-    >
-      {revealed ? 'Revealed' : 'Reveal'}
-    </button>
-    <button
-      type="button"
-      class="btn btn--neutral"
-      class:btn--dimmed={(!hasInk && !revealed) || graded !== null}
-      disabled={(!hasInk && !revealed) || graded !== null}
-      onclick={() => handleGrade('incorrect')}
-      bind:this={missedButton}
-    >
-      Missed
-    </button>
-    <button
-      type="button"
-      class="btn btn--primary"
-      class:btn--dimmed={(!hasInk && !revealed) || graded !== null}
-      disabled={(!hasInk && !revealed) || graded !== null}
-      onclick={() => handleGrade('correct')}
-    >
-      Correct
-    </button>
+    {#if graded}
+      <!-- Mirrors UX spec screen A4: the action row collapses to a dimmed
+           Reveal (its own state is frozen either way -- Missed/Correct never
+           came back once reveal fired) plus a wide "Next character". -->
+      <button type="button" class="btn btn--neutral btn--dimmed" disabled>
+        {revealed ? 'Revealed' : 'Reveal'}
+      </button>
+      <button
+        type="button"
+        class="btn btn--primary next-btn"
+        disabled={undoing}
+        class:btn--dimmed={undoing}
+        onclick={handleNext}
+      >
+        Next character
+      </button>
+    {:else}
+      <button
+        type="button"
+        class="btn btn--neutral"
+        class:btn--dimmed={revealed}
+        disabled={revealed}
+        onclick={handleReveal}
+      >
+        {revealed ? 'Revealed' : 'Reveal'}
+      </button>
+      <button
+        type="button"
+        class="btn btn--neutral"
+        class:btn--dimmed={!hasInk && !revealed}
+        disabled={!hasInk && !revealed}
+        onclick={() => handleGrade('incorrect')}
+        bind:this={missedButton}
+      >
+        Missed
+      </button>
+      <button
+        type="button"
+        class="btn btn--primary"
+        class:btn--dimmed={!hasInk && !revealed}
+        disabled={!hasInk && !revealed}
+        onclick={() => handleGrade('correct')}
+      >
+        Correct
+      </button>
+    {/if}
   </div>
 
   {#if graded}
+    <!-- UX spec screen A4 "self-grade landed": a peach (missed-tint) card
+         floating above the action row, not a dark full-width bar -- message
+         plus a single outlined Undo pill; "Next character" lives in the
+         action row above, not in this card. -->
     <div class="toast" role="status">
-      <p class="toast-message">
-        {#if graded.tallyCount !== null}
-          Missed {graded.tallyCount}
-        {:else}
-          Correct
-        {/if}
-      </p>
-      <div class="toast-actions">
-        <button
-          type="button"
-          class="btn btn--neutral toast-btn"
-          disabled={undoing}
-          class:btn--dimmed={undoing}
-          onclick={handleUndo}
-          bind:this={undoButton}
-        >
-          Undo
-        </button>
-        <button
-          type="button"
-          class="btn btn--primary toast-btn"
-          disabled={undoing}
-          class:btn--dimmed={undoing}
-          onclick={handleNext}
-        >
-          Next character
-        </button>
+      <div class="toast-copy">
+        <p class="toast-headline">
+          {graded.tallyCount !== null ? 'Marked missed' : 'Marked correct'}
+        </p>
+        <p class="toast-detail">
+          {card.grapheme} · {scriptLabel[card.script]}
+          {#if graded.tallyCount !== null}
+            — missed {graded.tallyCount}
+            {graded.tallyCount === 1 ? 'time' : 'times'} now, so it'll come round
+            sooner.
+          {/if}
+        </p>
       </div>
+      <button
+        type="button"
+        class="toast-undo"
+        disabled={undoing}
+        onclick={handleUndo}
+        bind:this={undoButton}
+      >
+        Undo
+      </button>
     </div>
   {/if}
 </main>
@@ -733,15 +756,17 @@
     cursor: default;
   }
 
-  /* Story 1.8's deferred-advance toast: an overlay, not a flex-column
-     sibling -- `.drill` is fixed to `100dvh` with nothing to scroll (see
-     `.drill` above), and this can appear/disappear on every grade without
-     reflowing the rest of the screen. */
+  /* Story 1.8's post-grade toast (UX spec screen A4): the missed-tint card
+     floats above the action row -- an overlay, not a flex-column sibling,
+     so it can appear/disappear on every grade without reflowing `.drill`
+     (fixed to `100dvh` with nothing to scroll; see `.drill` above). */
   .toast {
     position: fixed;
-    left: var(--spacing-4);
-    right: var(--spacing-4);
-    bottom: var(--spacing-4);
+    left: var(--spacing-6);
+    right: var(--spacing-6);
+    /* Clears the action row (`.btn`'s 88px plus `.drill`'s bottom padding)
+       so it floats above the buttons, never over them (A4). */
+    bottom: calc(88px + var(--spacing-4) + var(--spacing-3));
     /* Only fixed-position element on this screen today, but pinned above
        anything that could later share that positioning (e.g. a future
        modal) rather than leaving stacking order to source order alone. */
@@ -750,36 +775,64 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--spacing-3);
-    padding: var(--spacing-3) var(--spacing-4);
-    border-radius: var(--radius-lg);
-    background: var(--color-ink);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+    padding: 30px 34px;
+    border-radius: var(--radius-xl);
+    background: var(--color-missed-bg);
+    box-shadow: 0 12px 32px rgba(46, 43, 37, 0.18);
   }
 
-  .toast-message {
+  .toast-copy {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+    min-width: 0;
+  }
+
+  .toast-headline {
     margin: 0;
     font-family: var(--font-heading);
     font-weight: 600;
+    font-size: 1.5rem;
+    color: var(--color-accent-on-peach);
+  }
+
+  .toast-detail {
+    margin: 0;
     font-size: 1rem;
-    color: var(--color-surface-card);
+    color: var(--color-accent-strong);
   }
 
-  .toast-actions {
-    display: flex;
-    gap: var(--spacing-2);
+  .toast-undo {
     flex: none;
-  }
-
-  .toast-btn {
-    flex: none;
-    min-height: 44px;
-    padding: 0 var(--spacing-3);
-    font-size: 0.95rem;
-  }
-
-  .toast-btn.btn--neutral {
+    min-height: 48px;
+    padding: 12px 22px;
+    border-radius: var(--radius-md);
     background: transparent;
-    color: var(--color-surface-card);
-    border-color: var(--color-surface-card);
+    border: 1px solid rgba(140, 73, 26, 0.35);
+    color: var(--color-accent-strong);
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 1.1rem;
+    cursor: pointer;
+  }
+
+  /* Dimmed *and* `disabled` while a reversal is in flight (Boundaries &
+     Constraints) -- mirrors `.btn--dimmed`'s reasoning above. */
+  .toast-undo:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  /* Prompt and cell fade back (A4) once a grade lands -- signals the drill
+     is mid-transition without hiding what was just written; ink/strokes
+     stay exactly as graded until "Next character" (see `handleNext`). */
+  .dimmed {
+    opacity: 0.35;
+  }
+
+  /* A4's action row: Reveal keeps its `flex: 1` share, "Next character"
+     takes the two grade buttons' combined share instead of a third slot. */
+  .next-btn {
+    flex: 2;
   }
 </style>

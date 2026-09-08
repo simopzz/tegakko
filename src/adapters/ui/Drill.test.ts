@@ -825,7 +825,7 @@ describe('Drill', () => {
   // Story 1.8: grading defers the advance behind a toast (Undo, plus "Next
   // character") instead of advancing immediately.
   describe('undo last grade', () => {
-    it('keeps Missed/Correct/Reveal disabled while the toast is showing', async () => {
+    it('replaces Missed/Correct with a dimmed Reveal and a wide Next character while the toast is showing (A4)', async () => {
       const inkSurface = fakeInkSurface();
       renderDrill({ inkSurface });
 
@@ -833,8 +833,9 @@ describe('Drill', () => {
       await fireEvent.click(grade('Missed'));
 
       expect(reveal().disabled).toBe(true);
-      expect(grade('Missed').disabled).toBe(true);
-      expect(grade('Correct').disabled).toBe(true);
+      expect(screen.queryByRole('button', { name: 'Missed' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Correct' })).toBeNull();
+      expect(nextCharacter()).toBeTruthy();
     });
 
     it('shows a cumulative tally on Missed but not on Correct', async () => {
