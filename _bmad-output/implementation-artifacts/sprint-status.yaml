@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 09-03-2026 21:30
-last_updated: 09-08-2026 14:30
+last_updated: 09-08-2026 15:40
 project: tegakko
 project_key: NOKEY
 tracking_system: file-system
@@ -45,7 +45,7 @@ development_status:
   1-7-weak-spot-biased-selection-shaky-badge: done
   1-8-undo-last-grade: done
   1-9-session-closure-idle-timeout-summary: done
-  1-10-session-history-view: backlog
+  1-10-session-history-view: review
   epic-1-retrospective: optional
 
   epic-2: backlog

@@ -71,6 +71,7 @@ describe('ScopePicker', () => {
       tallyRepository: fakeTallyRepository(),
       onStart: vi.fn(),
       onSettings: vi.fn(),
+      onHistory: vi.fn(),
     });
 
     expect(screen.getByText('158 cards in scope')).toBeTruthy();
@@ -82,6 +83,7 @@ describe('ScopePicker', () => {
       tallyRepository: fakeTallyRepository(),
       onStart: vi.fn(),
       onSettings: vi.fn(),
+      onHistory: vi.fn(),
     });
 
     const group = chips();
@@ -106,6 +108,7 @@ describe('ScopePicker', () => {
       tallyRepository: fakeTallyRepository(),
       onStart: vi.fn(),
       onSettings: vi.fn(),
+      onHistory: vi.fn(),
     });
 
     await fireEvent.click(pill('Hiragana'));
@@ -120,6 +123,7 @@ describe('ScopePicker', () => {
       tallyRepository: fakeTallyRepository(),
       onStart: vi.fn(),
       onSettings: vi.fn(),
+      onHistory: vi.fn(),
     });
 
     await fireEvent.click(pill('Katakana'));
@@ -133,6 +137,7 @@ describe('ScopePicker', () => {
       tallyRepository: fakeTallyRepository(),
       onStart: vi.fn(),
       onSettings: vi.fn(),
+      onHistory: vi.fn(),
     });
 
     await fireEvent.click(pill('Yoon'));
@@ -146,6 +151,7 @@ describe('ScopePicker', () => {
       tallyRepository: fakeTallyRepository(),
       onStart: vi.fn(),
       onSettings: vi.fn(),
+      onHistory: vi.fn(),
     });
 
     await fireEvent.click(pill('Hiragana'));
@@ -162,6 +168,7 @@ describe('ScopePicker', () => {
       tallyRepository: fakeTallyRepository(),
       onStart,
       onSettings: vi.fn(),
+      onHistory: vi.fn(),
     });
 
     await fireEvent.click(pill('Hiragana'));
@@ -178,6 +185,7 @@ describe('ScopePicker', () => {
       tallyRepository: fakeTallyRepository(),
       onStart,
       onSettings: vi.fn(),
+      onHistory: vi.fn(),
     });
 
     await fireEvent.click(pill('Start writing'));
@@ -199,6 +207,7 @@ describe('ScopePicker', () => {
       tallyRepository: fakeTallyRepository(),
       onStart: vi.fn(),
       onSettings: vi.fn(),
+      onHistory: vi.fn(),
     });
 
     for (const name of ['Both scripts', 'Hiragana', 'Katakana']) {
@@ -218,12 +227,33 @@ describe('ScopePicker', () => {
       tallyRepository: fakeTallyRepository(),
       onStart,
       onSettings,
+      onHistory: vi.fn(),
     });
 
     await fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
 
     expect(onSettings).toHaveBeenCalledTimes(1);
     // Settings is a navigation link, not a second primary action: it never
+    // starts a drill.
+    expect(onStart).not.toHaveBeenCalled();
+    expect(screen.getByText('158 cards in scope')).toBeTruthy();
+  });
+
+  it('reaches History from the header link without touching the scope', async () => {
+    const onHistory = vi.fn();
+    const onStart = vi.fn();
+    render(ScopePicker, {
+      cardRepository: realRepository(),
+      tallyRepository: fakeTallyRepository(),
+      onStart,
+      onSettings: vi.fn(),
+      onHistory,
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'History' }));
+
+    expect(onHistory).toHaveBeenCalledTimes(1);
+    // History is a navigation link, not a second primary action: it never
     // starts a drill.
     expect(onStart).not.toHaveBeenCalled();
     expect(screen.getByText('158 cards in scope')).toBeTruthy();
@@ -238,6 +268,7 @@ describe('ScopePicker', () => {
       tallyRepository: fakeTallyRepository(),
       onStart: vi.fn(),
       onSettings: vi.fn(),
+      onHistory: vi.fn(),
       initialScope: { scripts: ['katakana'], units: ['yoon'] },
     });
 
@@ -253,6 +284,7 @@ describe('ScopePicker', () => {
       tallyRepository: fakeTallyRepository(),
       onStart: vi.fn(),
       onSettings: vi.fn(),
+      onHistory: vi.fn(),
       onScopeChange,
     });
 
@@ -270,6 +302,7 @@ describe('ScopePicker', () => {
       tallyRepository: fakeTallyRepository(),
       onStart: vi.fn(),
       onSettings: vi.fn(),
+      onHistory: vi.fn(),
     });
 
     await fireEvent.click(pill('Hiragana'));
@@ -290,6 +323,7 @@ describe('ScopePicker', () => {
         tallyRepository: fakeTallyRepository({ ok: true, value: [] }),
         onStart: vi.fn(),
         onSettings: vi.fn(),
+        onHistory: vi.fn(),
       });
 
       expect(await screen.findByText('0 shaky')).toBeTruthy();
@@ -301,6 +335,7 @@ describe('ScopePicker', () => {
         tallyRepository: fakeTallyRepository({ ok: false, error: new Error('IndexedDB blocked') }),
         onStart: vi.fn(),
         onSettings: vi.fn(),
+        onHistory: vi.fn(),
       });
 
       expect(await screen.findByText('0 shaky')).toBeTruthy();
@@ -323,6 +358,7 @@ describe('ScopePicker', () => {
         tallyRepository,
         onStart: vi.fn(),
         onSettings: vi.fn(),
+        onHistory: vi.fn(),
       });
 
       expect(await screen.findByText('0 shaky')).toBeTruthy();
@@ -342,6 +378,7 @@ describe('ScopePicker', () => {
         }),
         onStart: vi.fn(),
         onSettings: vi.fn(),
+        onHistory: vi.fn(),
       });
 
       expect(await screen.findByText('1 shaky')).toBeTruthy();
@@ -363,6 +400,7 @@ describe('ScopePicker', () => {
         }),
         onStart: vi.fn(),
         onSettings: vi.fn(),
+        onHistory: vi.fn(),
       });
 
       await screen.findByText('158 cards in scope');
