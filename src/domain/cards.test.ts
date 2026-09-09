@@ -45,8 +45,7 @@ describe('cards', () => {
     // construction is shared code and a row-specific bug could hide behind
     // one example. All 11 rows now have a standalone base card: the 7 seion
     // rows (き, し, ち, に, ひ, み, り) always did, and Story 1.11 added base
-    // cards for the remaining 4 voiced/semi-voiced rows (ぎ, じ, び, ぴ) --
-    // the guarded `if (baseCard)` below still runs harmlessly for every row.
+    // cards for the remaining 4 voiced/semi-voiced rows (ぎ, じ, び, ぴ).
     const yoonRows: Array<{ script: 'hiragana' | 'katakana'; base: string; suffixes: string[] }> = [
       { script: 'hiragana', base: 'き', suffixes: ['きゃ', 'きゅ', 'きょ'] },
       { script: 'hiragana', base: 'し', suffixes: ['しゃ', 'しゅ', 'しょ'] },

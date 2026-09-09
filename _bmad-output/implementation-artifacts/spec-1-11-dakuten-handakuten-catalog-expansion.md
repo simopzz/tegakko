@@ -137,3 +137,20 @@ context: ['{project-root}/_bmad-output/implementation-artifacts/epic-1-context.m
 
 - Comment-only scope-size note; no assertion depends on the literal.
   [`session.test.ts:14`](../../src/domain/session.test.ts#L14)
+
+### Review Findings
+
+Code review 2026-09-09 (branch `feat/1-11-dakuten-handakuten-catalog-expansion`, baseline `00b2b48`..HEAD, 13 files +305/-126). Layers: blind-hunter, verification-gap, acceptance-auditor ran; edge-case-hunter returned empty (treated as failed layer — review may be incomplete on the claims-vs-code axis).
+
+- [x] [Review][Patch] Drill.svelte with-replacement comment contradicts without-replacement sampling model [src/adapters/ui/Drill.svelte:169]
+- [x] [Review][Patch] cards.test.ts stale guarded-if prose contradicts the new unconditional assertion [src/domain/cards.test.ts:49]
+- [x] [Review][Defer] AD-3 still states 158-card / 46-base figures [ARCHITECTURE-SPINE.md:79] — deferred: fix edits a planning artifact; already tracked in deferred-work.md (spec-1-11 entry, pre-existing in this diff)
+- [x] [Review][Defer] epic-1-context pressure-varying stroke-width requirement dropped — deferred: maybe-false, needs check against epics.md/PRD source of truth; fix edits an agent-context file
+
+Rejected:
+- false: epic-1-context IDB compression — fields preserved in compressed form (tallies/attempts/sessions/settings + atomic increment/decrement + always-complete unpaginated listAll all still present).
+- false: sprint-status `review` vs spec header `done` — different trackers (sprint workflow vs spec implementation status), not a contradiction; `generated` is a file-generation stamp.
+- false: spec Verification vs AD-3 grep — Verification scopes to the test suite ("no 158/46-derived assertion left unupdated"); AD-3 is prose docs, explicitly deferred.
+- false: dakuten test missing cardId assertions — global `keys every card by a unique cardId` test covers all 208 including the 25 new; cross-script identity test covers index-parallel romaji/kind.
+- false: no seion-only/dakuten-only scope split — feature request outside frozen scope; spec Never reserves Scope-picker UI work to Story 1.2.
+- false: full-scope 208 fatigue/session length — out of scope; spec Approach is mechanical count updates only, no session-length AC violated.

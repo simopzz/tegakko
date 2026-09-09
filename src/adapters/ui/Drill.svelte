@@ -166,11 +166,11 @@
   // `undefined` through a reveal-from-blank grade.
   let firstStrokeStartedAt: number | undefined;
 
-  // Selection is with replacement, so the counter can still climb past the
-  // scope size ("72 / 71") on a repeat draw before every distinct in-scope
-  // card has been attempted -- full-scope closure (Story 1.9) only fires
-  // once `isScopeComplete` is true, not merely once `position` catches up to
-  // `cards.length`. The bar clamps at 100% -- and is never the only position
+  // Sampling is without replacement (sampled once at session start), so the
+  // counter advances one per grade and always reaches exactly 100% -- it can
+  // never exceed the sampled size. Full-scope closure (Story 1.9) fires
+  // once the sampled set is complete, not merely once `position` catches up
+  // to `cards.length`. The bar clamps at 100% -- and is never the only position
   // signal, the text counter always shows.
   const progress = $derived(Math.min(1, position / Math.max(1, cards.length)));
 
