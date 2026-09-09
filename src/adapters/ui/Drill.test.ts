@@ -23,7 +23,7 @@ import type { Session, SessionSummaryView } from '../../domain/session';
 // fixed scopes stand in for the old ad hoc single/two-card fixtures; tests
 // that used to assert an exact prompt now read whichever card actually
 // rendered instead.
-const HIRAGANA_BASE_SCOPE: Scope = { scripts: ['hiragana'], units: ['base'] }; // 46 cards
+const HIRAGANA_BASE_SCOPE: Scope = { scripts: ['hiragana'], units: ['base'] }; // 71 cards
 const HIRAGANA_YOON_SCOPE: Scope = { scripts: ['hiragana'], units: ['yoon'] }; // 33 cards
 
 // A `ui` adapter must never import a sibling adapter's implementation (AD-1),
@@ -256,7 +256,7 @@ describe('Drill', () => {
   it('starts the counter at "1 / N" for a scope of N cards', () => {
     renderDrill({ scope: HIRAGANA_BASE_SCOPE });
 
-    expect(screen.getByText('1 / 46')).toBeTruthy();
+    expect(screen.getByText('1 / 71')).toBeTruthy();
   });
 
   it('pairs the counter with a progress bar, never a bar alone', () => {
@@ -264,8 +264,8 @@ describe('Drill', () => {
 
     const bar = screen.getByRole('progressbar');
     expect(bar.getAttribute('aria-valuenow')).toBe('1');
-    expect(bar.getAttribute('aria-valuemax')).toBe('46');
-    expect(screen.getByText('1 / 46')).toBeTruthy();
+    expect(bar.getAttribute('aria-valuemax')).toBe('71');
+    expect(screen.getByText('1 / 71')).toBeTruthy();
   });
 
   it('mounts the ink surface exactly once, into a node Svelte leaves empty', () => {
@@ -334,7 +334,7 @@ describe('Drill', () => {
     expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull();
     // Same prompt, same position.
     expect(currentCard(cards)).toBe(before);
-    expect(screen.getByText('1 / 46')).toBeTruthy();
+    expect(screen.getByText('1 / 71')).toBeTruthy();
   });
 
   for (const name of ['Missed', 'Correct'] as const) {
@@ -347,7 +347,7 @@ describe('Drill', () => {
       await fireEvent.click(grade(name));
       await fireEvent.click(nextCharacter());
 
-      expect(screen.getByText('2 / 46')).toBeTruthy();
+      expect(screen.getByText('2 / 71')).toBeTruthy();
       // Still a prompt from the scope -- selection may repeat the
       // just-graded card (no previous-card exclusion, Story 1.7).
       expect(() => currentCard(cards)).not.toThrow();
@@ -489,7 +489,7 @@ describe('Drill', () => {
 
     await fireEvent.click(reveal());
 
-    expect(screen.getByText('1 / 46')).toBeTruthy();
+    expect(screen.getByText('1 / 71')).toBeTruthy();
     const revealedLabel = screen.getByRole('button', { name: 'Revealed' });
     expect(revealedLabel.hasAttribute('disabled')).toBe(true);
     expect(revealedLabel.className).toContain('btn--dimmed');
@@ -513,7 +513,7 @@ describe('Drill', () => {
     await fireEvent.click(grade('Missed'));
     await fireEvent.click(nextCharacter());
 
-    expect(screen.getByText('2 / 46')).toBeTruthy();
+    expect(screen.getByText('2 / 71')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Reveal' }).hasAttribute('disabled')).toBe(false);
     expect(screen.queryByText('Yours')).toBeNull();
     expect(screen.queryByText('Reference')).toBeNull();
@@ -529,7 +529,7 @@ describe('Drill', () => {
     await fireEvent.click(grade('Correct'));
     await fireEvent.click(nextCharacter());
 
-    expect(screen.getByText('2 / 46')).toBeTruthy();
+    expect(screen.getByText('2 / 71')).toBeTruthy();
     expect(screen.queryByText('Yours')).toBeNull();
     expect(screen.queryByText('Reference')).toBeNull();
     expect(screen.getByRole('button', { name: 'Reveal' }).hasAttribute('disabled')).toBe(false);
@@ -630,7 +630,7 @@ describe('Drill', () => {
       await fireEvent.click(nextCharacter());
 
       // The screen still advances -- persistence never blocks the next card.
-      expect(screen.getByText('2 / 46')).toBeTruthy();
+      expect(screen.getByText('2 / 71')).toBeTruthy();
       expect(consoleError).toHaveBeenCalled();
 
       consoleError.mockRestore();
@@ -651,7 +651,7 @@ describe('Drill', () => {
       await tick();
       await fireEvent.click(nextCharacter());
 
-      expect(screen.getByText('2 / 46')).toBeTruthy();
+      expect(screen.getByText('2 / 71')).toBeTruthy();
       expect(consoleError).toHaveBeenCalledWith('Failed to persist attempt:', expect.any(Error));
 
       consoleError.mockRestore();
@@ -756,7 +756,7 @@ describe('Drill', () => {
       await tick();
       await fireEvent.click(nextCharacter());
 
-      expect(screen.getByText('2 / 46')).toBeTruthy();
+      expect(screen.getByText('2 / 71')).toBeTruthy();
       expect(consoleError).toHaveBeenCalledWith('Failed to increment tally:', expect.any(Error));
 
       consoleError.mockRestore();
@@ -777,7 +777,7 @@ describe('Drill', () => {
       await tick();
       await fireEvent.click(nextCharacter());
 
-      expect(screen.getByText('2 / 46')).toBeTruthy();
+      expect(screen.getByText('2 / 71')).toBeTruthy();
       expect(consoleError).toHaveBeenCalledWith('Failed to increment tally:', expect.any(Error));
 
       consoleError.mockRestore();
@@ -789,7 +789,7 @@ describe('Drill', () => {
     it('seeds sessionAttempts from the attempts prop so history feeds the very first prompt, not just later picks', () => {
       // A large, recent miss history for one arbitrary in-scope card
       // dominates the weighted draw (weight ~1001 vs. every other card's
-      // floor of 1, out of a 46-card scope) -- a mid-range RNG draw (0.5)
+      // floor of 1, out of a 71-card scope) -- a mid-range RNG draw (0.5)
       // reliably lands in that card's cumulative slice regardless of its
       // position in the catalog. This only happens if the initial pick at
       // mount actually reads the seeded `attempts` prop, not just picks
@@ -847,7 +847,7 @@ describe('Drill', () => {
       await fireEvent.click(nextCharacter());
 
       expect(currentCard(cards)).toBe(first);
-      expect(screen.getByText('2 / 46')).toBeTruthy();
+      expect(screen.getByText('2 / 71')).toBeTruthy();
 
       randomSpy.mockRestore();
     });
@@ -905,7 +905,7 @@ describe('Drill', () => {
       expect(tallyRepository.decrements).toEqual([target.cardId]);
       // No advance happened -- same prompt, same position, toast gone.
       expect(currentCard(cards)).toBe(target);
-      expect(screen.getByText('1 / 46')).toBeTruthy();
+      expect(screen.getByText('1 / 71')).toBeTruthy();
       expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
       expect(screen.queryByRole('button', { name: 'Next character' })).toBeNull();
       // Grading re-enabled and the ink from before the grade is untouched --
@@ -1506,7 +1506,7 @@ describe('Drill', () => {
     // empty, populated by this entry's own grades) may ever feed
     // `isScopeComplete`/`buildSummary`/`buildSessionRecord`.
     it('does not auto-close after a single grade when the seeded lifetime attempts already cover the full scope', async () => {
-      const cards = cardsInScope([...CARDS], HIRAGANA_BASE_SCOPE); // 46 cards
+      const cards = cardsInScope([...CARDS], HIRAGANA_BASE_SCOPE); // 71 cards
       const inkSurface = fakeInkSurface();
       const onClose = vi.fn();
       renderDrill({
@@ -1524,12 +1524,12 @@ describe('Drill', () => {
       // not have their session auto-closed after a single grade -- the
       // drill advances to a new prompt instead.
       expect(onClose).not.toHaveBeenCalled();
-      expect(screen.getByText('2 / 46')).toBeTruthy();
+      expect(screen.getByText('2 / 71')).toBeTruthy();
       expect(() => currentCard(cards)).not.toThrow();
     });
 
     it('reports only this session\'s attempts in the summary and persisted record, never the seeded lifetime total', async () => {
-      const cards = cardsInScope([...CARDS], HIRAGANA_BASE_SCOPE); // 46 cards
+      const cards = cardsInScope([...CARDS], HIRAGANA_BASE_SCOPE); // 71 cards
       const inkSurface = fakeInkSurface();
       const onClose = vi.fn();
       const sessionRepository = fakeSessionRepository();

@@ -167,7 +167,7 @@
   let firstStrokeStartedAt: number | undefined;
 
   // Selection is with replacement, so the counter can still climb past the
-  // scope size ("47 / 46") on a repeat draw before every distinct in-scope
+  // scope size ("72 / 71") on a repeat draw before every distinct in-scope
   // card has been attempted -- full-scope closure (Story 1.9) only fires
   // once `isScopeComplete` is true, not merely once `position` catches up to
   // `cards.length`. The bar clamps at 100% -- and is never the only position

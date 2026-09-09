@@ -65,7 +65,7 @@ function chips(): HTMLElement {
 }
 
 describe('ScopePicker', () => {
-  it('defaults to the full 158-card scope with a live "158 cards" count', () => {
+  it('defaults to the full 208-card scope with a live "208 cards" count', () => {
     render(ScopePicker, {
       cardRepository: realRepository(),
       tallyRepository: fakeTallyRepository(),
@@ -74,7 +74,7 @@ describe('ScopePicker', () => {
       onHistory: vi.fn(),
     });
 
-    expect(screen.getByText('158 cards in scope')).toBeTruthy();
+    expect(screen.getByText('208 cards in scope')).toBeTruthy();
   });
 
   it('renders the default selection as positive-variant script/set chip tags', () => {
@@ -102,7 +102,7 @@ describe('ScopePicker', () => {
     }
   });
 
-  it('recomputes the live count immediately when narrowing to Hiragana + Base (46 cards)', async () => {
+  it('recomputes the live count immediately when narrowing to Hiragana + Base (71 cards)', async () => {
     render(ScopePicker, {
       cardRepository: realRepository(),
       tallyRepository: fakeTallyRepository(),
@@ -114,10 +114,10 @@ describe('ScopePicker', () => {
     await fireEvent.click(pill('Hiragana'));
     await fireEvent.click(pill('Base'));
 
-    expect(screen.getByText('46 cards in scope')).toBeTruthy();
+    expect(screen.getByText('71 cards in scope')).toBeTruthy();
   });
 
-  it('recomputes the live count when narrowing to Katakana only (79 cards)', async () => {
+  it('recomputes the live count when narrowing to Katakana only (104 cards)', async () => {
     render(ScopePicker, {
       cardRepository: realRepository(),
       tallyRepository: fakeTallyRepository(),
@@ -128,7 +128,7 @@ describe('ScopePicker', () => {
 
     await fireEvent.click(pill('Katakana'));
 
-    expect(screen.getByText('79 cards in scope')).toBeTruthy();
+    expect(screen.getByText('104 cards in scope')).toBeTruthy();
   });
 
   it('recomputes the live count when narrowing to Yoon only (66 cards)', async () => {
@@ -236,7 +236,7 @@ describe('ScopePicker', () => {
     // Settings is a navigation link, not a second primary action: it never
     // starts a drill.
     expect(onStart).not.toHaveBeenCalled();
-    expect(screen.getByText('158 cards in scope')).toBeTruthy();
+    expect(screen.getByText('208 cards in scope')).toBeTruthy();
   });
 
   it('reaches History from the header link without touching the scope', async () => {
@@ -256,7 +256,7 @@ describe('ScopePicker', () => {
     // History is a navigation link, not a second primary action: it never
     // starts a drill.
     expect(onStart).not.toHaveBeenCalled();
-    expect(screen.getByText('158 cards in scope')).toBeTruthy();
+    expect(screen.getByText('208 cards in scope')).toBeTruthy();
   });
 
   it('restores a previously chosen scope onto the pills when remounted', async () => {
@@ -339,7 +339,7 @@ describe('ScopePicker', () => {
       });
 
       expect(await screen.findByText('0 shaky')).toBeTruthy();
-      expect(screen.getByText('158 cards in scope')).toBeTruthy();
+      expect(screen.getByText('208 cards in scope')).toBeTruthy();
     });
 
     it('shows "0 shaky" and logs via console.error when getAll() rejects instead of resolving a Result', async () => {
@@ -362,7 +362,7 @@ describe('ScopePicker', () => {
       });
 
       expect(await screen.findByText('0 shaky')).toBeTruthy();
-      expect(screen.getByText('158 cards in scope')).toBeTruthy();
+      expect(screen.getByText('208 cards in scope')).toBeTruthy();
       expect(consoleError).toHaveBeenCalledWith('Failed to load tallies:', expect.any(Error));
 
       consoleError.mockRestore();
@@ -403,7 +403,7 @@ describe('ScopePicker', () => {
         onHistory: vi.fn(),
       });
 
-      await screen.findByText('158 cards in scope');
+      await screen.findByText('208 cards in scope');
       // Full scope: both misses count toward the average -- neither
       // dominates enough to necessarily exceed it on its own, but assert
       // the narrowed case is what actually matters here.
