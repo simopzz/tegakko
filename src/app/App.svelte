@@ -6,7 +6,7 @@
   import { onMount } from 'svelte';
   import type { Screen } from '../adapters/ui/screens';
   import FirstRun from '../adapters/ui/FirstRun.svelte';
-  import ScopePicker from '../adapters/ui/ScopePicker.svelte';
+  import ScopePicker, { type SizeChoice } from '../adapters/ui/ScopePicker.svelte';
   import Drill from '../adapters/ui/Drill.svelte';
   import Settings from '../adapters/ui/Settings.svelte';
   import SessionSummary from '../adapters/ui/SessionSummary.svelte';
@@ -48,6 +48,11 @@
   // selection lives here -- that is what makes Back return to the picker with
   // the selection intact rather than reset to the full scope.
   let scope = $state<Scope>(FULL_SCOPE);
+  // Sibling to `scope` above, wired the same way, purely for Back-navigation
+  // persistence -- Story 1.2's amended AC; not yet threaded into
+  // `handleStart` (Story 1.7's `sampleSessionCards` is what eventually
+  // consumes it).
+  let sessionSize = $state<SizeChoice>('all');
   // Loaded once via `listAll()` at drill entry (Story 1.7) -- `Drill` seeds
   // its own in-memory `sessionAttempts` from this and never asks this
   // composition root to re-fetch mid-session.
@@ -179,6 +184,8 @@
       onHistory={handleOpenHistory}
       initialScope={scope}
       onScopeChange={(next) => (scope = next)}
+      initialSessionSize={sessionSize}
+      onSessionSizeChange={(next) => (sessionSize = next)}
     />
   {:else if screen === 'settings'}
     <Settings {settingsRepository} onPresetChange={handlePresetChange} onBack={handleSettingsBack} />

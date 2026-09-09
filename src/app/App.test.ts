@@ -242,6 +242,24 @@ describe('App', () => {
     expect(screen.getByRole('radio', { name: 'Yoon' }).className).toContain('pill--active');
   });
 
+  it('reaches Settings from the Scope-picker header and back again, session-size selection intact', async () => {
+    getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
+
+    render(App);
+
+    await screen.findByText('What are we testing today?');
+    await fireEvent.click(screen.getByRole('radio', { name: '25%' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+
+    expect(await screen.findByRole('radiogroup', { name: 'Ink width' })).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+
+    await screen.findByText('What are we testing today?');
+    expect(screen.getByRole('radio', { name: '25%' }).className).toContain('pill--active');
+    expect(screen.getByText('52 cards this session')).toBeTruthy();
+  });
+
   it('applies a preset chosen in Settings to the next drill entry', async () => {
     // The composition root holds `widthPreset` between screens: Settings
     // reports the change, and the *next* adapter is constructed with it.
