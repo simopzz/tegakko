@@ -151,10 +151,12 @@ function fakeSessionRepository(
 }
 
 /** Reads the currently-rendered prompt's romaji, matched against `cards`
- * (every candidate `sampleSessionCards` could have drawn from). Within a
- * single script+kind scope every romaji is unique, so this unambiguously
- * resolves back to the exact `Card` on screen. Generalizes the file's prior
- * hardcoded `/^(shi|tsu)$/` idiom to an arbitrary scope. */
+ * (every candidate `sampleSessionCards` could have drawn from). NB: romaji is
+ * NOT unique per scope since Story 1.11's dakuten/handakuten expansion (じ/ぢ
+ * both romanize "ji", ず/づ both romanize "zu"), so `find` resolves a
+ * colliding prompt to the first match -- callers must avoid scopes containing
+ * both members of a colliding pair (see deferred-work.md). Generalizes the
+ * file's prior hardcoded `/^(shi|tsu)$/` idiom to an arbitrary scope. */
 function currentCard(cards: Card[]): Card {
   const pattern = new RegExp(`^(${cards.map((c) => c.romaji).join('|')})$`);
   const romaji = screen.getByText(pattern).textContent ?? '';

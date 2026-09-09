@@ -121,3 +121,24 @@ The weighted-without-replacement sampler reuses `selectNext`'s existing cumulati
 **Commands:**
 - `just check` -- expected: lint, `tsc --noEmit` + `svelte-check`, and the full Vitest suite all pass, 0 errors.
 - `grep -rn "selectNext\|isScopeComplete" src/` -- expected: no matches.
+
+### Review Findings (code review 2026-09-09, branch feat/1-7-8-9-session-sampling-rework vs main)
+
+- [x] [Review][Patch] Correct the false romaji-uniqueness claim in `currentCard()`'s doc comment [src/adapters/ui/Drill.test.ts:153-157] — applied 2026-09-09, Drill.test.ts 71/71 pass
+- [x] [Review][Defer] `currentCard()` romaji-collision flake (じ/ぢ, ず/づ) — deferred: pre-existing since Story 1.11, already logged in deferred-work.md ("Deferred from: code review of spec-1-7-8-9-session-sampling-rework", `currentCard()` entry)
+- [x] [Review][Defer] Empty-scope throw propagates uncaught from Drill mount (`queue[0]!`) — deferred: pre-existing (prior `selectNext` code threw identically), already logged in deferred-work.md (same heading, `Drill.svelte reads queue[0]!` entry)
+
+Rejected:
+- `sessionSize <= 0`/`NaN`/fractional guard in `sampleSessionCards` — false: sole caller is `handleStart → resolveSessionSize`, always a positive integer; every test call site likewise.
+- `progress` divide-by-zero on empty queue — false: queue can never be empty (sampler throws on empty scope; size always ≥ 1).
+- Removed progressbar clamps — false: `queueIndex` structurally bounded (`handleNext` closes instead of overshooting); no current path goes out of range.
+- `resolveSessionSize` empty-`scopedCount` guard — false: picker always keeps ≥ 1 script+unit active; reachable bucket sizes are {33, 66, 71, 104, 142, 208}.
+- Undo on last card closes with one fewer attempt than sampled size — false: working as specified (queue/pointer unchanged per AD-13, closure on exhaustion; undone grade is deleted by design).
+- `SessionSummary.svelte` untouched by chip rename — false: spec explicitly scopes the copy change to the History chip only.
+- `DrillScopeHarness` other render sites missing `sessionSize` — false: harness is test-only with a single render site (`Drill.test.ts`), already updated.
+- `App.test.ts` partial-size test too shallow — false: counter denominator proves end-to-end size; distinctness/closure covered by domain + Drill queue tests; verification-gap layer found no gaps.
+- Removed `SizeChoice` export breaks importers — false: no remaining `SizeChoice` references; intentional rename per spec Code Map; typecheck clean.
+- Shuffle test (`() => 0`) doesn't prove uniformity — false: implementation is standard Fisher-Yates; test covers the specified weight/order decoupling.
+- "Session complete" doesn't distinguish partial vs full sessions — false: uniform copy explicitly required by amended FR-9/UX-DR11 and AC row 3.
+- `shuffle` corrupts queue when `random() === 1` — false: `Math.random()` never returns 1; injectable shares the same `[0,1)` precondition as the weighted draw.
+- Spec's "`just check` passes" claim contradicts the logged flake — rejected: fix would edit the spec under review, out of scope; underlying flake already deferred above.
