@@ -90,7 +90,7 @@
               <div class="row-left">
                 <p class="date">{formatDate(sessionItem.date)}</p>
                 {#if variant === 'positive'}
-                  <span class="chip chip--positive">Whole scope</span>
+                  <span class="chip chip--positive">Session complete</span>
                 {:else if variant === 'neutral'}
                   <span class="chip chip--neutral">Closed on idle</span>
                 {/if}

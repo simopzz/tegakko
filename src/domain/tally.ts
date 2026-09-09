@@ -16,7 +16,9 @@ export interface Tally {
 
 /** Count of in-scope cards whose miss tally exceeds the in-scope running
  * average -- the Scope picker's "N shaky" badge (Story 1.7). Informational
- * only: it never feeds `selectNext`'s weighting.
+ * only: `Tally` never feeds `sampleSessionCards`' weighting (AD-10) -- that
+ * reads `Attempt` history directly, since the count of incorrect attempts
+ * for a card already equals `Tally.missCount` by construction.
  *
  * `average = totalMiss / cardsInScope.length` (0 for an empty scope); a card
  * exactly at the average does not count (strict `>`), so an all-zero scope

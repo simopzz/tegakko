@@ -7,7 +7,13 @@
   import { onMount, untrack } from 'svelte';
   import type { CardRepository } from '../../ports/card-repository';
   import type { TallyRepository } from '../../ports/tally-repository';
-  import { cardsInScope, FULL_SCOPE, type Scope } from '../../domain/scope';
+  import {
+    cardsInScope,
+    FULL_SCOPE,
+    resolveSessionSize,
+    type Scope,
+    type SessionSizeChoice,
+  } from '../../domain/scope';
   import { countShaky, type Tally } from '../../domain/tally';
   import type { Script, CardKind } from '../../domain/cards';
 
@@ -33,10 +39,14 @@
     /** Story 1.2's amended AC: a second, independent pill group for the
      * session-size choice. Mirrors `initialScope`/`onScopeChange` exactly --
      * seeds the pill on mount, reports every change so Back (via Settings)
-     * restores it. Not yet consumed by `onStart`; Story 1.7's
-     * `sampleSessionCards` is what eventually reads it. */
-    initialSessionSize?: SizeChoice;
-    onSessionSizeChange?: (choice: SizeChoice) => void;
+     * restores it. Deliberately not threaded into `onStart` itself (that
+     * signature stays `(scope: Scope) => ...`, per Boundaries &
+     * Constraints) -- the composition root resolves this into an exact card
+     * count via `domain/scope.ts`'s `resolveSessionSize` inside its own
+     * `handleStart`, from the `sessionSize` state reported through
+     * `onSessionSizeChange`. */
+    initialSessionSize?: SessionSizeChoice;
+    onSessionSizeChange?: (choice: SessionSizeChoice) => void;
   }
 
   const {
@@ -75,11 +85,6 @@
 
   type ScriptChoice = 'both' | Script;
   type SetChoice = 'all' | CardKind;
-  // Percent-of-scope presets (2026-09-09 decision) -- a discrete union, not a
-  // cached number, so the effective count below is always recomputed from
-  // the *current* `scopedCount` rather than drifting when the scope changes
-  // underneath an already-made choice.
-  export type SizeChoice = 'all' | 0.25 | 0.5 | 0.75;
 
   // A restored `Scope` maps back onto the pill choices unambiguously: a
   // two-entry array is the unnarrowed "Both", anything else is the single
@@ -101,7 +106,7 @@
   // Restored verbatim -- unlike `scriptChoice`/`setChoice`, there is no
   // `Scope`-shaped round trip to unambiguously re-derive here, so the prop
   // carries the discrete choice itself.
-  let sizeChoice = $state<SizeChoice>(untrack(() => initialSessionSize ?? 'all'));
+  let sizeChoice = $state<SessionSizeChoice>(untrack(() => initialSessionSize ?? 'all'));
 
   // "Both"/"All" fall back to `FULL_SCOPE`'s own arrays -- not a re-typed
   // literal -- so this can never silently drift from the domain's definition
@@ -117,17 +122,15 @@
   // Live recompute, not a cached number (Design Notes): a percentage of a
   // changed scope is already a valid value for that scope, so there is no
   // separate "clamp" step when the scope narrows or widens underneath an
-  // already-made choice. `scopedCount` is always > 0 here -- the Scope
-  // picker always keeps at least one script and one unit active -- so
-  // `Math.round` only needs flooring to a minimum of 1, never a guard
-  // against an empty scope.
-  const effectiveSessionSize = $derived(
-    sizeChoice === 'all' ? scopedCount : Math.max(1, Math.round(sizeChoice * scopedCount)),
-  );
+  // already-made choice. `resolveSessionSize` is the one shared formula
+  // (`domain/scope.ts`) -- this hint can never drift from what
+  // `App.svelte`'s `handleStart` independently resolves and actually
+  // samples.
+  const effectiveSessionSize = $derived(resolveSessionSize(sizeChoice, scopedCount));
 
   // Informational only (Story 1.7's Boundaries & Constraints): recomputed
-  // live on every script/set toggle, but never fed back into `selectNext`'s
-  // weighting.
+  // live on every script/set toggle, but never fed back into
+  // `sampleSessionCards`' weighting.
   const shakyCount = $derived(countShaky(cardsInScope(allCards, scope), tallies));
 
   // Chip labels are derived from `scope` itself, not re-branched from
@@ -295,8 +298,10 @@
           All
         </button>
       </div>
-      <!-- Informational only, same as the shaky badge below -- not yet fed
-           into `onStart` (Story 1.7 is what eventually consumes this). -->
+      <!-- Never threaded into `onStart` itself (see the prop docstring
+           above) -- `App.svelte`'s `handleStart` independently resolves the
+           same `resolveSessionSize` formula, so this hint can never drift
+           from what the session actually samples. -->
       <p class="hint">{effectiveSessionSize} {effectiveSessionSize === 1 ? 'card' : 'cards'} this session</p>
     </div>
 

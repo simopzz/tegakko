@@ -99,7 +99,7 @@ describe('App', () => {
     await screen.findByText('What are we testing today?');
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
 
-    // The drill still starts -- `selectNext` falls back to its uniform floor
+    // The drill still starts -- `sampleSessionCards` falls back to its uniform floor
     // rather than the failed fetch blocking entry.
     expect(await screen.findByText('1 / 208')).toBeTruthy();
 
@@ -162,6 +162,23 @@ describe('App', () => {
     expect(document.querySelectorAll('canvas')).toHaveLength(1);
 
     listAll.mockRestore();
+  });
+
+  it('resolves the chosen session size into the sampled drill queue', async () => {
+    // Story 1.2's session-size pill group was fully wired in the UI but
+    // never consumed until this rework -- `handleStart` now resolves it via
+    // `resolveSessionSize` and threads it into `<Drill sessionSize={...}>`,
+    // which samples exactly that many distinct cards (AD-10). 25% of the
+    // full 208-card scope resolves to 52.
+    getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
+
+    render(App);
+
+    await screen.findByText('What are we testing today?');
+    await fireEvent.click(screen.getByRole('radio', { name: '25%' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
+
+    expect(await screen.findByText('1 / 52')).toBeTruthy();
   });
 
   it('carries a narrowed scope forward into the drill', async () => {

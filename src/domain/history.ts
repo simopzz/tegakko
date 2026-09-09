@@ -49,9 +49,13 @@ export function rampColorForAccuracy(accuracy: number): string {
 
 /** The chip variant a History row shows, driven purely by `closureReason`
  * (never by comparing `Session.scope`, per this spec's Boundaries &
- * Constraints): `'full-scope'` reads as a positive "Whole scope" tag,
- * `'inactivity'` as a neutral "Closed on idle" tag, and `'explicit'` carries
- * no chip at all. */
+ * Constraints): `'full-scope'` reads as a positive "Session complete" tag
+ * (session-sampling rework, 2026-09-09 -- sampling is now
+ * weighted-without-replacement, so `'full-scope'` always means the sampled
+ * queue was exhausted exactly, never a probabilistic near-miss; the display
+ * copy no longer implies "the whole scope" specifically, since the sampled
+ * queue can be smaller than the full scope), `'inactivity'` as a neutral
+ * "Closed on idle" tag, and `'explicit'` carries no chip at all. */
 export type ClosureChipVariant = 'positive' | 'neutral' | null;
 
 export function closureChipVariant(reason: ClosureReason): ClosureChipVariant {

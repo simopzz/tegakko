@@ -72,12 +72,12 @@ describe('History', () => {
     expect(within(rendered[1]!).getByText(formatDate(explicit.date))).toBeTruthy();
     expect(within(rendered[2]!).getByText(formatDate(idle.date))).toBeTruthy();
 
-    // Full-scope: positive "Whole scope" chip, no dimming.
-    expect(within(rendered[0]!).getByText('Whole scope').className).toContain('chip--positive');
+    // Full-scope: positive "Session complete" chip, no dimming.
+    expect(within(rendered[0]!).getByText('Session complete').className).toContain('chip--positive');
     expect(within(rendered[0]!).getByText('90%').className).not.toContain('dimmed');
 
     // Explicit: no chip at all.
-    expect(within(rendered[1]!).queryByText('Whole scope')).toBeNull();
+    expect(within(rendered[1]!).queryByText('Session complete')).toBeNull();
     expect(within(rendered[1]!).queryByText('Closed on idle')).toBeNull();
     expect(within(rendered[1]!).getByText('75%').className).not.toContain('dimmed');
 
