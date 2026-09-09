@@ -117,3 +117,11 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-11-dakuten-handakuten-catalog-expansion.md`
   summary: `epic-1-context.md` rewrite drops the continuous pressure-varying stroke-width requirement and the at-least-3 persisted width presets (maybe-false — needs check against epics.md/PRD source of truth).
   evidence: Old Requirements line "Stroke width must continuously vary with pressure ... at least 3 width presets, selectable and persisted" has no equivalent in the rewritten context; surviving text only notes "Settings has ink-width and idle-threshold toggles" plus the `widthPreset` settings field. Agent-context file, so deferred rather than patched here. The sibling IDB-compression claim from the same review was refuted (store fields + atomic/unpaginated wording preserved).
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-2-kana-catalog-scope-picker-2.md`
+  summary: Add keyboard roving-navigation (arrow keys) to ScopePicker.svelte's `role="radiogroup"` pill groups (script, set, and the new session-size group).
+  evidence: WAI-ARIA's radiogroup pattern conventionally implies arrow-key navigation between options; none exists in ScopePicker.svelte today. Pre-existing on the script/set groups (shipped in Story 1.2's first pass), inherited unchanged by the new session-size group per this story's frozen Intent (mirror existing markup exactly).
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-2-kana-catalog-scope-picker-2.md`
+  summary: Add `aria-live` regions to ScopePicker.svelte's live-updating text (the "N cards in scope" count, the shaky-count chip, and the new "N cards this session" hint).
+  evidence: None of these currently announce their value changes to screen-reader users when script/set/session-size pills are tapped. Pre-existing gap on the count/shaky text (shipped in Story 1.2's first pass), inherited unchanged by the new session-size hint.

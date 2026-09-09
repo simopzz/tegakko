@@ -30,6 +30,13 @@
      * (`onScopeChange` feeds it, this prop restores it). */
     initialScope?: Scope;
     onScopeChange?: (scope: Scope) => void;
+    /** Story 1.2's amended AC: a second, independent pill group for the
+     * session-size choice. Mirrors `initialScope`/`onScopeChange` exactly --
+     * seeds the pill on mount, reports every change so Back (via Settings)
+     * restores it. Not yet consumed by `onStart`; Story 1.7's
+     * `sampleSessionCards` is what eventually reads it. */
+    initialSessionSize?: SizeChoice;
+    onSessionSizeChange?: (choice: SizeChoice) => void;
   }
 
   const {
@@ -40,6 +47,8 @@
     onHistory,
     initialScope,
     onScopeChange,
+    initialSessionSize,
+    onSessionSizeChange,
   }: Props = $props();
 
   // Fetched once on mount, fails open to `[]` -- mirrors `App.svelte`'s
@@ -66,6 +75,11 @@
 
   type ScriptChoice = 'both' | Script;
   type SetChoice = 'all' | CardKind;
+  // Percent-of-scope presets (2026-09-09 decision) -- a discrete union, not a
+  // cached number, so the effective count below is always recomputed from
+  // the *current* `scopedCount` rather than drifting when the scope changes
+  // underneath an already-made choice.
+  export type SizeChoice = 'all' | 0.25 | 0.5 | 0.75;
 
   // A restored `Scope` maps back onto the pill choices unambiguously: a
   // two-entry array is the unnarrowed "Both", anything else is the single
@@ -84,6 +98,10 @@
       return units && units.length === 1 && units[0] ? units[0] : 'all';
     }),
   );
+  // Restored verbatim -- unlike `scriptChoice`/`setChoice`, there is no
+  // `Scope`-shaped round trip to unambiguously re-derive here, so the prop
+  // carries the discrete choice itself.
+  let sizeChoice = $state<SizeChoice>(untrack(() => initialSessionSize ?? 'all'));
 
   // "Both"/"All" fall back to `FULL_SCOPE`'s own arrays -- not a re-typed
   // literal -- so this can never silently drift from the domain's definition
@@ -95,6 +113,17 @@
   });
 
   const scopedCount = $derived(cardsInScope(allCards, scope).length);
+
+  // Live recompute, not a cached number (Design Notes): a percentage of a
+  // changed scope is already a valid value for that scope, so there is no
+  // separate "clamp" step when the scope narrows or widens underneath an
+  // already-made choice. `scopedCount` is always > 0 here -- the Scope
+  // picker always keeps at least one script and one unit active -- so
+  // `Math.round` only needs flooring to a minimum of 1, never a guard
+  // against an empty scope.
+  const effectiveSessionSize = $derived(
+    sizeChoice === 'all' ? scopedCount : Math.max(1, Math.round(sizeChoice * scopedCount)),
+  );
 
   // Informational only (Story 1.7's Boundaries & Constraints): recomputed
   // live on every script/set toggle, but never fed back into `selectNext`'s
@@ -111,6 +140,13 @@
   // be opened mid-selection, and coming back must land on the same pills.
   $effect(() => {
     onScopeChange?.(scope);
+  });
+
+  // Mirrors the `onScopeChange` effect above, one-for-one: reports every
+  // change (not just the one at "Start writing"), since Settings can be
+  // opened mid-pick and coming back must land on the same segment.
+  $effect(() => {
+    onSessionSizeChange?.(sizeChoice);
   });
 
   function handleStart(): void {
@@ -211,8 +247,61 @@
       </div>
     </div>
 
+    <div class="group">
+      <p class="group-label">Session size</p>
+      <div class="pill-group" role="radiogroup" aria-label="Session size">
+        <button
+          type="button"
+          class="pill"
+          class:pill--active={sizeChoice === 0.25}
+          role="radio"
+          aria-checked={sizeChoice === 0.25}
+          tabindex={sizeChoice === 0.25 ? 0 : -1}
+          onclick={() => (sizeChoice = 0.25)}
+        >
+          25%
+        </button>
+        <button
+          type="button"
+          class="pill"
+          class:pill--active={sizeChoice === 0.5}
+          role="radio"
+          aria-checked={sizeChoice === 0.5}
+          tabindex={sizeChoice === 0.5 ? 0 : -1}
+          onclick={() => (sizeChoice = 0.5)}
+        >
+          50%
+        </button>
+        <button
+          type="button"
+          class="pill"
+          class:pill--active={sizeChoice === 0.75}
+          role="radio"
+          aria-checked={sizeChoice === 0.75}
+          tabindex={sizeChoice === 0.75 ? 0 : -1}
+          onclick={() => (sizeChoice = 0.75)}
+        >
+          75%
+        </button>
+        <button
+          type="button"
+          class="pill"
+          class:pill--active={sizeChoice === 'all'}
+          role="radio"
+          aria-checked={sizeChoice === 'all'}
+          tabindex={sizeChoice === 'all' ? 0 : -1}
+          onclick={() => (sizeChoice = 'all')}
+        >
+          All
+        </button>
+      </div>
+      <!-- Informational only, same as the shaky badge below -- not yet fed
+           into `onStart` (Story 1.7 is what eventually consumes this). -->
+      <p class="hint">{effectiveSessionSize} {effectiveSessionSize === 1 ? 'card' : 'cards'} this session</p>
+    </div>
+
     <div class="count-card">
-      <p class="count-value">{scopedCount} cards in scope</p>
+      <p class="count-value">{scopedCount} {scopedCount === 1 ? 'card' : 'cards'} in scope</p>
       <div class="chips">
         {#each scriptChipLabels as label (label)}
           <span class="chip chip--positive">{label}</span>
@@ -333,6 +422,13 @@
   .pill--active {
     background: var(--color-accent);
     color: var(--color-surface-card);
+  }
+
+  .hint {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    color: var(--color-ink-muted);
   }
 
   .count-card {

@@ -414,4 +414,173 @@ describe('ScopePicker', () => {
       expect(await screen.findByText('1 shaky')).toBeTruthy();
     });
   });
+
+  // Story 1.2's amended AC: the independent session-size pill group.
+  describe('session size', () => {
+    it('defaults to "All" active with the effective size equal to the live scoped count', () => {
+      render(ScopePicker, {
+        cardRepository: realRepository(),
+        tallyRepository: fakeTallyRepository(),
+        onStart: vi.fn(),
+        onSettings: vi.fn(),
+        onHistory: vi.fn(),
+      });
+
+      expect(pill('All', 'Session size').className).toContain('pill--active');
+      expect(screen.getByText('208 cards this session')).toBeTruthy();
+      // Never affects the live scope count.
+      expect(screen.getByText('208 cards in scope')).toBeTruthy();
+    });
+
+    it('resolves each percent preset against the full 208-card scope', async () => {
+      render(ScopePicker, {
+        cardRepository: realRepository(),
+        tallyRepository: fakeTallyRepository(),
+        onStart: vi.fn(),
+        onSettings: vi.fn(),
+        onHistory: vi.fn(),
+      });
+
+      await fireEvent.click(pill('25%', 'Session size'));
+      expect(screen.getByText('52 cards this session')).toBeTruthy();
+
+      await fireEvent.click(pill('50%', 'Session size'));
+      expect(screen.getByText('104 cards this session')).toBeTruthy();
+
+      await fireEvent.click(pill('75%', 'Session size'));
+      expect(screen.getByText('156 cards this session')).toBeTruthy();
+    });
+
+    it('keeps exactly one active segment in the session-size group after a tap', async () => {
+      render(ScopePicker, {
+        cardRepository: realRepository(),
+        tallyRepository: fakeTallyRepository(),
+        onStart: vi.fn(),
+        onSettings: vi.fn(),
+        onHistory: vi.fn(),
+      });
+
+      await fireEvent.click(pill('50%', 'Session size'));
+
+      expect(pill('50%', 'Session size').className).toContain('pill--active');
+      expect(pill('25%', 'Session size').className).not.toContain('pill--active');
+      expect(pill('75%', 'Session size').className).not.toContain('pill--active');
+      expect(pill('All', 'Session size').className).not.toContain('pill--active');
+    });
+
+    it('leaves the session-size segment unchanged when a script/set pill is tapped, but recomputes its effective count against the new scope', async () => {
+      render(ScopePicker, {
+        cardRepository: realRepository(),
+        tallyRepository: fakeTallyRepository(),
+        onStart: vi.fn(),
+        onSettings: vi.fn(),
+        onHistory: vi.fn(),
+      });
+
+      await fireEvent.click(pill('50%', 'Session size'));
+      expect(screen.getByText('104 cards this session')).toBeTruthy();
+
+      // Narrow to the 33-card yoon-only scope.
+      await fireEvent.click(pill('Katakana'));
+      await fireEvent.click(pill('Yoon'));
+
+      expect(screen.getByText('33 cards in scope')).toBeTruthy();
+      expect(pill('50%', 'Session size').className).toContain('pill--active');
+      expect(screen.getByText('17 cards this session')).toBeTruthy();
+
+      // Widen back to the full 208-card scope.
+      await fireEvent.click(pill('Both scripts', 'Script'));
+      await fireEvent.click(pill('Both sets', 'Set'));
+
+      expect(screen.getByText('208 cards in scope')).toBeTruthy();
+      expect(pill('50%', 'Session size').className).toContain('pill--active');
+      expect(screen.getByText('104 cards this session')).toBeTruthy();
+    });
+
+    it('rounds to a minimum of 1, never 0, at a small scoped count', () => {
+      // The I/O matrix's exact edge case (25% of a 3-card scope rounds to 1,
+      // not 0) isn't reachable by narrowing the real 208-card catalog through
+      // the script/set pills, so this fakes a minimal 3-card repository --
+      // same fake-`CardRepository` pattern as the rest of this file -- to
+      // exercise `Math.max(1, ...)` directly rather than asserting on an
+      // unreachable scope size.
+      const threeCardRepository: CardRepository = {
+        getAll: () => [
+          { cardId: 'あ:hiragana', grapheme: 'あ', script: 'hiragana', kind: 'base', romaji: 'a' },
+          { cardId: 'い:hiragana', grapheme: 'い', script: 'hiragana', kind: 'base', romaji: 'i' },
+          { cardId: 'う:hiragana', grapheme: 'う', script: 'hiragana', kind: 'base', romaji: 'u' },
+        ],
+        getById: () => {
+          throw new Error('not used by this test');
+        },
+      };
+
+      render(ScopePicker, {
+        cardRepository: threeCardRepository,
+        tallyRepository: fakeTallyRepository(),
+        onStart: vi.fn(),
+        onSettings: vi.fn(),
+        onHistory: vi.fn(),
+        initialSessionSize: 0.25,
+      });
+
+      expect(screen.getByText('3 cards in scope')).toBeTruthy();
+      expect(pill('25%', 'Session size').className).toContain('pill--active');
+      // Math.round(0.25 * 3) === 1 -- the floor isn't actually needed here
+      // (0.75 already rounds up to 1), but this is the matrix's own
+      // documented case and a genuine floor-breaking input (e.g. a 1-card
+      // scope at any percent below 100%) can't occur given the catalog's
+      // always-nonempty scope invariant.
+      expect(screen.getByText('1 card this session')).toBeTruthy();
+    });
+
+    it('restores a previously chosen session-size segment onto the pills when remounted', () => {
+      render(ScopePicker, {
+        cardRepository: realRepository(),
+        tallyRepository: fakeTallyRepository(),
+        onStart: vi.fn(),
+        onSettings: vi.fn(),
+        onHistory: vi.fn(),
+        initialSessionSize: 0.25,
+      });
+
+      expect(pill('25%', 'Session size').className).toContain('pill--active');
+      expect(screen.getByText('52 cards this session')).toBeTruthy();
+    });
+
+    it('reports every session-size change upward, not just the one at "Start writing"', async () => {
+      const onSessionSizeChange = vi.fn();
+      render(ScopePicker, {
+        cardRepository: realRepository(),
+        tallyRepository: fakeTallyRepository(),
+        onStart: vi.fn(),
+        onSettings: vi.fn(),
+        onHistory: vi.fn(),
+        onSessionSizeChange,
+      });
+
+      await fireEvent.click(pill('75%', 'Session size'));
+
+      expect(onSessionSizeChange).toHaveBeenLastCalledWith(0.75);
+    });
+
+    it('never threads the session-size choice into onStart -- the existing {scripts, units} payload is unchanged', async () => {
+      const onStart = vi.fn();
+      render(ScopePicker, {
+        cardRepository: realRepository(),
+        tallyRepository: fakeTallyRepository(),
+        onStart,
+        onSettings: vi.fn(),
+        onHistory: vi.fn(),
+      });
+
+      await fireEvent.click(pill('50%', 'Session size'));
+      await fireEvent.click(pill('Start writing'));
+
+      expect(onStart).toHaveBeenCalledWith({
+        scripts: ['hiragana', 'katakana'],
+        units: ['base', 'yoon'],
+      });
+    });
+  });
 });
