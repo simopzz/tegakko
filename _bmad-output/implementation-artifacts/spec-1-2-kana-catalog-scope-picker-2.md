@@ -88,3 +88,18 @@ Session-size state should follow the exact shape already used for `scriptChoice`
 - `npx vitest run src/adapters/ui/ScopePicker.test.ts` -- expected: all pass, including new session-size cases
 - `npm run typecheck` -- expected: no errors (strict mode, no `any`)
 - `npm run lint` -- expected: no errors
+
+### Review Findings (2026-09-09 — branch feat/1-2-scope-picker-session-size vs main, 7 files +391/-3)
+
+- [x] [Review][Patch] "N cards in scope" has no singular handling [src/adapters/ui/ScopePicker.svelte:304] — applied 2026-09-09: `{scopedCount === 1 ? 'card' : 'cards'}` ternary matching hint; typecheck/lint/tests pass
+- [x] [Review][Defer] `role="radiogroup"` pill groups have no arrow-key roving navigation [src/adapters/ui/ScopePicker.svelte:252] — deferred: pre-existing on script/set groups, already tracked in deferred-work.md for this spec
+- [x] [Review][Defer] Live-updating count/hint text has no `aria-live` region [src/adapters/ui/ScopePicker.svelte:300] — deferred: pre-existing on count/shaky text, already tracked in deferred-work.md for this spec
+
+Rejected:
+- false — empty-scope effective-size inconsistency (`all`=0 vs percent=`Math.max(1,…)`=1): unreachable, min real scope is 33 (static 208-card catalog, picker always keeps ≥1 script+unit active); `allCards` is sync static data with no empty path.
+- false — session-size silently discarded by `handleStart`/`onStart`: by spec Never-constraint (no `onStart` change, Story 1.7 consumes); hint + code comments make it visible, acceptance audit PASS.
+- false — undefined `sessionSize` after session-end/reload: spec requires only Back-navigation persistence (implemented + tested in `App.test.ts`); reload reset to `'all'` is defined `$state` init.
+- false — no runtime validation for `initialSessionSize`: `SizeChoice` union + strict TS, mirrors `initialScope` verbatim-seed pattern; runtime-invalid unreachable.
+- false — `onSessionSizeChange` test mount-count gap: test correctly asserts last-call; mount-time `$effect` is intentional mirror of `onScopeChange`, no named harm.
+- false — no help text distinguishing the two counts: spec requires no help text; labels ("Session size" + hint vs count-card) already distinguish; fix would add surface = spec edit.
+- false — empty-scope edge duplicate (edge-case-hunter scopedCount-zero): same refutation as empty-scope above.

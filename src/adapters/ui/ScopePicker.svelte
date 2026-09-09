@@ -301,7 +301,7 @@
     </div>
 
     <div class="count-card">
-      <p class="count-value">{scopedCount} cards in scope</p>
+      <p class="count-value">{scopedCount} {scopedCount === 1 ? 'card' : 'cards'} in scope</p>
       <div class="chips">
         {#each scriptChipLabels as label (label)}
           <span class="chip chip--positive">{label}</span>

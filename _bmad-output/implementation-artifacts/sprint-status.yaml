@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 09-03-2026 21:30
-last_updated: 09-09-2026 14:50
+last_updated: 09-09-2026 16:00
 project: tegakko
 project_key: NOKEY
 tracking_system: file-system
@@ -42,7 +42,7 @@ development_status:
   # architecture pass (AD-10/AD-13) complete -- ready for dev re-implementation.
   # Existing spec-1-*.md implementation-artifact files still reflect the OLD
   # behavior and need regenerating/amending against the new epics.md ACs.
-  1-2-kana-catalog-scope-picker: review
+  1-2-kana-catalog-scope-picker: done
   1-3-write-from-memory-drill-loop-ink-width-setting: done
   1-4-reveal-correct-answer: done
   1-5-attempt-recording: done
