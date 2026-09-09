@@ -16,6 +16,7 @@
   import type { SessionSummaryView } from '../../domain/session';
 
   interface Props {
+    sessionSize: number;
     attempts: Attempt[];
     tallies: Tally[];
     inkSurface: InkSurface;

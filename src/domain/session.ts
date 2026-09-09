@@ -11,7 +11,6 @@
 import type { Card, Script } from './cards';
 import { CARDS } from './cards';
 import type { Scope } from './scope';
-import { cardsInScope } from './scope';
 import type { Attempt } from './attempt';
 
 export type ClosureReason = 'explicit' | 'full-scope' | 'inactivity';
@@ -62,16 +61,6 @@ export function isSessionIdle(
   // clock authority; mirrors `closeSession`'s `timeMs` clamp and
   // `domain/drill.ts`'s `score()` clamp).
   return Math.max(0, now - lastInteractionAt) >= idleTimeoutMs;
-}
-
-/** Whether every in-scope card has at least one attempt in `sessionAttempts`
- * this session -- `false` for an empty scope, never treated as vacuously
- * complete. */
-export function isScopeComplete(sessionAttempts: Attempt[], scope: Scope): boolean {
-  const inScope = cardsInScope(CARDS, scope);
-  if (inScope.length === 0) return false;
-  const attemptedIds = new Set(sessionAttempts.map((a) => a.cardId));
-  return inScope.every((card) => attemptedIds.has(card.cardId));
 }
 
 /** `correct / attempts`, `0` (never `NaN`) when there were no attempts. */

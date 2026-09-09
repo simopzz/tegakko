@@ -1,12 +1,17 @@
 // Pure domain function -- no DOM/IndexedDB/Svelte import ever appears here
 // (AD-1).
 //
-// Story 1.7 replaces Story 1.3's uniform-random `pickRandomCard` placeholder
-// wholesale with `selectNext(attempts, scope)`: weak-spot-biased selection.
-// Deliberately not a queue or a shuffle: selection is with replacement, so a
-// card can repeat within a session (even back-to-back -- Story 1.3's
-// never-repeats-the-previous-card behavior is gone) and the drill counter
-// keeps climbing past the scope size until Story 1.9 adds closure.
+// AD-10 (2026-09-08 course correction) supersedes Story 1.7's per-draw,
+// with-replacement single-card selector: weak-spot bias now governs
+// **session sampling**, not per-draw reselection. `sampleSessionCards(
+// attempts, scope, sessionSize)` is called exactly once, at session start --
+// it draws `min(sessionSize, candidates.length)` distinct cards via
+// sequential weighted removal without replacement (reusing the prior
+// selector's cumulative-weight walk, extracted below into
+// `weightedPickIndex`), then uniform-shuffles the drawn set so sampling
+// weight never leaks into presentation order. Drill advances through the
+// resulting fixed queue; closure fires on queue exhaustion -- exact, never
+// probabilistic.
 
 import type { Card } from './cards';
 import { CARDS } from './cards';
@@ -39,10 +44,10 @@ function score(card: Card, attempts: Attempt[]): number {
     const parsed = Date.parse(attempt.timestamp);
     // A malformed `timestamp` parses to `NaN`, which would otherwise poison
     // this card's score (and, via the sum below, `totalWeight`) to `NaN` --
-    // every `target < cumulative` comparison in `selectNext`'s walk then
-    // evaluates false, silently falling through to always return the last
-    // catalog candidate instead of sampling correctly. Skip it instead, the
-    // same as if the attempt didn't exist.
+    // every `target < cumulative` comparison in `weightedPickIndex`'s walk
+    // (below) then evaluates false, silently falling through to always pick
+    // the last candidate in the pool instead of sampling correctly. Skip it
+    // instead, the same as if the attempt didn't exist.
     if (Number.isNaN(parsed)) continue;
     // Clamped at 0: a future-dated `timestamp` (device clock skew -- this is
     // an offline client with no server clock authority) would otherwise
@@ -56,54 +61,99 @@ function score(card: Card, attempts: Attempt[]): number {
   return total;
 }
 
-/** Pick the next prompt, biased toward weak spots.
+/** Draws one index from `weights` via the cumulative-weight walk -- the same
+ * single-pick primitive Story 1.7's original per-draw selector used
+ * directly, now extracted so `sampleSessionCards` below can call it in a
+ * loop against a shrinking pool (AD-10: reuse the existing primitive `k`
+ * times rather than inventing a new weighted-sampling algorithm). A
+ * degenerate `random() === 1` (or floating-point rounding) leaves `target`
+ * at or past `totalWeight` -- clamp to the last index rather than fall
+ * through to `undefined` (mirrors the original `pickRandomCard`'s clamp). */
+function weightedPickIndex(weights: number[], random: () => number): number {
+  const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+  const target = random() * totalWeight;
+
+  let cumulative = 0;
+  for (let i = 0; i < weights.length; i++) {
+    cumulative += weights[i]!;
+    if (target < cumulative) {
+      return i;
+    }
+  }
+  return weights.length - 1;
+}
+
+/** In-place-free uniform (Fisher-Yates) shuffle -- returns a new array,
+ * never mutates `items`. Decouples presentation order from the weighted
+ * draw order above (AD-10: "sampling procedure's natural pick order is not
+ * the session's presentation order"). `random` shares the same injection
+ * point as `weightedPickIndex`/`sampleSessionCards` for deterministic
+ * tests. */
+function shuffle<T>(items: T[], random: () => number): T[] {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    const temp = result[i]!;
+    result[i] = result[j]!;
+    result[j] = temp;
+  }
+  return result;
+}
+
+/** Sample this session's card queue, biased toward weak spots (AD-10).
  *
  * Candidates are `cardsInScope(CARDS, scope)` -- always the static catalog
- * filtered by `scope`, never a passed-in card list. Each candidate's
- * sampling weight is `1 + score` (a universal nonzero floor: even a
- * zero-miss card stays reachable, and the ratio between a heavily-missed
- * card and a clean one scales naturally with `score`). Every in-scope card
- * -- including the one just graded -- keeps a nonzero probability on every
- * draw; there is no previous-card exclusion.
+ * filtered by `scope`, never a passed-in card list. Draws
+ * `min(sessionSize, candidates.length)` cards via **sequential weighted
+ * removal without replacement**: each draw's weight is `1 + score` (a
+ * universal nonzero floor -- even a zero-miss card stays reachable, and the
+ * ratio between a heavily-missed card and a clean one scales naturally with
+ * `score`), the drawn candidate is removed from the pool, and the pool's
+ * total weight is recomputed before the next draw -- so the same card can
+ * never be sampled twice into one session. The drawn set is then
+ * **uniform-shuffled** (`shuffle`, above) before returning, so *which* cards
+ * get sampled (weighted) is decoupled from *what order* they're presented in
+ * (unweighted).
+ *
+ * Called exactly once, at session start -- never re-invoked mid-session
+ * (AD-10): a miss recorded mid-session affects only the *next* session's
+ * sample, not this one's already-fixed queue.
  *
  * `random` is injectable purely so tests are deterministic; production
  * callers pass nothing and get `Math.random`.
  *
  * Throws on an empty-scope candidate list: an empty scope can't produce a
- * prompt, and silently returning a sentinel card would be worse than failing
- * loudly. The Scope picker is the guard -- it can only reach the drill via
- * its own pill groups, which always leave at least one script and one unit
- * selected. */
-export function selectNext(
+ * queue, and silently returning an empty/sentinel result would be worse than
+ * failing loudly. The Scope picker is the guard -- it can only reach the
+ * drill via its own pill groups, which always leave at least one script and
+ * one unit selected. */
+export function sampleSessionCards(
   attempts: Attempt[],
   scope: Scope,
+  sessionSize: number,
   random: () => number = Math.random,
-): Card {
+): Card[] {
   const candidates = cardsInScope(CARDS, scope);
   if (candidates.length === 0) {
-    throw new Error('selectNext: no cards in scope');
+    throw new Error('sampleSessionCards: no cards in scope');
   }
 
-  const weights = candidates.map((card) => 1 + score(card, attempts));
-  const totalWeight = weights.reduce((sum, w) => sum + w, 0);
-  const target = random() * totalWeight;
+  const pool = [...candidates];
+  // Each candidate's score depends only on `attempts` (fixed for the whole
+  // call), never on which other candidates remain in the pool -- computed
+  // once here, then kept in lockstep with `pool` (same index removed from
+  // both per draw) rather than recomputed from scratch every iteration.
+  const weights = pool.map((card) => 1 + score(card, attempts));
+  const drawCount = Math.min(sessionSize, pool.length);
+  const sampled: Card[] = [];
+  for (let i = 0; i < drawCount; i++) {
+    const index = weightedPickIndex(weights, random);
+    sampled.push(pool[index]!);
+    pool.splice(index, 1);
+    weights.splice(index, 1);
+  }
 
-  let cumulative = 0;
-  for (let i = 0; i < candidates.length; i++) {
-    cumulative += weights[i]!;
-    if (target < cumulative) {
-      return candidates[i]!;
-    }
-  }
-  // A degenerate `random() === 1` (or floating-point rounding) leaves
-  // `target` at or past `totalWeight` -- clamp to the last candidate rather
-  // than fall through to `undefined` (mirrors the old `pickRandomCard`'s
-  // clamp).
-  const last = candidates[candidates.length - 1];
-  if (last === undefined) {
-    throw new Error('selectNext: index out of range');
-  }
-  return last;
+  return shuffle(sampled, random);
 }
 
 /** Reverse the just-graded attempt (Story 1.8): atomically sequences

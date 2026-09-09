@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  isSessionIdle,
-  isScopeComplete,
-  computeAccuracy,
-  buildSummary,
-  buildSessionRecord,
-} from './session';
+import { isSessionIdle, computeAccuracy, buildSummary, buildSessionRecord } from './session';
 import { CARDS } from './cards';
 import { cardsInScope } from './scope';
 import type { Scope } from './scope';
@@ -52,32 +46,6 @@ describe('isSessionIdle', () => {
     // not report idle early or throw; detection simply waits for the clock
     // to catch up (offline client, no server clock authority).
     expect(isSessionIdle(2000, 1000, 1000)).toBe(false);
-  });
-});
-
-describe('isScopeComplete', () => {
-  it('is false for an empty scope, never vacuously true', () => {
-    const emptyScope: Scope = { scripts: [], units: [] };
-    expect(isScopeComplete([], emptyScope)).toBe(false);
-    expect(isScopeComplete([attempt()], emptyScope)).toBe(false);
-  });
-
-  it('is false when only some in-scope cards have an attempt', () => {
-    const partial = cardsInHiraganaBase
-      .slice(0, cardsInHiraganaBase.length - 1)
-      .map((c) => attempt({ cardId: c.cardId }));
-    expect(isScopeComplete(partial, HIRAGANA_BASE_SCOPE)).toBe(false);
-  });
-
-  it('is true once every in-scope card has at least one attempt', () => {
-    const full = cardsInHiraganaBase.map((c) => attempt({ cardId: c.cardId }));
-    expect(isScopeComplete(full, HIRAGANA_BASE_SCOPE)).toBe(true);
-  });
-
-  it('is true even with repeated attempts on the same cards, as long as every card is covered', () => {
-    const full = cardsInHiraganaBase.map((c) => attempt({ cardId: c.cardId }));
-    const withRepeats = [...full, ...full];
-    expect(isScopeComplete(withRepeats, HIRAGANA_BASE_SCOPE)).toBe(true);
   });
 });
 

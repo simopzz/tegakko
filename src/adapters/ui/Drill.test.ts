@@ -16,8 +16,8 @@ import type { Result } from '../../domain/result';
 import type { SessionRepository } from '../../ports/session-repository';
 import type { Session, SessionSummaryView } from '../../domain/session';
 
-// `selectNext` (Story 1.7) draws from the real `CARDS` catalog filtered by
-// `scope` -- a `Scope` can only narrow to a full script+kind combination
+// `sampleSessionCards` (AD-10) draws from the real `CARDS` catalog filtered
+// by `scope` -- a `Scope` can only narrow to a full script+kind combination
 // (minimum 33 cards), never to an arbitrary short list, so this file can no
 // longer force a specific first prompt via a hand-picked `cards` array. Two
 // fixed scopes stand in for the old ad hoc single/two-card fixtures; tests
@@ -151,9 +151,9 @@ function fakeSessionRepository(
 }
 
 /** Reads the currently-rendered prompt's romaji, matched against `cards`
- * (every candidate `selectNext` could have drawn from). Within a single
- * script+kind scope every romaji is unique, so this unambiguously resolves
- * back to the exact `Card` on screen. Generalizes the file's prior
+ * (every candidate `sampleSessionCards` could have drawn from). Within a
+ * single script+kind scope every romaji is unique, so this unambiguously
+ * resolves back to the exact `Card` on screen. Generalizes the file's prior
  * hardcoded `/^(shi|tsu)$/` idiom to an arbitrary scope. */
 function currentCard(cards: Card[]): Card {
   const pattern = new RegExp(`^(${cards.map((c) => c.romaji).join('|')})$`);
@@ -197,6 +197,7 @@ async function flushAsync(): Promise<void> {
 function renderDrill(
   overrides: {
     scope?: Scope;
+    sessionSize?: number;
     attempts?: Attempt[];
     tallies?: Tally[];
     inkSurface?: ReturnType<typeof fakeInkSurface>;
@@ -208,6 +209,11 @@ function renderDrill(
   } = {},
 ) {
   const scope = overrides.scope ?? HIRAGANA_BASE_SCOPE;
+  // Defaults to the full scoped count (the 'all' session-size choice) so
+  // most tests -- which don't care about session sizing -- see the same
+  // queue length as the old `cards.length`, and the sampled queue
+  // structurally covers the entire scope (AD-10) regardless of weighting.
+  const sessionSize = overrides.sessionSize ?? cardsInScope([...CARDS], scope).length;
   const attempts = overrides.attempts ?? [];
   const tallies = overrides.tallies ?? [];
   const inkSurface = overrides.inkSurface ?? fakeInkSurface();
@@ -218,6 +224,7 @@ function renderDrill(
   const onClose = overrides.onClose ?? vi.fn();
   const result = render(Drill, {
     scope,
+    sessionSize,
     attempts,
     tallies,
     inkSurface,
@@ -230,6 +237,7 @@ function renderDrill(
   return {
     ...result,
     scope,
+    sessionSize,
     attempts,
     tallies,
     inkSurface,
@@ -357,25 +365,25 @@ describe('Drill', () => {
     });
   }
 
-  it('keeps counting past the scope size, with the bar clamped at full', async () => {
-    // Selection is with replacement and nothing closes the session until
-    // Story 1.9 -- overshooting the counter is the intended behavior, not
-    // an overflow bug. The smaller yoon scope keeps the loop below cheap.
+  it('reaches exactly 100% with no overshoot once the queue is fully graded', async () => {
+    // Sampling is without replacement (AD-10) -- the bar/counter reach
+    // exactly 100% on the last card, never past it. The smaller yoon scope
+    // keeps the loop below cheap; grading every card but the last (so the
+    // session never closes) leaves the final card's full-width bar
+    // observable without also asserting on `onClose`.
     const cards = cardsInScope([...CARDS], HIRAGANA_YOON_SCOPE);
     const inkSurface = fakeInkSurface();
     renderDrill({ scope: HIRAGANA_YOON_SCOPE, inkSurface });
 
-    for (let i = 0; i < cards.length; i++) {
+    for (let i = 0; i < cards.length - 1; i++) {
       await inkSurface.landStroke();
       await fireEvent.click(grade('Correct'));
       await fireEvent.click(nextCharacter());
     }
 
-    expect(screen.getByText(`${cards.length + 1} / ${cards.length}`)).toBeTruthy();
+    expect(screen.getByText(`${cards.length} / ${cards.length}`)).toBeTruthy();
     const fill = document.querySelector('.bar-fill') as HTMLElement;
     expect(fill.style.width).toBe('100%');
-    // The visible counter overshoots, but the exposed progress value must
-    // stay inside its own min/max or screen readers announce nonsense.
     expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe(String(cards.length));
   });
 
@@ -784,16 +792,17 @@ describe('Drill', () => {
     });
   });
 
-  // Story 1.7: weak-spot-biased selection replaces uniform random.
-  describe('weak-spot-biased selection', () => {
-    it('seeds sessionAttempts from the attempts prop so history feeds the very first prompt, not just later picks', () => {
+  // AD-10: weak-spot-biased sampling, once per session at mount.
+  describe('weak-spot-biased sampling', () => {
+    it('seeds the sampled queue from the attempts prop, weighting the very first prompt', () => {
       // A large, recent miss history for one arbitrary in-scope card
       // dominates the weighted draw (weight ~1001 vs. every other card's
       // floor of 1, out of a 71-card scope) -- a mid-range RNG draw (0.5)
       // reliably lands in that card's cumulative slice regardless of its
-      // position in the catalog. This only happens if the initial pick at
-      // mount actually reads the seeded `attempts` prop, not just picks
-      // made after a grade.
+      // position in the catalog. `sessionSize: 1` keeps this a single draw
+      // (no shuffle-induced reordering, since a 1-element array's shuffle
+      // pass is a no-op), isolating that the *sampling* step itself -- not
+      // just later picks -- reads the seeded `attempts` prop.
       const cards = cardsInScope([...CARDS], HIRAGANA_BASE_SCOPE);
       const heavy = cards[10]!;
       const attempts: Attempt[] = Array.from({ length: 1000 }, (_, i) => ({
@@ -810,7 +819,7 @@ describe('Drill', () => {
       }));
       const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.5);
 
-      renderDrill({ attempts });
+      renderDrill({ attempts, sessionSize: 1 });
 
       expect(currentCard(cards)).toBe(heavy);
 
@@ -827,29 +836,23 @@ describe('Drill', () => {
       expect(listAllSpy).not.toHaveBeenCalled();
     });
 
-    it('can repeat the same card back-to-back (no previous-card exclusion)', async () => {
-      // A single Correct grade contributes zero score (a correct attempt
-      // never adds weight), so the weighted distribution is identical
-      // before and after it -- every candidate stays at its floor weight of
-      // 1. With Math.random() pinned to the same value both times, the
-      // cumulative-weight walk deterministically lands on the same card
-      // twice in a row, which only happens if `selectNext` never excludes
-      // the just-graded card (Story 1.7 supersedes Story 1.3's
-      // never-repeats-the-previous-card behavior).
-      const cards = cardsInScope([...CARDS], HIRAGANA_BASE_SCOPE);
+    it('never shows the same card twice within one session (sampling is without replacement)', async () => {
+      // AD-10 supersedes Story 1.7's with-replacement per-draw selection:
+      // the queue is sampled once, distinct, at mount -- "Next character"
+      // can never advance onto a card already seen this session.
+      const cards = cardsInScope([...CARDS], HIRAGANA_YOON_SCOPE);
       const inkSurface = fakeInkSurface();
-      const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.4);
-      renderDrill({ inkSurface });
-      const first = currentCard(cards);
+      renderDrill({ scope: HIRAGANA_YOON_SCOPE, inkSurface });
 
-      await inkSurface.landStroke();
-      await fireEvent.click(grade('Correct'));
-      await fireEvent.click(nextCharacter());
-
-      expect(currentCard(cards)).toBe(first);
-      expect(screen.getByText('2 / 71')).toBeTruthy();
-
-      randomSpy.mockRestore();
+      const seen = new Set<string>();
+      for (let i = 0; i < cards.length - 1; i++) {
+        const shown = currentCard(cards);
+        expect(seen.has(shown.cardId)).toBe(false);
+        seen.add(shown.cardId);
+        await inkSurface.landStroke();
+        await fireEvent.click(grade('Correct'));
+        await fireEvent.click(nextCharacter());
+      }
     });
   });
 
@@ -994,27 +997,21 @@ describe('Drill', () => {
       consoleError.mockRestore();
     });
 
-    it('shows an increasing cumulative tally when the same card is missed twice without an intervening Undo', async () => {
-      // `Math.random` pinned to 0 always selects `candidates[0]` regardless
-      // of weight (the cumulative-weight walk's first comparison `0 <
-      // weights[0]` is always true) -- deterministically the same card both
-      // times, unlike the back-to-back-Correct test above whose determinism
-      // instead relies on a Correct grade never changing the weights.
-      const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+    it('shows a cumulative tally that includes prior lifetime misses, not just this grade', async () => {
+      // A card can no longer repeat within one session now that sampling is
+      // without replacement (AD-10), so this exercises the same
+      // cumulative-tally arithmetic via a card whose lifetime `tallies`
+      // prop already carries a prior miss, rather than re-grading the same
+      // queue slot twice.
+      const cards = cardsInScope([...CARDS], HIRAGANA_BASE_SCOPE);
+      const tallies: Tally[] = cards.map((c) => ({ cardId: c.cardId, missCount: 1 }));
       const inkSurface = fakeInkSurface();
-      renderDrill({ inkSurface });
+      renderDrill({ inkSurface, tallies, sessionSize: 1 });
 
-      await inkSurface.landStroke();
-      await fireEvent.click(grade('Missed'));
-      expect(screen.getByText(/missed 1/i)).toBeTruthy();
-
-      await fireEvent.click(nextCharacter());
       await inkSurface.landStroke();
       await fireEvent.click(grade('Missed'));
 
       expect(screen.getByText(/missed 2/i)).toBeTruthy();
-
-      randomSpy.mockRestore();
     });
 
     it('guards against a double-tap on Undo running the reversal twice', async () => {
@@ -1126,6 +1123,7 @@ describe('Drill', () => {
       // a clone round-trip here, which is the exact contract IDB requires.
       const sessionRepository = fakeSessionRepository();
       render(DrillScopeHarness, {
+        sessionSize: 71, // full 71-card hiragana-base scope, matching the harness's fixed scope
         attempts: [],
         tallies: [],
         inkSurface: fakeInkSurface(),
@@ -1168,15 +1166,12 @@ describe('Drill', () => {
     });
 
     it('closes with "full-scope" (no explicit control) once every in-scope card has been graded', async () => {
-      // With every grade Correct, a card's weak-spot weight never rises
-      // above the uniform floor of 1 (a correct attempt never adds score) --
-      // pinning `Math.random` to `i / cards.length` in sequence therefore
-      // deterministically walks `selectNext` through every distinct
-      // candidate in catalog order, guaranteeing full coverage in exactly
-      // `cards.length` draws.
+      // With `sessionSize` at its default (the full scope), the sampled
+      // queue structurally holds every in-scope card exactly once,
+      // regardless of weighting or RNG (AD-10) -- so grading `cards.length`
+      // cards in a row must exhaust it deterministically, with no need to
+      // pin `Math.random` to walk a specific draw order.
       const cards = cardsInScope([...CARDS], HIRAGANA_YOON_SCOPE); // 33 cards
-      let call = 0;
-      const randomSpy = vi.spyOn(Math, 'random').mockImplementation(() => call++ / cards.length);
       const inkSurface = fakeInkSurface();
       const onClose = vi.fn();
       const sessionRepository = fakeSessionRepository();
@@ -1198,14 +1193,38 @@ describe('Drill', () => {
       // No next prompt was drawn on the closing tap -- the same card that
       // was just graded is still what's on screen.
       expect(currentCard(cards)).toBe(lastCard);
+    });
 
-      randomSpy.mockRestore();
+    it('closes with "full-scope" after exactly the resolved session size, smaller than the full scope', async () => {
+      // Session size (Story 1.2's control, finally wired up by this rework)
+      // can be smaller than the scope -- the queue, counter, and closure
+      // must all track `sessionSize` (`queue.length`), never the larger
+      // `cardsInScope(...).length`.
+      const cards = cardsInScope([...CARDS], HIRAGANA_YOON_SCOPE); // 33 cards
+      const sessionSize = 10;
+      const inkSurface = fakeInkSurface();
+      const onClose = vi.fn();
+      const sessionRepository = fakeSessionRepository();
+      renderDrill({ scope: HIRAGANA_YOON_SCOPE, sessionSize, inkSurface, onClose, sessionRepository });
+
+      const seen = new Set<string>();
+      for (let i = 0; i < sessionSize; i++) {
+        const shown = currentCard(cards);
+        expect(seen.has(shown.cardId)).toBe(false);
+        seen.add(shown.cardId);
+        expect(screen.getByText(`${i + 1} / ${sessionSize}`)).toBeTruthy();
+        await inkSurface.landStroke();
+        await fireEvent.click(grade('Correct'));
+        await fireEvent.click(nextCharacter());
+      }
+
+      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(onClose).toHaveBeenCalledWith(expect.objectContaining({ closureReason: 'full-scope' }));
+      expect(sessionRepository.adds[0]?.cardsAttempted).toBe(sessionSize);
     });
 
     it('keeps the drill open when Undo reverses the scope-completing grade (no onClose)', async () => {
       const cards = cardsInScope([...CARDS], HIRAGANA_YOON_SCOPE); // 33 cards
-      let call = 0;
-      const randomSpy = vi.spyOn(Math, 'random').mockImplementation(() => call++ / cards.length);
       const inkSurface = fakeInkSurface();
       const onClose = vi.fn();
       renderDrill({ scope: HIRAGANA_YOON_SCOPE, inkSurface, onClose });
@@ -1217,7 +1236,7 @@ describe('Drill', () => {
         await fireEvent.click(nextCharacter());
       }
 
-      // The 33rd (and last) grade completes the scope, but Story 1.8's
+      // The 33rd (and last) grade completes the queue, but Story 1.8's
       // deferred advance still shows the normal toast/Undo -- closure only
       // fires on "Next character", not on the grade itself.
       await inkSurface.landStroke();
@@ -1228,8 +1247,6 @@ describe('Drill', () => {
       await flushAsync();
 
       expect(onClose).not.toHaveBeenCalled();
-
-      randomSpy.mockRestore();
     });
 
     it('closes as "inactivity" on resume once idle time has elapsed, backdating date/time to the last interaction, not "now"', async () => {
@@ -1501,10 +1518,13 @@ describe('Drill', () => {
 
     // Regression tests for the lifetime/session-scoping fix (review pass 1's
     // bad_spec finding, Spec Change Log): `attempts` is the learner's entire
-    // *lifetime* history (seeds `sessionAttempts`, feeds `selectNext`), never
-    // this drill entry's own session -- only `thisSessionAttempts` (starts
-    // empty, populated by this entry's own grades) may ever feed
-    // `isScopeComplete`/`buildSummary`/`buildSessionRecord`.
+    // *lifetime* history -- it only ever feeds the once-at-mount sampling
+    // weights (AD-10), never this drill entry's own session. Only
+    // `thisSessionAttempts` (starts empty, populated by this entry's own
+    // grades) may ever feed `buildSummary`/`buildSessionRecord`; closure
+    // itself (queue exhaustion) reads neither -- it's a pointer/length
+    // comparison against `queue`, so it structurally can't be swayed by
+    // lifetime attempt data at all.
     it('does not auto-close after a single grade when the seeded lifetime attempts already cover the full scope', async () => {
       const cards = cardsInScope([...CARDS], HIRAGANA_BASE_SCOPE); // 71 cards
       const inkSurface = fakeInkSurface();

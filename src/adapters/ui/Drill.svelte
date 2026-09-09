@@ -15,9 +15,7 @@
   // the adapter owns that node's contents (AD-2).
   import { onMount, tick, untrack } from 'svelte';
   import type { Card, Script } from '../../domain/cards';
-  import { CARDS } from '../../domain/cards';
   import type { Scope } from '../../domain/scope';
-  import { cardsInScope } from '../../domain/scope';
   import type { InkSurface } from '../../ports/ink-surface';
   import type { Stroke } from '../../domain/ink';
   import type { Attempt, SelfGrade } from '../../domain/attempt';
@@ -25,16 +23,21 @@
   import type { TallyRepository } from '../../ports/tally-repository';
   import type { Tally } from '../../domain/tally';
   import type { Result } from '../../domain/result';
-  import { selectNext, undoLastGrade } from '../../domain/drill';
+  import { sampleSessionCards, undoLastGrade } from '../../domain/drill';
   import type { SessionRepository } from '../../ports/session-repository';
   import type { ClosureReason, SessionSummaryView } from '../../domain/session';
-  import { isSessionIdle, isScopeComplete, buildSummary, buildSessionRecord } from '../../domain/session';
+  import { isSessionIdle, buildSummary, buildSessionRecord } from '../../domain/session';
 
   interface Props {
     scope: Scope;
+    /** Resolved card count for this session (`domain/scope.ts`'s
+     * `resolveSessionSize`, computed by the composition root from the Scope
+     * picker's `SessionSizeChoice`). Read exactly once, at mount, to draw
+     * the sampled queue below -- never re-resolved mid-session (AD-10). */
+    sessionSize: number;
     /** Session-start attempt history from the composition root, loaded once
-     * via `listAll()` at drill entry -- never re-fetched mid-session (Story
-     * 1.7). */
+     * via `listAll()` at drill entry -- never re-fetched mid-session
+     * (AD-10). */
     attempts: Attempt[];
     /** Session-start tally snapshot from the composition root, loaded once
      * via `getAll()` at drill entry -- mirrors `attempts` above, never
@@ -54,6 +57,7 @@
 
   const {
     scope,
+    sessionSize,
     attempts,
     tallies,
     inkSurface,
@@ -63,11 +67,6 @@
     idleTimeoutMs,
     onClose,
   }: Props = $props();
-
-  // `scope` is fixed for the lifetime of a drill entry (the composition root
-  // builds a fresh component per entry), so this drives the existing
-  // counter/progress bar exactly as the old `cards` prop did.
-  const cards = $derived(cardsInScope(CARDS, scope));
 
   // Minted once per drill entry -- the composition root builds a fresh
   // component per entry (same lifetime as `card`, below), so this is stable
@@ -88,28 +87,18 @@
     katakana: 'Katakana',
   };
 
-  // Plain `let`, not `$state` -- mirrors `strokes` below: nothing renders
-  // from this directly, it only feeds `selectNext` on the next grade. Seeded
-  // from the session-start `attempts` prop and appended to in-memory as new
-  // attempts are graded, never re-fetched (Story 1.7's Boundaries &
-  // Constraints). `untrack`: this is a deliberate one-shot seed, not a
-  // subscription to `attempts` -- Svelte otherwise warns
-  // (state_referenced_locally) about exactly that.
-  const sessionAttempts: Attempt[] = untrack(() => [...attempts]);
-
-  // Separate from `sessionAttempts` above -- starts empty, never seeded from
-  // the `attempts` prop (which is the learner's entire *lifetime* history,
-  // not this drill entry's). Populated only by this drill entry's own
-  // `handleGrade`/`handleUndo`, and is the only attempts array
-  // `isScopeComplete`/`buildSummary`/`buildSessionRecord` ever read from --
-  // routing those through `sessionAttempts` instead would auto-close a
-  // returning learner's session after a single grade and report lifetime
-  // totals on the Summary screen (Spec Change Log, review pass 1's
-  // `bad_spec` finding). `selectNext`'s two call sites are unaffected and
-  // keep reading `sessionAttempts`.
+  // Populated only by this drill entry's own `handleGrade`/`handleUndo` --
+  // the only attempts array `buildSummary`/`buildSessionRecord` ever read
+  // from. Routing those through the learner's entire *lifetime* `attempts`
+  // prop instead would auto-close a returning learner's session after a
+  // single grade and report lifetime totals on the Summary screen (Spec
+  // Change Log, review pass 1's `bad_spec` finding). Sampling itself needs
+  // no equivalent mirror of `attempts` -- `sampleSessionCards` (below) reads
+  // the `attempts` prop directly, once, at mount (AD-10) -- so there is no
+  // `sessionAttempts` array to keep in sync alongside this one.
   const thisSessionAttempts: Attempt[] = [];
 
-  // Plain, mirrors `sessionAttempts` above -- seeded once from the
+  // Plain, mirrors `thisSessionAttempts` above -- seeded once from the
   // session-start `tallies` prop, updated in-memory as grades/undos happen,
   // never re-fetched (Story 1.8's Boundaries & Constraints). Deliberately a
   // plain `Map`, not `SvelteMap`: nothing renders from it directly (its only
@@ -118,12 +107,27 @@
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- plain, non-rendering lookup; see comment above.
   const cardTallies = new Map(untrack(() => tallies.map((t) => [t.cardId, t.missCount])));
 
-  // `untrack`: the first prompt is drawn once, at mount. `scope` is fixed for
-  // the lifetime of a drill entry (the composition root builds a fresh
-  // component per entry), so capturing its initial value is the intent --
-  // Svelte otherwise warns (state_referenced_locally) about exactly that.
-  let card = $state<Card>(untrack(() => selectNext(sessionAttempts, scope)));
-  let position = $state(1);
+  // Sampled exactly once, at mount, from the `attempts` prop as loaded --
+  // weighted-without-replacement, then uniform-shuffled (AD-10). Fixed for
+  // the lifetime of this drill entry: never re-sampled, appended to, or
+  // reordered mid-session. `untrack`: a deliberate one-shot seed, not a
+  // subscription to `attempts`/`scope`/`sessionSize` -- Svelte otherwise
+  // warns (state_referenced_locally) about exactly that. `scope` is fixed
+  // for the lifetime of a drill entry (the composition root builds a fresh
+  // component per entry), so capturing its initial value is the intent.
+  const queue: Card[] = untrack(() => sampleSessionCards(attempts, scope, sessionSize));
+
+  // Index into `queue` of the card currently on screen. Advances only on
+  // "Next character" (`handleNext`), never on the grade itself (Story 1.8's
+  // deferred-advance pattern) -- Undo therefore needs no queue-reinsertion
+  // logic: the pointer can never have passed the just-graded card while
+  // Undo is offered (AD-13).
+  let queueIndex = $state(0);
+  // 1-based, purely for display -- `queueIndex + 1`, kept as its own
+  // `$derived` rather than a hand-incremented `$state` so it can never
+  // desync from `queueIndex`.
+  const position = $derived(queueIndex + 1);
+  let card = $state<Card>(queue[0]!);
   let hasInk = $state(false);
   // Reveal (Story 1.4): active the instant a prompt appears, resets on every
   // grade alongside `hasInk`. Once true it unlocks Missed/Correct even from a
@@ -134,7 +138,7 @@
   // (`handleGrade`), cleared by either `handleUndo` or `handleNext`. While
   // set, Missed/Correct/Reveal stay disabled and the prompt/ink/strokes are
   // exactly as they were the instant the grade fired -- the advance itself
-  // (selectNext/clear/reset) is deferred to `handleNext`, so Undo needs no
+  // (queue index/clear/reset) is deferred to `handleNext`, so Undo needs no
   // restore mechanism.
   let graded = $state<{ cardId: string; grade: SelfGrade; tallyCount: number | null } | null>(
     null,
@@ -148,8 +152,8 @@
   let pendingTallyWrite: Promise<Result<void>> | undefined;
   // Guards `handleUndo` against re-entrancy: a double-tap on "Undo" (or a
   // stray double keyboard activation) before its `await`s settle would
-  // otherwise pop `sessionAttempts` and call `undoLastGrade` twice for one
-  // grade (mirrors `App.svelte`'s `starting` guard on `handleStart`).
+  // otherwise pop `thisSessionAttempts` and call `undoLastGrade` twice for
+  // one grade (mirrors `App.svelte`'s `starting` guard on `handleStart`).
   let undoing = $state(false);
 
   // Story 1.5's persistence locals. None of these render anything -- `hasInk`
@@ -166,13 +170,14 @@
   // `undefined` through a reveal-from-blank grade.
   let firstStrokeStartedAt: number | undefined;
 
-  // Sampling is without replacement (sampled once at session start), so the
-  // counter advances one per grade and always reaches exactly 100% -- it can
-  // never exceed the sampled size. Full-scope closure (Story 1.9) fires
-  // once the sampled set is complete, not merely once `position` catches up
-  // to `cards.length`. The bar clamps at 100% -- and is never the only position
-  // signal, the text counter always shows.
-  const progress = $derived(Math.min(1, position / Math.max(1, cards.length)));
+  // Sampling is without replacement (sampled once at session start, AD-10),
+  // so the counter advances exactly one per grade and always reaches exactly
+  // 100% -- it can never exceed `queue.length` (Boundaries & Constraints: no
+  // overshoot-handling needed). Full-scope closure (Story 1.9) fires once
+  // `queue` is exhausted, checked directly in `handleNext` below. The text
+  // counter is never the only position signal -- it always shows alongside
+  // this bar.
+  const progress = $derived(position / queue.length);
 
   // Assigned by `bind:this` before `onMount` runs; typed as possibly
   // undefined rather than asserted, so the mount below is a real check.
@@ -299,13 +304,10 @@
       selfGrade: grade,
       strokes,
     };
-    // Appended synchronously, before the never-awaited persistence calls
-    // below, so `selectNext` (in `handleNext`) always sees this attempt --
-    // persistence must not gate what the in-memory history reflects.
-    sessionAttempts.push(attempt);
     // This drill entry's own attempts only (Story 1.9) -- feeds
-    // `isScopeComplete`/`buildSummary`/`buildSessionRecord`, never
-    // `selectNext` (that keeps reading `sessionAttempts` above).
+    // `buildSummary`/`buildSessionRecord`. The sampled `queue` above needs
+    // no equivalent append: it was drawn once at mount and never grows or
+    // reorders mid-session (AD-10).
     thisSessionAttempts.push(attempt);
     // Captured (not awaited here) so `handleUndo` can await the same
     // promise before calling `deleteLast` -- a fast Undo could otherwise
@@ -338,7 +340,7 @@
       pendingTallyWrite = undefined;
     }
 
-    // Defer the advance (selectNext/clear/reset) to `handleNext` -- the
+    // Defer the advance (queue index/clear/reset) to `handleNext` -- the
     // toast shows instead, offering Undo (always) and the new cumulative
     // tally (only on Missed). Committed here (not just computed) so a later
     // Missed grade on the same card this session reads the updated count
@@ -359,21 +361,19 @@
   function handleNext(): void {
     if (!recordInteraction()) return;
     // Full-scope closure (Story 1.9) rides this existing tap rather than a
-    // new control: the scope-completing grade still shows the normal
-    // toast/Undo, and only tapping past it (here, with no next prompt to
-    // load) closes the session. Checked against `thisSessionAttempts` --
-    // this drill entry's own attempts, never the seeded lifetime history in
-    // `sessionAttempts` (Spec Change Log).
-    if (isScopeComplete(thisSessionAttempts, scope)) {
+    // new control: the queue-completing grade still shows the normal
+    // toast/Undo, and only tapping past it (here, with no next queue entry
+    // to load) closes the session -- exact, since `queue` is sampled without
+    // replacement (AD-10), never merely "probably done".
+    if (queueIndex + 1 >= queue.length) {
       closeSession('full-scope', Date.now());
       return;
     }
     // Exactly the advance block that used to run at the end of `handleGrade`
-    // (Story 1.8 defers it to here). Every in-scope card, including the one
-    // just graded, keeps a nonzero selection probability -- there is no
-    // previous-card exclusion.
-    card = selectNext(sessionAttempts, scope);
-    position += 1;
+    // (Story 1.8 defers it to here) -- now a queue-pointer advance instead
+    // of a fresh weighted draw.
+    queueIndex += 1;
+    card = queue[queueIndex]!;
     revealed = false;
     inkSurface.clear();
     hasInk = false;
@@ -389,7 +389,7 @@
     if (!recordInteraction()) return;
     // Re-entrancy guard: a double-tap before the `await`s below settle would
     // otherwise run everything from here down twice for one grade (pop
-    // `sessionAttempts` twice, decrement `cardTallies` twice, call
+    // `thisSessionAttempts` twice, decrement `cardTallies` twice, call
     // `undoLastGrade` twice).
     if (!graded || undoing) return;
     undoing = true;
@@ -417,9 +417,11 @@
           : undefined;
 
       // Unconditional, regardless of the repository calls' outcome below --
-      // the in-memory mirrors must reflect "this grade never happened"
-      // either way.
-      sessionAttempts.pop();
+      // the in-memory mirror must reflect "this grade never happened"
+      // either way. No queue-side reversal needed alongside it: `queueIndex`
+      // only ever advances on "Next character", which Undo is offered as an
+      // alternative to, so the pointer has never passed this card while
+      // Undo is reachable (AD-13) -- there is nothing to reinsert.
       thisSessionAttempts.pop();
       if (grade === 'incorrect') {
         cardTallies.set(cardId, Math.max(0, (cardTallies.get(cardId) ?? 0) - 1));
@@ -465,9 +467,9 @@
     // offline client with no server clock authority, mirrors
     // `domain/drill.ts`'s `score()` clamp).
     const timeMs = Math.max(0, effectiveClosedAt - sessionStartedAt);
-    // `thisSessionAttempts`, never `sessionAttempts` -- the persisted record
-    // and the Summary view must reflect only this session's own attempts
-    // (Spec Change Log).
+    // `thisSessionAttempts`, never the learner's lifetime `attempts` prop --
+    // the persisted record and the Summary view must reflect only this
+    // session's own attempts (Spec Change Log).
     const summary = buildSummary(thisSessionAttempts, cardTallies, reason, timeMs);
     // `sessionId`, not a fresh UUID -- keeps the persisted `Session.id`
     // correlated with this session's own `Attempt.sessionId` values.
@@ -510,14 +512,14 @@
   <header class="header">
     <button type="button" class="back" onclick={handleExplicitClose}>I'm done</button>
     <div class="progress">
-      <p class="counter">{position} / {cards.length}</p>
+      <p class="counter">{position} / {queue.length}</p>
       <div
         class="bar"
         role="progressbar"
         aria-label="Cards written"
         aria-valuemin={0}
-        aria-valuemax={cards.length}
-        aria-valuenow={Math.min(position, cards.length)}
+        aria-valuemax={queue.length}
+        aria-valuenow={position}
       >
         <div class="bar-fill" style="width: {progress * 100}%"></div>
       </div>

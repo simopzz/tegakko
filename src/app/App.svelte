@@ -6,7 +6,7 @@
   import { onMount } from 'svelte';
   import type { Screen } from '../adapters/ui/screens';
   import FirstRun from '../adapters/ui/FirstRun.svelte';
-  import ScopePicker, { type SizeChoice } from '../adapters/ui/ScopePicker.svelte';
+  import ScopePicker from '../adapters/ui/ScopePicker.svelte';
   import Drill from '../adapters/ui/Drill.svelte';
   import Settings from '../adapters/ui/Settings.svelte';
   import SessionSummary from '../adapters/ui/SessionSummary.svelte';
@@ -19,7 +19,14 @@
   import { CanvasInkSurface } from '../adapters/ink/canvas-ink-surface';
   import type { InkSurface } from '../ports/ink-surface';
   import type { SessionRepository } from '../ports/session-repository';
-  import { FULL_SCOPE, type Scope } from '../domain/scope';
+  import {
+    cardsInScope,
+    FULL_SCOPE,
+    resolveSessionSize,
+    type Scope,
+    type SessionSizeChoice,
+  } from '../domain/scope';
+  import { CARDS } from '../domain/cards';
   import { DEFAULT_SETTINGS, type WidthPreset } from '../domain/settings';
   import type { Attempt } from '../domain/attempt';
   import type { Tally } from '../domain/tally';
@@ -49,12 +56,15 @@
   // the selection intact rather than reset to the full scope.
   let scope = $state<Scope>(FULL_SCOPE);
   // Sibling to `scope` above, wired the same way, purely for Back-navigation
-  // persistence -- Story 1.2's amended AC; not yet threaded into
-  // `handleStart` (Story 1.7's `sampleSessionCards` is what eventually
-  // consumes it).
-  let sessionSize = $state<SizeChoice>('all');
-  // Loaded once via `listAll()` at drill entry (Story 1.7) -- `Drill` seeds
-  // its own in-memory `sessionAttempts` from this and never asks this
+  // persistence -- Story 1.2's amended AC. `handleStart` resolves this into
+  // an exact card count (`resolveSessionSize`) and passes it to `<Drill
+  // sessionSize={...}>`, which samples it exactly once at mount (AD-10).
+  let sessionSize = $state<SessionSizeChoice>('all');
+  // The exact resolved count for the drill entry currently open -- set once
+  // per `handleStart` call, alongside `drillAttempts`/`drillTallies` below.
+  let resolvedSessionSize = $state(0);
+  // Loaded once via `listAll()` at drill entry (Story 1.7) -- `Drill` reads
+  // this directly to sample its session queue (AD-10) and never asks this
   // composition root to re-fetch mid-session.
   let drillAttempts = $state<Attempt[]>([]);
   // Loaded once via `getAll()` at drill entry (Story 1.8) -- mirrors
@@ -104,13 +114,19 @@
     starting = true;
     try {
       scope = chosenScope;
+      // The one shared formula (`domain/scope.ts`'s `resolveSessionSize`) --
+      // identical to what `ScopePicker`'s own live hint independently
+      // computes, so the drill entry's actual sampled size can never drift
+      // from what the learner saw before tapping "Start writing".
+      resolvedSessionSize = resolveSessionSize(sessionSize, cardsInScope(CARDS, chosenScope).length);
       // Loaded once per drill entry, never re-fetched mid-session (Story
       // 1.7). Fails open to `[]` on either failure path this codebase's
       // adapters can take -- a resolved `{ok: false}` Result or an outright
       // rejected promise -- the same as `Drill.svelte`'s
       // `attemptRepository.add()`/`tallyRepository.increment()` calls. An
-      // unreadable attempt history just means `selectNext` falls back to
-      // its uniform floor rather than blocking the drill from starting.
+      // unreadable attempt history just means `sampleSessionCards` falls
+      // back to its uniform floor rather than blocking the drill from
+      // starting.
       const result = await attemptRepository.listAll().catch((error: unknown) => {
         console.error('Failed to load attempt history:', error);
         return err<Attempt[]>(error instanceof Error ? error : new Error(String(error)));
@@ -192,6 +208,7 @@
   {:else if screen === 'drill' && inkSurface}
     <Drill
       {scope}
+      sessionSize={resolvedSessionSize}
       attempts={drillAttempts}
       tallies={drillTallies}
       {inkSurface}
