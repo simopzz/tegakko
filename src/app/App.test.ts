@@ -76,7 +76,7 @@ describe('App', () => {
 
     // The counter's N *is* the scoped card list's length -- the whole
     // catalog here.
-    expect(await screen.findByText('1 / 158')).toBeTruthy();
+    expect(await screen.findByText('1 / 208')).toBeTruthy();
     // AD-2 / the black-canvas compositing bug: exactly one canvas, ever.
     expect(document.querySelectorAll('canvas')).toHaveLength(1);
   });
@@ -101,7 +101,7 @@ describe('App', () => {
 
     // The drill still starts -- `selectNext` falls back to its uniform floor
     // rather than the failed fetch blocking entry.
-    expect(await screen.findByText('1 / 158')).toBeTruthy();
+    expect(await screen.findByText('1 / 208')).toBeTruthy();
 
     listAll.mockRestore();
   });
@@ -125,7 +125,7 @@ describe('App', () => {
 
     // The drill still starts -- a rejected `listAll()` never leaves
     // `handleStart` stuck on the Scope picker.
-    expect(await screen.findByText('1 / 158')).toBeTruthy();
+    expect(await screen.findByText('1 / 208')).toBeTruthy();
     expect(consoleError).toHaveBeenCalledWith('Failed to load attempt history:', expect.any(Error));
 
     listAll.mockRestore();
@@ -154,7 +154,7 @@ describe('App', () => {
     await fireEvent.click(startButton);
 
     resolveListAll(ok([]));
-    await screen.findByText('1 / 158');
+    await screen.findByText('1 / 208');
 
     // Exactly one `listAll()` call reached the repository, and exactly one
     // canvas exists -- the second tap's adapter was never constructed.
@@ -174,7 +174,7 @@ describe('App', () => {
     await fireEvent.click(screen.getByRole('radio', { name: 'Base' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
 
-    expect(await screen.findByText('1 / 46')).toBeTruthy();
+    expect(await screen.findByText('1 / 71')).toBeTruthy();
   });
 
   it('closes the drill to the Session summary, then returns to the Scope picker with the selection intact', async () => {
@@ -185,7 +185,7 @@ describe('App', () => {
     await screen.findByText('What are we testing today?');
     await fireEvent.click(screen.getByRole('radio', { name: 'Katakana' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
-    await screen.findByText('1 / 79');
+    await screen.findByText('1 / 104');
     // "I'm done" closes the session -- Story 1.9 -- and lands on the Session
     // summary, not directly back on the Scope picker.
     await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
@@ -197,7 +197,7 @@ describe('App', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Another round' }));
 
     await screen.findByText('What are we testing today?');
-    expect(screen.getByText('79 cards in scope')).toBeTruthy();
+    expect(screen.getByText('104 cards in scope')).toBeTruthy();
     expect(screen.getByRole('radio', { name: 'Katakana' }).className).toContain('pill--active');
   });
 
@@ -209,7 +209,7 @@ describe('App', () => {
     await screen.findByText('What are we testing today?');
     await fireEvent.click(screen.getByRole('radio', { name: 'Katakana' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
-    await screen.findByText('1 / 79');
+    await screen.findByText('1 / 104');
     await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
 
     await screen.findByRole('button', { name: 'Another round' });
@@ -259,7 +259,7 @@ describe('App', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     await screen.findByText('What are we testing today?');
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
-    await screen.findByText('1 / 158');
+    await screen.findByText('1 / 208');
 
     expect(setWidthPreset).toHaveBeenLastCalledWith('calligraphy');
   });
@@ -274,13 +274,13 @@ describe('App', () => {
 
     await screen.findByText('What are we testing today?');
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
-    await screen.findByText('1 / 158');
+    await screen.findByText('1 / 208');
     await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
     await screen.findByRole('button', { name: 'Another round' });
     await fireEvent.click(screen.getByRole('button', { name: 'Another round' }));
     await screen.findByText('What are we testing today?');
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
-    await screen.findByText('1 / 158');
+    await screen.findByText('1 / 208');
 
     expect(document.querySelectorAll('canvas')).toHaveLength(1);
   });
@@ -297,7 +297,7 @@ describe('App', () => {
 
     await screen.findByText('What are we testing today?');
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
-    await screen.findByText('1 / 158');
+    await screen.findByText('1 / 208');
 
     expect(setWidthPreset).toHaveBeenCalledWith('calligraphy');
   });
@@ -333,7 +333,7 @@ describe('App', () => {
 
     await screen.findByText('What are we testing today?');
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
-    await screen.findByText('1 / 158');
+    await screen.findByText('1 / 208');
 
     vi.useFakeTimers();
     // Past the persisted 2-minute threshold but well under the 5-minute

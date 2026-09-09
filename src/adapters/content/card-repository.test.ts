@@ -3,9 +3,9 @@ import { InMemoryCardRepository } from './card-repository';
 import { CARDS } from '../../domain/cards';
 
 describe('InMemoryCardRepository', () => {
-  it('getAll returns all 158 cards from the real catalog', () => {
+  it('getAll returns all 208 cards from the real catalog', () => {
     const repository = new InMemoryCardRepository();
-    expect(repository.getAll()).toHaveLength(158);
+    expect(repository.getAll()).toHaveLength(208);
     expect(repository.getAll()).toEqual(CARDS);
   });
 
@@ -13,7 +13,7 @@ describe('InMemoryCardRepository', () => {
     const repository = new InMemoryCardRepository();
     const first = repository.getAll();
     first.pop();
-    expect(repository.getAll()).toHaveLength(158);
+    expect(repository.getAll()).toHaveLength(208);
   });
 
   it('getById returns the exact card for a known id', () => {

@@ -20,9 +20,9 @@ This document provides the complete epic and story breakdown for tegakko (Kana W
 
 ### Functional Requirements
 
-FR-1: Script-aware kana card set, including yoon — the system provides the full kana card catalog (46 base hiragana, 46 base katakana, standard yoon combinations for both scripts = 158 cards total), each keyed on grapheme + script; no same-sound cards, across scripts or base/yoon, ever share an entry.
+FR-1: Script-aware kana card set, including dakuten/handakuten and yoon — the system provides the full kana card catalog (46 seion + 25 dakuten/handakuten = 71 base hiragana, 71 base katakana, standard yoon combinations for both scripts = 208 cards total), each keyed on grapheme + script; no same-sound cards, across scripts or base/yoon, ever share an entry. *(Amended 2026-09-08 via Correct Course — closes a gap where dakuten/handakuten yoon combinations (gya/ja/bya/pya rows) existed without their base-form cards.)*
 
-FR-2: Session scope selection — before starting a session, the user selects its scope (full 158-card set, or narrower by script and/or base/yoon), which governs that session's card pool and full-scope-completion condition.
+FR-2: Session scope and size selection — before starting a session, the user selects its scope (full 208-card set, or narrower by script and/or base/yoon) and, independently, a session size (a target number of distinct cards to draw, capped at the chosen scope's size; default "All" = the full scope, matching prior behavior). The scope governs the candidate pool; the size governs how many distinct cards are sampled from it — that sample is the session's actual card pool and completion target. *(Amended 2026-09-08 via Correct Course.)*
 
 FR-3: Pen canvas with genkouyoushi grid — the user writes on a pressure-sensitive pen canvas rendered over a genkouyoushi grid, using Pointer Events + Chrome's Delegated Ink Trails; stylus pressure continuously affects stroke width across the full range; at least 3 width presets (Subtle/Expressive/Calligraphy) are selectable; felt latency matches or exceeds the validated web PoC on the same device class.
 
@@ -32,11 +32,11 @@ FR-5: Reveal correct answer — at any point before self-grading, the user can r
 
 FR-6: Per-character miss tally — the system keeps a cumulative, per-card count of self-graded misses that persists across sessions; every self-graded "incorrect" increments that card's tally before the next prompt is selected.
 
-FR-7: Weak-spot-biased prompt selection — within a session's chosen scope, the next prompt is selected using a recency-weighted score computed from that card's Attempt history (not raw lifetime Tally count), so old misses matter less than recent ones; a card missed heavily long ago but correct on all recent attempts is deprioritized relative to a card missed recently; every candidate card carries nonzero selection probability — no card is ever permanently excluded or schedule-queued. *(Reflects the AD-9/AD-10 reconciliation finalized 2026-09-03 — supersedes the PRD's original lifetime-tally-only wording.)*
+FR-7: Weak-spot-biased session sampling — when a session starts, its card set is sampled without replacement from the chosen scope down to the chosen session size, using a recency-weighted score computed from each candidate's Attempt history (not raw lifetime Tally count), so old misses matter less than recent ones and a card missed heavily long ago but correct on all recent attempts is deprioritized relative to a card missed recently. Every in-scope card carries nonzero sampling probability for any given session — no card is ever permanently excluded or schedule-queued — but misses now bias which cards are drawn into *future* sessions rather than how often a card resurfaces within the same sitting. Within a sampled session, each card is presented exactly once, in a uniform-shuffled order decoupled from sampling weight. *(Reflects the AD-9/AD-10 reconciliation finalized 2026-09-03. Supersedes the 2026-09-05 with-replacement decision (Story 1.3) and Story 1.7's per-draw resampling — reconciled via Correct Course + architecture pass, 2026-09-08.)*
 
 FR-8: Per-attempt data collection — every completed prompt cycle is recorded as a full attempt record: card, timestamp, time-to-first-stroke, total time, stroke count, reveal-used flag, self-grade, linked to its raw stroke ink; records persist alongside session and tally data, not collapsed into aggregates only.
 
-FR-9: Session closure conditions — a session ends and is recorded when the user explicitly ends it, completes every card in scope, or goes idle past a threshold (~5 min default, user-adjustable); the closure reason (`explicit`/`full-scope`/`inactivity`) is distinguishable afterward.
+FR-9: Session closure conditions — a session ends and is recorded when the user explicitly ends it, completes every card in that session's sampled set (no repeats, so this is a bounded, exact count equal to the chosen session size), or goes idle past a threshold (~5 min default, user-adjustable); the closure reason (`explicit`/`full-scope`/`inactivity`) is distinguishable afterward. `full-scope` now means "this session's sampled card set was completed" and is displayed uniformly as "Session complete," regardless of whether the sample equaled the full chosen scope. *(Amended 2026-09-08 via Correct Course.)*
 
 FR-10: Session accuracy capture — on closure, the system records a session summary: date, cards attempted, accuracy (correct ÷ attempts), and closure reason.
 
@@ -93,7 +93,7 @@ UX-DR2: Genkouyoushi cell component — dashed cross-guide always visible; cente
 
 UX-DR3: Grade buttons (Correct/Reveal/Missed) with dimmed/disabled-state logic — Reveal (`button-neutral`) is active from the moment the prompt appears; Missed (`button-neutral`) and Correct (`button-primary`) render as `button-dimmed` and are non-interactive until at least one stroke exists on the canvas or Reveal has been tapped, whichever happens first; Correct is the only button ever filled with the accent color.
 
-UX-DR4: Pill-toggle-group component for mutually exclusive choices — Scope picker (script, set) and Settings (idle-close threshold, ink-width preset); exactly one segment active per group; tapping a segment commits immediately with no separate confirm step; Scope picker's toggles drive a live "N cards in scope" recompute on every tap.
+UX-DR4: Pill-toggle-group component for mutually exclusive choices — Scope picker (script, set) and Settings (idle-close threshold, ink-width preset); exactly one segment active per group; tapping a segment commits immediately with no separate confirm step; Scope picker's toggles drive a live "N cards in scope" recompute on every tap. *(Amended 2026-09-08 via Correct Course)* The Scope picker also gains an independent session-size control (presets TBD at implementation, e.g. "All / 20 / 40"; default "All") that does not affect the "N cards in scope" count — it governs how many of those N cards get sampled into the session.
 
 UX-DR5: Card count + "N shaky" badge on Scope picker — recomputes live on every script/set toggle; "shaky" = cards in current scope whose miss tally exceeds a running-average threshold; informational only, does not affect selection order or weighting.
 
@@ -101,13 +101,13 @@ UX-DR6: Chip tag component (positive / missed / neutral variants), always read-o
 
 UX-DR7: Stat tile component (label/value pair, read-only) — exactly two per Session summary (time, reveal count), not a variable-length list.
 
-UX-DR8: Progress bar + "N / total" counter in the Drill header — total is the session's scope size; advances by one on every completed grade, including grades given after a Reveal; the bar is reinforcement, never the sole position signal (always paired with the text counter).
+UX-DR8: Progress bar + "N / total" counter in the Drill header — total is the session's **sampled size** (≤ scope size); advances by one on every completed grade, including grades given after a Reveal. Selection is without replacement, so the counter always reaches exactly total and the bar always reaches exactly 100% — no overshoot case exists. *(Amended 2026-09-08 via Correct Course — previously total was the scope size and the bar had to clamp at 100% to cope with with-replacement overshoot; that handling is now unnecessary.)*
 
 UX-DR9: Toast banner, grade-confirmation variant — appears post-grade, shows the card and its new cumulative miss tally (only on a Missed grade) plus an Undo action; stays visible until "Next character" or Undo is tapped; Undo reverts the grade and tally increment and returns to the graded card's written state (not a blank cell).
 
 UX-DR10: Toast banner, import-warning variant — modal-weight; states the replace is destructive, shows both the current-data date and the incoming file's date, requires an explicit confirm tap; this is the only two-step destructive action and the only modal in v1.
 
-UX-DR11: History row component — reverse-chronological list, divided by hairlines (omitted on the last row); idle-closed sessions get a neutral "closed on idle" chip and their accuracy value dims to `ink-muted`; full-scope-completed sessions get a positive "whole scope" chip; manually-closed sessions carry no chip.
+UX-DR11: History row component — reverse-chronological list, divided by hairlines (omitted on the last row); idle-closed sessions get a neutral "closed on idle" chip and their accuracy value dims to `ink-muted`; sessions that completed their sampled card set get a positive **"Session complete"** chip, regardless of whether the sample equaled the full chosen scope; manually-closed sessions carry no chip. *(Amended 2026-09-08 via Correct Course — was "whole scope"; renamed since a session's sampled set can now be smaller than its scope, and completing either should read the same way.)*
 
 UX-DR12: History bar sparkline — last 10 sessions (or fewer if history is shorter); bar height maps to that session's accuracy, color maps to a 5-step accuracy ramp, except the newest bar which is always the accent color regardless of height; idle-closed sessions still appear in the sparkline (undifferentiated there — only the list rows below distinguish them).
 
@@ -132,7 +132,7 @@ FR-3:  Epic 1 - Pen canvas + genkouyoushi grid
 FR-4:  Epic 1 - Prompt → write → self-grade loop
 FR-5:  Epic 1 - Reveal correct answer
 FR-6:  Epic 1 - Per-character miss tally
-FR-7:  Epic 1 - Weak-spot-biased (recency-weighted) prompt selection
+FR-7:  Epic 1 - Weak-spot-biased (recency-weighted) session sampling
 FR-8:  Epic 1 - Per-attempt data collection
 FR-9:  Epic 1 - Session closure conditions
 FR-10: Epic 1 - Session accuracy capture
@@ -227,12 +227,19 @@ So that I can tailor a session to what I actually want to work on right now.
 
 **Given** the static kana catalog (`domain/cards.ts`)
 **When** the app loads
-**Then** exactly 158 distinct cards exist — 46 base hiragana, 46 base katakana, 33 hiragana yoon, 33 katakana yoon — each keyed by a unique `"<grapheme>:<script>"` id
+**Then** exactly 208 distinct cards exist — 71 base hiragana (46 seion + 25 dakuten/handakuten), 71 base katakana, 33 hiragana yoon, 33 katakana yoon — each keyed by a unique `"<grapheme>:<script>"` id
 **And** no same-sound card collapses across script or base/yoon.
+*(Amended 2026-09-08 via Correct Course — grows the catalog from 158 to 208 cards, adding the 25 dakuten/handakuten characters per script to "base," closing a gap where their yoon derivatives (gya/ja/bya/pya rows) existed without a standalone base card.)*
 
 **Given** the Scope picker screen
 **When** it renders with no changes
-**Then** the full 158-card scope is selected by default and the live count reads "158 cards."
+**Then** the full 208-card scope is selected by default and the live count reads "208 cards."
+
+**Given** the Scope picker screen
+**When** it renders
+**Then** it shows a session-size control (defaulting to "All") independent of the script/set toggles
+**And** the live "N cards in scope" count reflects only the script/set scope, unaffected by the size selection.
+*(New AC, 2026-09-08 via Correct Course — see amended FR-2, UX-DR4.)*
 
 **Given** the Scope picker
 **When** the user taps the script pill-toggle (Hiragana / Katakana / Both) or the set pill-toggle (Base / Yoon / Both)
@@ -389,21 +396,28 @@ So that my shaky characters are tracked without me having to remember them mysel
 **When** inspected
 **Then** it contains exactly two fields (`cardId`, `missCount`) — no due-date, interval, or last-reviewed timestamp is ever added to it.
 
-### Story 1.7: Weak-Spot-Biased Selection & Shaky Badge
+### Story 1.7: Weak-Spot-Biased Session Sampling & Shaky Badge
 
 As a learner practicing kana,
-I want characters I've been missing recently to come up more often than ones I've clearly gotten solid,
-So that short sessions stay useful without me having to consciously target weak spots.
+I want characters I've been missing recently to be more likely to show up in my sessions than ones I've clearly gotten solid,
+So that my practice stays targeted at weak spots across sessions, without me having to consciously pick them.
+
+*(Amended 2026-09-08 via Correct Course + architecture pass — bias moved from per-draw resampling within a session to weighted sampling of the session's card set at session start; see amended FR-7, AD-10.)*
 
 **Acceptance Criteria:**
 
-**Given** attempt history (Story 1.5) and tallies (Story 1.6) exist
-**When** the Drill screen selects its next prompt
-**Then** it calls a pure domain function `selectNext(attempts: Attempt[], scope: Scope): Card` — no `tallies` parameter, no clock or schedule input — replacing Story 1.3's random placeholder.
+**Given** attempt history (Story 1.5) and tallies (Story 1.6) exist, and a session's chosen scope and session size
+**When** the session starts
+**Then** it calls a pure domain function `sampleSessionCards(attempts: Attempt[], scope: Scope, sessionSize: number): Card[]` — no `tallies` parameter, no clock/schedule input beyond `Date.now()` inside decay — replacing the prior per-draw `selectNext`, called exactly once.
 
-**Given** `attempts` is loaded once via `listAll()` at session start
-**When** new attempts are recorded during the session
-**Then** they are appended to that in-memory list immediately (not re-fetched from the repository per selection).
+**Given** the weighted sample
+**When** it is drawn
+**Then** it uses sequential weighted removal without replacement (repeatedly draw via the weighted cumulative-sum pick against the remaining candidate pool, remove the winner, recompute the pool's total weight) down to `min(sessionSize, cardsInScope(scope).length)` distinct cards
+**And** the resulting set is uniform-shuffled before becoming the session's presentation queue, decoupling sampling weight from draw order.
+
+**Given** the sampled queue
+**When** the Drill screen advances through it
+**Then** no further sampling call happens mid-session — each queue entry is presented exactly once, in order; a miss recorded during the session influences only the *next* session's sample, not this one's remaining cards.
 
 **Given** a card's incorrect attempts
 **When** scoring that card
@@ -418,8 +432,8 @@ So that short sessions stay useful without me having to consciously target weak 
 **Then** the recently-missed card scores higher (a correct attempt discounts the incorrect attempts that precede it for that card, zeroing their contribution regardless of elapsed time).
 
 **Given** the scored candidates
-**When** the next card is sampled
-**Then** selection is probabilistic and every candidate card in scope carries a nonzero selection probability — no card is ever permanently excluded or given zero probability regardless of its score.
+**When** a session's cards are sampled
+**Then** sampling is probabilistic and every candidate card in scope carries a nonzero probability of being sampled into any given session, at every step of the shrinking pool — no card is ever permanently excluded or given zero probability regardless of its score.
 
 **Given** the Scope picker screen
 **When** rendered
@@ -441,9 +455,10 @@ So that a slip of the stylus doesn't pollute my tally or history.
 **When** it completes
 **Then** it calls `AttemptRepository.deleteLast()`, and — only if the undone grade was `'incorrect'` — `TallyRepository.decrement(cardId)`; both effects are visible immediately.
 
-**Given** the undone attempt was part of Story 1.7's in-memory `attempts` list
+**Given** Story 1.7's session sampling now happens once at session start, not per-draw
 **When** undo completes
-**Then** it is also removed from that list, so it never influences a later same-session selection.
+**Then** no session-queue manipulation is needed — Story 1.8's own deferred-advance behavior (below) already guarantees the queue hasn't advanced past the undone card, since Undo is only offered before "Next character" is tapped.
+*(Amended 2026-09-08 via Correct Course + architecture pass — supersedes the prior AC, which existed to protect a per-draw selection call that no longer exists; see amended AD-13.)*
 
 **Given** the graded card
 **When** undo completes
@@ -471,8 +486,9 @@ So that each sitting has a defined result I can trust.
 **Then** the session closes immediately with `closureReason: 'explicit'`.
 
 **Given** a session in progress
-**When** the last card in the selected scope is completed
-**Then** the session closes automatically with `closureReason: 'full-scope'`, without requiring the explicit control.
+**When** the last card in this session's sampled set is completed
+**Then** the session closes automatically with `closureReason: 'full-scope'` (displayed to the user as **"Session complete"**), without requiring the explicit control — this is now deterministic: a session always closes this way after exactly the session's sampled size (equal to the chosen session size, or the full scope's size if "All" was chosen), never fewer, never more.
+*(Amended 2026-09-08 via Correct Course + architecture pass — closure against the sampled set, not the full scope, is now exact rather than probabilistic; see amended FR-9, UX-DR11.)*
 
 **Given** a session in progress
 **When** no interaction occurs for the configured idle threshold (default ~5 minutes)
@@ -534,6 +550,24 @@ So that I can tell whether my recall is actually holding up or improving across 
 **When** rendered
 **Then** it is reachable from the app's main navigation without leaving the installed app
 **And** every chip pairs its color tint with visible text.
+
+### Story 1.11: Dakuten/Handakuten Catalog Expansion
+
+*(New 2026-09-08 via Correct Course — see `sprint-change-proposal-2026-09-08.md`. Additive to and dependent on Story 1.2's amended catalog AC above; kept as a separate story since it's an independent, purely-additive content change with its own test surface.)*
+
+As a learner practicing kana,
+I want dakuten and handakuten characters (が, ぱ, etc.) included in the practice catalog,
+So that I'm drilled on the complete character set I actually need, not just the plain gojūon table.
+
+**Acceptance Criteria:**
+
+**Given** the static kana catalog (`domain/cards.ts`)
+**When** this story ships
+**Then** the catalog grows to 208 cards as specified in Story 1.2's amended AC (71 base hiragana, 71 base katakana, 33 hiragana yoon, 33 katakana yoon).
+
+**Given** `cards.test.ts`'s bucket-count assertions
+**When** updated
+**Then** they assert 71/71/33/33 instead of 46/46/33/33, and continue to assert id uniqueness and no same-sound collision across the expanded set.
 
 ## Epic 2: Backup & Portability
 

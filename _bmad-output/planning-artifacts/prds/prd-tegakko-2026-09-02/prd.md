@@ -63,11 +63,11 @@ Anyone other than the app's creator. This is a single-user, local-only tool with
 
 #### FR-1: Script-aware kana card set, including yoon
 
-The system provides the full base kana set (46 hiragana + 46 katakana) plus yoon (combined) characters for both scripts, each keyed on grapheme + script.
+The system provides the full base kana set (46 seion + 25 dakuten/handakuten = 71 hiragana + 71 katakana) plus yoon (combined) characters for both scripts, each keyed on grapheme + script.
 
 **Consequences (testable):**
-- All 46 base hiragana and 46 base katakana graphemes are present as distinct cards.
-- Standard yoon combinations (11 base consonant rows × ゃ/ゅ/ょ = 33 per script) are present as additional cards for both hiragana and katakana, each keyed on its two-character grapheme (e.g. きゃ) + script. `[ASSUMPTION: standard yoon set only — 33 × 2 = 66 cards, for a total of 158 cards. Extended katakana-only combinations used for foreign loanword sounds (e.g. ティ, ファ) are treated as out of scope for v1; confirm this boundary.]`
+- All 71 base hiragana and 71 base katakana graphemes (46 seion + 25 dakuten/handakuten each) are present as distinct cards.
+- Standard yoon combinations (11 base consonant rows × ゃ/ゅ/ょ = 33 per script) are present as additional cards for both hiragana and katakana, each keyed on its two-character grapheme (e.g. きゃ) + script. `[RESOLVED 2026-09-08 via Correct Course: dakuten/handakuten confirmed in scope for base cards — 71 base + 33 yoon = 104 per script × 2 scripts = 208 cards total, closing a gap where their yoon derivatives (gya/ja/bya/pya rows) existed without a standalone base card. Extended katakana-only combinations used for foreign loanword sounds (e.g. ティ, ファ) remain out of scope for v1.]`
 - Same-sound hiragana/katakana pairs — whether base or yoon — never merge into one card or one miss-tally entry.
 
 ### 4.2 Writing Drill
@@ -75,14 +75,15 @@ The system provides the full base kana set (46 hiragana + 46 katakana) plus yoon
 
 **Functional Requirements:**
 
-#### FR-2: Session scope selection
+#### FR-2: Session scope and size selection
 
-Before starting a session, the user picks its scope: the full kana set, or a narrower subset.
+Before starting a session, the user picks its scope: the full kana set, or a narrower subset — and, independently, a session size.
 
 **Consequences (testable):**
-- The user can start a session against the full kana set (all 158 cards, FR-1) with no extra selection.
+- The user can start a session against the full kana set (all 208 cards, FR-1) with no extra selection.
 - The user can narrow scope before starting, at minimum by script (hiragana only / katakana only) and by base-vs-yoon. `[ASSUMPTION: exact subset granularity — script and base/yoon toggles are the minimum read from the brief's "pick a scope"; finer-grained custom card selection is not assumed necessary for v1, confirm.]`
-- The selected scope is what session closure's "full scope completed" condition (FR-9) and weak-spot selection (FR-7) operate over for that session.
+- The user can independently choose a session size (a target count of distinct cards to draw, capped at the resulting scope's size; default "All" = the full scope). `[RESOLVED 2026-09-08 via Correct Course: session-size sampling added — selection is without replacement within a session, weak-spot bias governs which cards are sampled into a session rather than how often a card resurfaces within one.]`
+- The selected scope and size together are what session closure's "sampled set completed" condition (FR-9) and weak-spot sampling (FR-7) operate over for that session.
 
 #### FR-3: Pen canvas with genkouyoushi grid
 
@@ -129,15 +130,17 @@ The system keeps a cumulative miss count per card, incremented each time that ca
 - Every self-graded "incorrect" updates that card's tally before the next prompt is selected.
 - The tally persists across sessions (see FR-12).
 
-#### FR-7: Weak-spot-biased prompt selection
+#### FR-7: Weak-spot-biased session sampling
 
-The system selects the next prompt, within the session's chosen scope (FR-2), using the miss tally to bias toward higher-miss cards, without a fixed schedule or due dates.
+The system samples each session's card set, within the session's chosen scope and size (FR-2), using the miss history to bias which cards get drawn into a session, without a fixed schedule or due dates.
 
 **Consequences (testable):**
-- Across a session, cards with a higher miss tally are prompted more often than cards with zero or low misses.
-- No card is permanently excluded or guaranteed; selection stays probabilistic, not a strict due-date queue.
+- Across sessions (not within one — see below), cards with a higher recency-weighted miss score are sampled into sessions more often than cards with zero or low misses.
+- No card is permanently excluded or guaranteed; sampling stays probabilistic, not a strict due-date queue.
 
-**Notes:** Whether the tally needs decay or reset over time is an open question carried from the brief (see §7) — left unresolved for v1 given the small, fixed content set.
+**Notes:** Whether the tally needs decay or reset over time is an open question carried from the brief (see §7) — resolved by the architecture as wall-clock time-decay (see `ARCHITECTURE-SPINE.md` AD-10).
+
+`[RESOLVED 2026-09-08 via Correct Course: this FR originally described per-draw, within-session resampling with replacement. Amended — each session now samples its card set once, without replacement, at session start; a miss's bias effect moves from "resurfaces more within this sitting" to "more likely to be sampled into a future session." See epics.md's amended FR-7 and AD-10 for full detail.]`
 
 ### 4.4 Session History
 **Description:** v1 is done when the app can be used from the tablet across multiple days with a visible read on whether recall is actually improving — not just the per-character tally, but a per-session record, closed on well-defined terms and built on top of granular per-attempt data. Realizes UJ-2.
@@ -159,13 +162,15 @@ For every attempt (one prompt cycle), the system records a full attempt record b
 
 #### FR-9: Session closure conditions
 
-A session ends — and is recorded (FR-10) — when any of the following happens: the user taps an explicit "I'm done" control, the user completes every card in the session's selected scope (FR-2), or the user is inactive for a set idle period.
+A session ends — and is recorded (FR-10) — when any of the following happens: the user taps an explicit "I'm done" control, the user completes every card in the session's sampled set (FR-2, FR-7), or the user is inactive for a set idle period.
 
 **Consequences (testable):**
 - An explicit end control is reachable at any point during a session.
-- Completing the last card in the selected scope closes the session without requiring the explicit control.
+- Completing the last card in the session's sampled set closes the session without requiring the explicit control — since sampling is without replacement (FR-7), this is always an exact, bounded count equal to the chosen session size, never approximate.
 - After an idle period `[ASSUMPTION: ~5 minutes — confirm or adjust]`, the session auto-closes.
 - A session closed via inactivity is still recorded (FR-10) but flagged as distinct from sessions closed via the explicit control or full-scope completion (e.g. `endReason: inactivity`), so it doesn't quietly skew accuracy trends in history (FR-11).
+
+`[RESOLVED 2026-09-08 via Correct Course: "completes every card" now means the session's sampled set (which may be smaller than the full scope), not necessarily literal full-scope coverage; displayed to the user uniformly as "Session complete" regardless. See epics.md's amended FR-9, UX-DR11.]`
 
 #### FR-10: Session accuracy capture
 
@@ -279,7 +284,7 @@ Each item below is unresolved; where a default was assumed to keep drafting movi
 1. How does "already learned" travel forward into kanji/vocab scope, once the content set is no longer small and fixed? Not a v1 problem; worth deciding deliberately before scope expands (carried from brief). No default assumed.
 2. Does the miss tally (FR-6) need decay or reset over time, so characters that are hard early on don't stay overweighted once they're solid? Left open for v1 given the small, fixed kana set (carried from brief). No default assumed.
 3. Export/import (FR-13): should import replace local data outright or merge with it? **Default taken:** replace, not merge — simpler and matches single-device, single-user usage; confirm before build, since it's a destructive-by-default choice.
-4. Exact yoon scope (FR-1): should it stay standard-set-only (66 cards), or include extended katakana loanword combinations too? **Default taken:** standard set only (33 combinations × 2 scripts = 66 cards; 158 cards total).
+4. Exact yoon scope (FR-1): should it stay standard-set-only (66 cards), or include extended katakana loanword combinations too? **Default taken:** standard set only (33 combinations × 2 scripts = 66 cards). **Resolved 2026-09-08 via Correct Course:** extended loanword combinations remain out of scope, but dakuten/handakuten base characters were added (a separate, previously-unflagged gap) — total is now 208 cards, not 158. See amended FR-1.
 5. Exact inactivity threshold for session auto-closure (FR-9). **Default taken:** ~5 minutes.
 6. Per-attempt data field list (FR-8): is the assumed set complete, or are there other data points worth capturing as first-class fields? **Default taken:** card, timestamps, latency, stroke count, reveal-used flag, self-grade result — one reading of "all the possible data points," not verified exhaustive.
-7. Scope-selection granularity (FR-2): is script + base/yoon toggling enough, or does v1 need finer-grained custom card selection? **Default taken:** script + base/yoon toggles only; no custom per-card selection.
+7. Scope-selection granularity (FR-2): is script + base/yoon toggling enough, or does v1 need finer-grained custom card selection? **Default taken:** script + base/yoon toggles only; no custom per-card selection. **Extended 2026-09-08 via Correct Course:** an independent session-size selector was added alongside scope (not a finer-grained scope filter — a separate sampling-count dimension). See amended FR-2.

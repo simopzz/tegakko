@@ -1,6 +1,6 @@
 // Pure domain data -- no DOM/IndexedDB/Svelte import ever appears here (AD-1).
 //
-// The static 158-card kana catalog (AD-3): compiled into the bundle, never an
+// The static 208-card kana catalog (AD-3): compiled into the bundle, never an
 // IndexedDB store. `cardId` is the natural key `"<grapheme>:<script>"` -- a
 // yoon card's grapheme is always the full two-character combination (e.g.
 // "きゃ"), never decomposed into its base kana + small-ya/yu/yo parts, so a
@@ -28,8 +28,10 @@ function cardId(grapheme: string, script: Script): string {
   return `${grapheme.normalize('NFC')}:${script}`;
 }
 
-// Base gojuon order, hiragana. Exactly 46 -- seion only, no dakuten/handakuten,
-// matching AD-3's 46-base-per-script rule.
+// Base gojuon order, hiragana. 46 seion entries followed by the 25
+// dakuten/handakuten entries (が/ざ/だ/ば/ぱ-rows, in that consonant order,
+// each in a/i/u/e/o vowel order) -- 71 total, matching AD-3's
+// 71-base-per-script rule (Story 1.11).
 const HIRAGANA_BASE = [
   'あ', 'い', 'う', 'え', 'お',
   'か', 'き', 'く', 'け', 'こ',
@@ -42,9 +44,14 @@ const HIRAGANA_BASE = [
   'ら', 'り', 'る', 'れ', 'ろ',
   'わ', 'を',
   'ん',
+  'が', 'ぎ', 'ぐ', 'げ', 'ご',
+  'ざ', 'じ', 'ず', 'ぜ', 'ぞ',
+  'だ', 'ぢ', 'づ', 'で', 'ど',
+  'ば', 'び', 'ぶ', 'べ', 'ぼ',
+  'ぱ', 'ぴ', 'ぷ', 'ぺ', 'ぽ',
 ] as const;
 
-// Same order, katakana.
+// Same order, katakana: 46 seion + 25 dakuten/handakuten (ガ/ザ/ダ/バ/パ-rows) = 71.
 const KATAKANA_BASE = [
   'ア', 'イ', 'ウ', 'エ', 'オ',
   'カ', 'キ', 'ク', 'ケ', 'コ',
@@ -57,11 +64,17 @@ const KATAKANA_BASE = [
   'ラ', 'リ', 'ル', 'レ', 'ロ',
   'ワ', 'ヲ',
   'ン',
+  'ガ', 'ギ', 'グ', 'ゲ', 'ゴ',
+  'ザ', 'ジ', 'ズ', 'ゼ', 'ゾ',
+  'ダ', 'ヂ', 'ヅ', 'デ', 'ド',
+  'バ', 'ビ', 'ブ', 'ベ', 'ボ',
+  'パ', 'ピ', 'プ', 'ペ', 'ポ',
 ] as const;
 
 // Hepburn readings, index-parallel to HIRAGANA_BASE/KATAKANA_BASE (both
 // scripts share one reading per position: あ and ア are both "a"). Hepburn,
-// not Nihon-shiki: し `shi`, ち `chi`, つ `tsu`, ふ `fu`.
+// not Nihon-shiki: し `shi`, ち `chi`, つ `tsu`, ふ `fu`. ぢ/づ deliberately
+// duplicate じ/ず's readings (`ji`/`zu`) -- standard Hepburn, not a bug.
 const HIRAGANA_ROMAJI = [
   'a', 'i', 'u', 'e', 'o',
   'ka', 'ki', 'ku', 'ke', 'ko',
@@ -74,6 +87,11 @@ const HIRAGANA_ROMAJI = [
   'ra', 'ri', 'ru', 're', 'ro',
   'wa', 'wo',
   'n',
+  'ga', 'gi', 'gu', 'ge', 'go',
+  'za', 'ji', 'zu', 'ze', 'zo',
+  'da', 'ji', 'zu', 'de', 'do',
+  'ba', 'bi', 'bu', 'be', 'bo',
+  'pa', 'pi', 'pu', 'pe', 'po',
 ] as const;
 
 // Standard yoon rows -- 11 consonant rows (7 seion + 4 voiced/semi-voiced:
@@ -136,8 +154,9 @@ function yoonCards(
   );
 }
 
-/** The full 158-card static catalog (AD-3): 46 base hiragana + 46 base
- * katakana + 33 hiragana yoon + 33 katakana yoon.
+/** The full 208-card static catalog (AD-3): 71 base hiragana (46 seion + 25
+ * dakuten/handakuten) + 71 base katakana + 33 hiragana yoon + 33 katakana
+ * yoon.
  *
  * Every card and the array itself are frozen -- `CARDS` is shared module
  * state, so a caller that got a reference to it (or to one of its cards, e.g.

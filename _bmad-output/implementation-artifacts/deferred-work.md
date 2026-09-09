@@ -107,3 +107,13 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-10-session-history-view.md`
   summary: `History.svelte` shows no loading affordance (spinner/skeleton) between mounting and `sessionRepository.list()` resolving.
   evidence: Pre-existing gap, not introduced by this story -- `Settings.svelte` has the identical `{#if loaded}`-gated pattern with no loading state, unmodified by this diff; History merely inherits an already-accepted convention.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-11-dakuten-handakuten-catalog-expansion.md`
+  summary: `ARCHITECTURE-SPINE.md`'s AD-3 rule text still states "the 158-card catalog (46 base hiragana + 46 base katakana + 66 yoon...)", now stale after the catalog's expansion to 208 cards (71/71 base, 33/33 yoon).
+  evidence: AD-3 wasn't part of this story's frozen Code Map (only `domain/cards.ts` and dependent test files) and wasn't touched by the 2026-09-08 Correct Course architecture pass either (that pass only rewrote AD-10/AD-13) -- confirmed via `grep -n "AD-3" ARCHITECTURE-SPINE.md`, which still shows the old figures verbatim.
+
+## Deferred from: code review of spec-1-11-dakuten-handakuten-catalog-expansion (2026-09-09)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-11-dakuten-handakuten-catalog-expansion.md`
+  summary: `epic-1-context.md` rewrite drops the continuous pressure-varying stroke-width requirement and the at-least-3 persisted width presets (maybe-false — needs check against epics.md/PRD source of truth).
+  evidence: Old Requirements line "Stroke width must continuously vary with pressure ... at least 3 width presets, selectable and persisted" has no equivalent in the rewritten context; surviving text only notes "Settings has ink-width and idle-threshold toggles" plus the `widthPreset` settings field. Agent-context file, so deferred rather than patched here. The sibling IDB-compression claim from the same review was refuted (store fields + atomic/unpaginated wording preserved).

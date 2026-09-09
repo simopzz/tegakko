@@ -6,13 +6,13 @@ function bucket(script: 'hiragana' | 'katakana', kind: 'base' | 'yoon') {
 }
 
 describe('cards', () => {
-  it('holds exactly 158 cards', () => {
-    expect(CARDS).toHaveLength(158);
+  it('holds exactly 208 cards', () => {
+    expect(CARDS).toHaveLength(208);
   });
 
-  it('has exactly 46 base hiragana, 46 base katakana, 33 hiragana yoon, 33 katakana yoon', () => {
-    expect(bucket('hiragana', 'base')).toHaveLength(46);
-    expect(bucket('katakana', 'base')).toHaveLength(46);
+  it('has exactly 71 base hiragana, 71 base katakana, 33 hiragana yoon, 33 katakana yoon', () => {
+    expect(bucket('hiragana', 'base')).toHaveLength(71);
+    expect(bucket('katakana', 'base')).toHaveLength(71);
     expect(bucket('hiragana', 'yoon')).toHaveLength(33);
     expect(bucket('katakana', 'yoon')).toHaveLength(33);
   });
@@ -43,11 +43,9 @@ describe('cards', () => {
     // cardId distinct from its siblings and from any same-row base card --
     // not just spot-checked on a single row, since the yoon cardId
     // construction is shared code and a row-specific bug could hide behind
-    // one example. 7 of the 11 rows are seion (き, し, ち, に, ひ, み, り) and
-    // do have a standalone base card (e.g. き); the other 4 are voiced/
-    // semi-voiced (ぎ, じ, び, ぴ) and, per this file's 46-base-per-script
-    // seion-only rule, have no standalone base card of their own -- so the
-    // base-card assertions below only run where one actually exists.
+    // one example. All 11 rows now have a standalone base card: the 7 seion
+    // rows (き, し, ち, に, ひ, み, り) always did, and Story 1.11 added base
+    // cards for the remaining 4 voiced/semi-voiced rows (ぎ, じ, び, ぴ).
     const yoonRows: Array<{ script: 'hiragana' | 'katakana'; base: string; suffixes: string[] }> = [
       { script: 'hiragana', base: 'き', suffixes: ['きゃ', 'きゅ', 'きょ'] },
       { script: 'hiragana', base: 'し', suffixes: ['しゃ', 'しゅ', 'しょ'] },
@@ -75,9 +73,10 @@ describe('cards', () => {
 
     for (const { script, base, suffixes } of yoonRows) {
       const baseCard = CARDS.find((c) => c.grapheme === base && c.script === script);
-      if (baseCard) {
-        expect(baseCard.kind).toBe('base');
-      }
+      // Unconditional since Story 1.11: all 11 rows now have a base card, so
+      // an undefined lookup here must fail loudly, not silently skip.
+      expect(baseCard).toBeDefined();
+      expect(baseCard?.kind).toBe('base');
 
       const yoonCards = suffixes.map((yoonGrapheme) =>
         CARDS.find((c) => c.grapheme === yoonGrapheme && c.script === script),
@@ -171,6 +170,28 @@ describe('cards', () => {
       expect(CARDS.find((c) => c.grapheme === katakana && c.script === 'katakana')?.romaji).toBe(
         romaji,
       );
+    }
+  });
+
+  it('maps every dakuten/handakuten base grapheme to its correct Hepburn reading and `base` kind', () => {
+    // Hand-typed independently of cards.ts's declaration order, mirroring the
+    // seion gojuon fixture above. ぢ and づ deliberately duplicate じ/ず's
+    // readings (`ji`/`zu`) -- standard Hepburn, not a bug (Story 1.11).
+    const dakuten: Array<[hiragana: string, katakana: string, romaji: string]> = [
+      ['が', 'ガ', 'ga'], ['ぎ', 'ギ', 'gi'], ['ぐ', 'グ', 'gu'], ['げ', 'ゲ', 'ge'], ['ご', 'ゴ', 'go'],
+      ['ざ', 'ザ', 'za'], ['じ', 'ジ', 'ji'], ['ず', 'ズ', 'zu'], ['ぜ', 'ゼ', 'ze'], ['ぞ', 'ゾ', 'zo'],
+      ['だ', 'ダ', 'da'], ['ぢ', 'ヂ', 'ji'], ['づ', 'ヅ', 'zu'], ['で', 'デ', 'de'], ['ど', 'ド', 'do'],
+      ['ば', 'バ', 'ba'], ['び', 'ビ', 'bi'], ['ぶ', 'ブ', 'bu'], ['べ', 'ベ', 'be'], ['ぼ', 'ボ', 'bo'],
+      ['ぱ', 'パ', 'pa'], ['ぴ', 'ピ', 'pi'], ['ぷ', 'プ', 'pu'], ['ぺ', 'ペ', 'pe'], ['ぽ', 'ポ', 'po'],
+    ];
+    expect(dakuten).toHaveLength(25);
+    for (const [hiragana, katakana, romaji] of dakuten) {
+      const hiraganaCard = CARDS.find((c) => c.grapheme === hiragana && c.script === 'hiragana');
+      const katakanaCard = CARDS.find((c) => c.grapheme === katakana && c.script === 'katakana');
+      expect(hiraganaCard?.romaji).toBe(romaji);
+      expect(hiraganaCard?.kind).toBe('base');
+      expect(katakanaCard?.romaji).toBe(romaji);
+      expect(katakanaCard?.kind).toBe('base');
     }
   });
 
