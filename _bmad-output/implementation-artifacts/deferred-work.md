@@ -194,7 +194,8 @@ status: open
 origin: migrated from legacy ledger ("Deferred from: code review of spec-1-11-dakuten-handakuten-catalog-expansion (2026-09-09)"), 2026-09-10
 location: epic-1-context.md
 reason: Old Requirements line "Stroke width must continuously vary with pressure ... at least 3 width presets, selectable and persisted" has no equivalent in the rewritten context; surviving text only notes ink-width/idle-threshold Settings toggles plus the widthPreset field. Maybe-false — needs check against epics.md/PRD source of truth. Agent-context file, deferred rather than patched. A sibling IDB-compression claim from the same review was refuted and is not carried forward.
-status: open
+status: done 2026-09-10
+resolution: already resolved: epics.md:27 (FR-3, the project's actual source of truth, not epic-1-context.md's condensed summary) still states pressure continuously affects stroke width across the full range and >=3 selectable presets, unchanged since authoring; src/domain/ink.ts:44-56 defines WIDTH_PRESETS (Subtle/Expressive/Calligraphy) and pressureToWidth() implementing exactly this. The epic-1-context.md omission the entry flagged never propagated to the requirement or the implementation -- nothing was actually dropped from the shipped product.
 
 ### DW-27: Add keyboard roving-navigation (arrow keys) to ScopePicker.svelte's `role="radiogroup"` pill groups, including the new session-size group
 
