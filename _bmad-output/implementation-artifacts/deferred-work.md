@@ -5,7 +5,9 @@
 origin: migrated from legacy ledger (source_spec: spec-1-1-installable-app-shell-first-run-pen-check.md), 2026-09-10
 location: eslint.config.js (import/no-restricted-paths zones, AD-1)
 reason: Current zones only cover sibling-adapter imports outside app/; the domain-purity half of AD-1 is enforced only by convention/comments today.
-status: open
+status: done 2026-09-10
+resolution: resolved by sweep bundle dw-eslint-domain-boundary-hardening
+resolution-undo: 92603a66961f14c53a556104414a60e314360ddded151059d0a27a0c119e1ef5 2026-09-10 7374617475733a206f70656e
 
 ### DW-2: Add `blocked`/`blocking` handlers to `openSettingsDb()` before any future story bumps `DB_VERSION`
 
@@ -78,7 +80,9 @@ status: open
 origin: migrated from legacy ledger ("Deferred from: code review of spec-1-1-installable-app-shell-first-run-pen-check (2026-09-04)"), 2026-09-10
 location: eslint.config.js (import-x/no-restricted-paths zones, AD-1)
 reason: The boundary is currently empty (no adapter cross-imports exist yet), so a regression (e.g. a dropped /** suffix) would ship silently until a later story adds real adapter code to violate it.
-status: open
+status: done 2026-09-10
+resolution: resolved by sweep bundle dw-eslint-domain-boundary-hardening
+resolution-undo: 92603a66961f14c53a556104414a60e314360ddded151059d0a27a0c119e1ef5 2026-09-10 7374617475733a206f70656e
 
 ### DW-12: The pressure-check's 0.5-ambiguity heuristic has an inherent false-negative edge case
 
@@ -231,4 +235,20 @@ status: open
 origin: migrated from legacy ledger ("Deferred from: code review of spec-1-7-8-9-session-sampling-rework (2026-09-09)"), 2026-09-10
 location: Drill.svelte (queue[0]!, queue[queueIndex]!)
 reason: An empty scope somehow reaching Drill would propagate an uncaught throw out of component initialization. Verified unchanged from before this rework — the prior code would propagate an identical empty-scope throw the same way; the Scope picker's own pill groups are the only guard today (always leave at least one script and one unit active), same as before.
+status: open
+
+### DW-32: deferred-work.md's DW-1/DW-11 resolution field references bundle id "dw-eslint-domain-boundary-hardening", which matches no file on disk.
+origin: spec-deferred 2a957debac07
+location: _bmad-output/implementation-artifacts/deferred-work.md (DW-1, DW-11 entries)
+source_spec: `spec-dw-1-11-eslint-domain-boundary-hardening.md`
+severity: low
+reason: The actual spec file is spec-dw-1-11-eslint-domain-boundary-hardening.md; grepping the bundle id finds nothing, breaking ledger-to-spec traceability. deferred-work.md is the orchestrator's own ledger bookkeeping, written before this review pass started -- out of scope for this build to modify.
+status: open
+
+### DW-33: deferred-work.md's new resolution-undo field has no legend explaining its hex-encoded previous-value format.
+origin: spec-deferred 5941b9f74581
+location: _bmad-output/implementation-artifacts/deferred-work.md (DW-1, DW-11 entries)
+source_spec: `spec-dw-1-11-eslint-domain-boundary-hardening.md`
+severity: low
+reason: A human editing the ledger by hand would need to reverse-engineer that the trailing hex blob decodes to the prior "status:" line. Same out-of-scope reasoning as above: orchestrator-owned ledger.
 status: open

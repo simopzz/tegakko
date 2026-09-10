@@ -11,6 +11,6 @@ export default defineConfig({
   plugins: [svelte(), svelteTesting()],
   test: {
     environment: 'happy-dom',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', '*.test.ts'],
   },
 });
