@@ -42,6 +42,7 @@ origin: migrated from legacy ledger (source_spec: spec-1-1-installable-app-shell
 location: index.html (viewport meta)
 reason: Disables pinch-zoom (WCAG 1.4.4 tension); defensible for active pen-drawing surfaces but Story 1.1's .pad is only a diagnostic touch target, not real strokes yet, and this setting is app-wide.
 status: open
+decision: 2026-09-10 Remove user-scalable=no app-wide, rely on the canvas's own touchAction:none for stroke protection — Change index.html's viewport meta to drop maximum-scale=1 and user-scalable=no, then verify the canvas's independent touchAction:none still fully protects active pen strokes without the global lock.
 
 ### DW-7: Add a CI workflow wiring `lint`/`typecheck`/`test`/`build` together on push/PR
 
@@ -84,7 +85,9 @@ status: open
 origin: migrated from legacy ledger ("Deferred from: code review of spec-1-1-installable-app-shell-first-run-pen-check, re-review (2026-09-04)"), 2026-09-10
 location: FirstRun.svelte:50
 reason: A real pressure sensor whose reading lands on exactly 0.5 for an entire contact would be misread as "no pressure input detected," the inverse of the false-positive the heuristic fixes; no further signal is available from PointerEvent.pressure alone to disambiguate without a different API (e.g. a device-capabilities check). Unowned — no story or milestone currently schedules this.
-status: open
+status: done 2026-09-10
+resolution: closed by human decision: Add a code comment/spec note that this is an accepted PointerEvent.pressure API limitation, not a bug to fix.
+decision: 2026-09-10 Accept as a documented, permanent limitation — Add a code comment/spec note that this is an accepted PointerEvent.pressure API limitation, not a bug to fix.
 
 ### DW-13: The ≥48dp tap-target requirement has no test coverage anywhere in the suite
 
@@ -92,6 +95,7 @@ origin: migrated from legacy ledger ("Deferred from: code review of spec-1-1-ins
 location: FirstRun.test.ts, ScopePicker.test.ts
 reason: happy-dom can't resolve CSS min-height via getComputedStyle, so both suites substitute a "renders as a real button" check instead; a regression shrinking a button below 48dp would pass just check undetected. Would need a real-browser/Playwright-style check to close; the CI-workflow item (DW-7) is the natural place to add it, but nothing currently forces that pairing.
 status: open
+decision: 2026-09-10 Keep open, unowned
 
 ### DW-14: `pointerleave` is wired to `handlePointerEnd`, which may split one stroke into several completions when pointer capture is unavailable
 
@@ -151,7 +155,9 @@ status: open
 origin: migrated from legacy ledger ("Deferred from: code review of spec-1-6-per-character-miss-tally, review pass (2026-09-07)"), 2026-09-10
 location: Drill.svelte (handleUndo, undoLastGrade)
 reason: handleUndo applies in-memory mutations (sessionAttempts pop, cardTallies decrement) unconditionally before awaiting undoLastGrade, matching the frozen spec's accepted matrix row (no rollback requirement) and the codebase's fire-and-forget/fail-open philosophy elsewhere — a deliberate, spec-sanctioned trade-off, but worth a fuller reconciliation strategy (e.g. a startup re-sync) if IndexedDB write failures turn out not to be as rare as assumed.
-status: open
+status: done 2026-09-10
+resolution: closed by human decision: Frozen spec already accepts this row; no change needed unless real-world IndexedDB failure rates prove otherwise.
+decision: 2026-09-10 Keep the current no-rollback behavior as the accepted trade-off — Frozen spec already accepts this row; no change needed unless real-world IndexedDB failure rates prove otherwise.
 
 ### DW-22: The post-grade toast in `Drill.svelte` uses `role="status"` to host interactive Undo/Next-character buttons
 
