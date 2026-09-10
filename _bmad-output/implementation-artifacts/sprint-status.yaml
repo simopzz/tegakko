@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 09-03-2026 21:30
-last_updated: 09-09-2026 17:55
+last_updated: 09-10-2026 12:00
 project: tegakko
 project_key: NOKEY
 tracking_system: file-system
@@ -57,9 +57,31 @@ development_status:
   # New, per sprint-change-proposal-2026-09-08.md §4.2 (dakuten/handakuten catalog
   # expansion) — kept as its own story, not folded into 1-2 (decision 2026-09-09).
   1-11-dakuten-handakuten-catalog-expansion: done
-  epic-1-retrospective: optional
+  epic-1-retrospective: done
 
   epic-2: backlog
   2-1-export-progress-data: backlog
   2-2-import-progress-data-with-confirmation: backlog
   epic-2-retrospective: optional
+action_items:
+  - id: "epic-1-retro-item-1-reconcile-stale-epics-md-lines-to-as-bui"
+    epic: 1
+    action: "Reconcile stale epics.md lines to as-built (158->208 map, selectNext->sampleSessionCards,
+      sampled-size counter, random-next superseded, whole-scope chip copy) + AD-3"
+    owner: "simo"
+    status: open
+    ref: "/home/simopzz/dev/personal/tegakko/_bmad-output/implementation-artifacts/epic-1-retro-09-10-2026.md"
+  - id: "epic-1-retro-item-2-extract-drill-svelte-queue-idle-grade-he"
+    epic: 1
+    action: "Extract Drill.svelte queue/idle/grade helpers before Epic 2 to cap 1001-line
+      growth"
+    owner: "simo"
+    status: open
+    ref: "/home/simopzz/dev/personal/tegakko/_bmad-output/implementation-artifacts/epic-1-retro-09-10-2026.md"
+  - id: "epic-1-retro-item-3-run-deferred-work-sweep-bmad-loop-sweep"
+    epic: 1
+    action: "Run deferred-work sweep (bmad-loop sweep) and schedule bundles: IDB blocked
+      handlers, a11y bundle, CI workflow"
+    owner: "simo"
+    status: open
+    ref: "/home/simopzz/dev/personal/tegakko/_bmad-output/implementation-artifacts/epic-1-retro-09-10-2026.md"
