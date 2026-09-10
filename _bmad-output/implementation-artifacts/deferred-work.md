@@ -99,7 +99,8 @@ origin: migrated from legacy ledger ("Deferred from: code review of spec-1-1-ins
 location: n/a (stroke-completion pointer handling)
 severity: medium
 reason: Under a working setPointerCapture the browser retargets boundary events so leave shouldn't fire mid-stroke, but setPointerCapture failures are swallowed in a bare catch and happy-dom never dispatches pointerleave, so no test covers it either way; medium severity if confirmed since an extra completion enables grading on a partial stroke.
-status: open
+status: done 2026-09-10
+resolution: already resolved: canvas-ink-surface.ts mount() wires pointerleave to handlePointerCancel (discards in-progress stroke), not handlePointerEnd, unchanged since the file's initial commit 12a26e7; covered by canvas-ink-surface.test.ts:463-485 ("discards the in-progress stroke on pointerleave instead of completing it").
 
 ### DW-15: `INK_COLORS` in `app/App.svelte` hard-codes four `theme.css` hexes with nothing guarding against drift
 
@@ -127,7 +128,8 @@ status: open
 origin: migrated from legacy ledger ("Deferred from: code review of spec-1-1-installable-app-shell-first-run-pen-check, re-review (2026-09-04)"; re-flagged independently in "Deferred from: code review of spec-1-3-write-from-memory-drill-loop-ink-width-setting (2026-09-05)"), 2026-09-10
 location: epic-1-context.md
 reason: The scope "sets both the card pool and the full-scope-completion condition" is gone entirely, and the 5-minute default idle timeout (and its adjustability) survives only as an unquantified "evaluate idleness retroactively" line. Pre-existing in the working tree at baseline_commit, an agent-context artifact; restore both from planning-artifacts/epics.md before the dependent stories are specified. Confirmed still present and unresolved as of the 2026-09-05 review pass.
-status: open
+status: done 2026-09-10
+resolution: already resolved: epic-1-context.md line 32 (as of commit 69fe8cb, 2026-09-09) restores quantified idle-timeout language ("~5 min default, adjustable"), matching epics.md FR-9 amended 2026-09-08 via Correct Course; the scope-to-card-pool/full-scope-completion wording is superseded, not dropped, by epics.md FR-2's own 2026-09-08 Correct Course amendment; session.ts, settings.ts, Settings.svelte and App.svelte already implement the amended model correctly.
 
 ### DW-19: `resetDb()` in persistence tests resolves on `onblocked`, so a blocked `deleteDatabase` can let the next test run against a stale database
 
