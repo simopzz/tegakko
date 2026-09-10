@@ -3,16 +3,8 @@ import { openDB } from 'idb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IdbAttemptRepository } from './attempt-repository';
 import { DB_NAME } from './db';
+import { resetDb } from './test-reset-db';
 import type { Attempt } from '../../domain/attempt';
-
-function resetDb(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.deleteDatabase('tegakko');
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error as DOMException);
-    req.onblocked = () => resolve();
-  });
-}
 
 function attempt(overrides: Partial<Attempt> = {}): Attempt {
   return {

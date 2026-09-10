@@ -3,17 +3,9 @@ import { openDB } from 'idb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IdbSessionRepository } from './session-repository';
 import { ATTEMPTS_STORE, DB_NAME, openTegakkoDb, SETTINGS_STORE, TALLIES_STORE } from './db';
+import { resetDb } from './test-reset-db';
 import { DEFAULT_SETTINGS } from '../../domain/settings';
 import type { Session } from '../../domain/session';
-
-function resetDb(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.deleteDatabase('tegakko');
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error as DOMException);
-    req.onblocked = () => resolve();
-  });
-}
 
 const SESSION: Session = {
   id: 'session-1',

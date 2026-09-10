@@ -3,16 +3,8 @@ import { openDB } from 'idb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IdbTallyRepository } from './tally-repository';
 import { ATTEMPTS_STORE, DB_NAME, openTegakkoDb, SETTINGS_STORE } from './db';
+import { resetDb } from './test-reset-db';
 import { DEFAULT_SETTINGS } from '../../domain/settings';
-
-function resetDb(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.deleteDatabase(DB_NAME);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error as DOMException);
-    req.onblocked = () => resolve();
-  });
-}
 
 describe('IdbTallyRepository', () => {
   beforeEach(async () => {

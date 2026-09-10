@@ -155,7 +155,9 @@ origin: migrated from legacy ledger ("Deferred from: code review of spec-1-6-per
 location: tally-repository.test.ts:218, attempt-repository.test.ts, settings-repository.test.ts
 severity: low
 reason: Identical req.onblocked = () => resolve() pattern across all three test files; pre-existing shared pattern, and all repository impls close connections in finally so blocked is unlikely. Fix belongs once as a shared test helper (retry/wait instead of resolve), not per story file. Unverified in practice.
-status: open
+status: done 2026-09-10
+resolution: resolved by sweep bundle dw-persistence-test-resetdb-helper
+resolution-undo: 6413613845e829e222f29a91c7f32b52f0a5c9859108f6c9cbc6d519603d7e4a 2026-09-10 7374617475733a206f70656e
 
 ### DW-20: `openTegakkoDb()` in `db.ts` has no `blocked` handler, and a `blocked` handler alone would be insufficient since open connections must also close on `versionchange`
 
@@ -297,4 +299,20 @@ location: src/adapters/persistence/db.test.ts:6-13 (same pattern in tally-reposi
 source_spec: `spec-dw-2-20-indexeddb-blocked-versionchange-guard.md`
 severity: medium
 reason: This is the exact same pre-existing pattern already used verbatim by tally-repository.test.ts's resetDb() helper (onblocked => resolve()), copied into the new db.test.ts per the spec's own Code Map instruction to follow that file's structure; the new tests in db.test.ts are more likely than most to exercise this weakness since they deliberately hold connections open mid-test to test the blocked/blocking handshake itself.
+status: open
+
+### DW-38: db.test.ts's own local resetDb() still resolves on onblocked instead of retrying/rejecting, the exact bug this bundle fixes in the other four persistence test files.
+origin: spec-deferred c8c8915ab8d7
+location: src/adapters/persistence/db.test.ts:6-13
+source_spec: `spec-dw-19-persistence-test-resetdb-helper.md`
+severity: medium
+reason: grep -rn "onblocked" src/ shows exactly one remaining occurrence of the old `req.onblocked = () => resolve()` pattern: db.test.ts:11. Three independent review layers (Blind Hunter, Verification Gap Reviewer, Intent Alignment Auditor) converged on this. Out of this bundle's authority to fix: the verbatim intent enumerates exactly four files (attempt/settings/tally/session-repository.test.ts) and never names db.test.ts, so it is excluded by the intent itself, not just by this spec's scope section.
+status: open
+
+### DW-39: A persistent block causes resetDb() to reject after exhausting retries, but the original deleteDatabase request it gave up on keeps running in the background; a later resetDb() call for the same
+origin: spec-deferred cb63d5bbb710
+location: src/adapters/persistence/test-reset-db.ts (onblocked handler)
+source_spec: `spec-dw-19-persistence-test-resetdb-helper.md`
+severity: medium
+reason: Reproduced directly: a first resetDb() call against a permanently open competing connection rejects at ~102ms as designed, but a second resetDb() call issued afterward (simulating the next test's beforeEach) times out at 20000ms, queued behind the still-pending first request. Reproduced the identical hang against the pre-existing onblocked => resolve() pattern this bundle replaces (first call falsely resolves at 0ms, second call still times out at 20000ms) -- this is an inherent property of IndexedDB's per-database-name delete queue, not something this change introduces or something any resetDb() retry strategy can route around from the calling side. Fixing it for real would need a different test-isolation strategy (e.g. per-test database names), well beyond this bundle's scope.
 status: open
