@@ -9,10 +9,28 @@ import svelte from 'eslint-plugin-svelte';
 // `from` with `minimatch`, which matches path *segments* -- without `/**`,
 // `./src/adapters/!(ui)` only matches a path literally equal to one sibling
 // adapter's directory name, never a file nested inside it.
-const adapterZones = ['content', 'ink', 'persistence', 'ui', 'io'].map((name) => ({
+export const adapterZones = ['content', 'ink', 'persistence', 'ui', 'io'].map((name) => ({
   target: `./src/adapters/${name}`,
   from: `./src/adapters/!(${name})/**`,
 }));
+
+// AD-1's other half: domain/ imports nothing from adapters/ or app/, and
+// ports/ types reference only domain/ types -- app/ is the composition root
+// and stays exempt (it's the only layer allowed to wire concrete adapters).
+export const domainPurityZones = [
+  { target: './src/domain', from: ['./src/adapters/**', './src/app/**'] },
+  { target: './src/ports', from: ['./src/adapters/**', './src/app/**'] },
+];
+
+// Extensionless relative imports (`'../persistence/x'`) resolve to `.ts`
+// files; without this, eslint-plugin-import-x's resolver can't find the
+// module at all and silently skips the restricted-paths check instead of
+// reporting a violation. Exported so the RuleTester regression test can
+// reuse this exact object instead of retyping it -- a hand-copied duplicate
+// wouldn't catch drift here (e.g. losing the `.svelte` extension).
+export const boundaryResolverSettings = {
+  node: { extensions: ['.js', '.ts', '.svelte'] },
+};
 
 // `tseslint.configs.recommended` includes a `typescript-eslint/base` entry
 // that sets a top-level `languageOptions.parser` with no `files` filter. If
@@ -35,7 +53,13 @@ export default tseslint.config(
     ignores: ['dist/**', 'dev-dist/**', 'node_modules/**', 'public/**'],
   },
   {
-    files: ['src/**/*.ts', 'vite.config.ts', 'vitest.config.ts', 'eslint.config.js'],
+    files: [
+      'src/**/*.ts',
+      'vite.config.ts',
+      'vitest.config.ts',
+      'eslint.config.js',
+      'eslint.config.test.ts',
+    ],
     extends: [...tseslint.configs.recommended],
     plugins: { 'import-x': importPlugin },
     rules: {
@@ -71,20 +95,26 @@ export default tseslint.config(
     // sibling-adapter import -- only `app/` may import concrete adapters.
     // Covers both .ts adapter modules and .svelte adapter components (e.g.
     // src/adapters/ui/*.svelte) -- a component doesn't get a boundary pass
-    // just because it's markup-flavored.
-    files: ['src/adapters/**/*.ts', 'src/adapters/**/*.svelte'],
+    // just because it's markup-flavored. Also covers domain/ and ports/ so
+    // domainPurityZones (AD-1's other half: domain/ports stay clean of
+    // adapters/app) actually runs against those files.
+    files: [
+      'src/adapters/**/*.ts',
+      'src/adapters/**/*.svelte',
+      'src/domain/**/*.ts',
+      'src/domain/**/*.svelte',
+      'src/ports/**/*.ts',
+      'src/ports/**/*.svelte',
+    ],
     plugins: { 'import-x': importPlugin },
     settings: {
-      // Extensionless relative imports (`'../persistence/x'`) resolve to
-      // `.ts` files; without this, eslint-plugin-import-x's resolver can't
-      // find the module at all and silently skips the restricted-paths
-      // check instead of reporting a violation.
-      'import-x/resolver': {
-        node: { extensions: ['.js', '.ts', '.svelte'] },
-      },
+      'import-x/resolver': boundaryResolverSettings,
     },
     rules: {
-      'import-x/no-restricted-paths': ['error', { zones: adapterZones }],
+      'import-x/no-restricted-paths': [
+        'error',
+        { zones: [...adapterZones, ...domainPurityZones] },
+      ],
     },
   },
 );

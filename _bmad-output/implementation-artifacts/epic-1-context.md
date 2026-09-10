@@ -46,8 +46,8 @@ A user can install tegakko on their tablet, pick a practice scope and session si
 - Undo: `undoLastGrade(sessionId)` is one atomic domain op (`AttemptRepository.deleteLast()`, then `TallyRepository.decrement(cardId)` only if the undone grade was incorrect), called once by `ui`. Since sampling happens only once at session start, undo needs no interaction with any queue/selection-input list.
 - Screens: canonical `Screen = 'pen-check'|'scope-picker'|'drill'|'summary'|'history'|'settings'`, one Svelte state variable, no router; drill's own sub-states (blank/written/revealed/graded) are local component state, not `Screen` members.
 - Service worker updates apply silently (`vite-plugin-pwa`, `registerType: 'autoUpdate'`), no update-prompt UI. Hosting is Cloudflare Pages via Git integration (`*.workers.dev` origin satisfies HTTPS); a `Justfile` exposes `dev`/`build`/`lint`/`typecheck`/`deploy`.
-- Persistence-adapter failures resolve as a typed `Result`/rejected `Promise`, never a raw `DOMException`.
-- Stack: TypeScript 6.0.3 (strict), Vite 8.2.2, Svelte 5.57.0, vite-plugin-pwa 1.3.0, idb 8.0.3.
+- Persistence-adapter failures resolve as a typed `Result` rather than a thrown `DOMException`.
+- Stack: TypeScript — `@typescript/native` 7.0.2 as the real compiler, `typescript` aliased to the `typescript6` 6.0.2 API shim for svelte-check/typescript-eslint — strict mode, Vite 8.2.2, Svelte 5.57.0, vite-plugin-pwa 1.3.0, idb 8.0.3.
 
 ## UX & Interaction Patterns
 

@@ -76,7 +76,7 @@ flowchart TB
 
 - **Binds:** FR-1, FR-5
 - **Prevents:** a builder adding IndexedDB seed/migration logic for content that never changes at runtime in v1.
-- **Rule:** the 158-card catalog (46 base hiragana + 46 base katakana + 66 yoon — the PRD's own `[NOTE FOR PM]` explains this as a deliberate extension of the brief's 92-base-character scope to include yoon, not an unreconciled delta) is a TypeScript module (`domain/cards.ts`) compiled into the bundle. `CardRepository` is implemented by `adapters/content`, an in-memory adapter reading that module — not by `persistence`. `cardId` is the natural key `"<grapheme>:<script>"`, referenced by `tallies` and `attempts` as a plain string foreign key — no join table. Reveal (FR-5) reads the same static catalog directly.
+- **Rule:** the 208-card catalog (71 base hiragana (46 seion + 25 dakuten/handakuten) + 71 base katakana + 66 yoon (33 hiragana + 33 katakana) — the PRD's own `[NOTE FOR PM]` explains the yoon extension as a deliberate extension of the brief's 92-base-character scope, not an unreconciled delta) is a TypeScript module (`domain/cards.ts`) compiled into the bundle. `CardRepository` is implemented by `adapters/content`, an in-memory adapter reading that module — not by `persistence`. `cardId` is the natural key `"<grapheme>:<script>"`, referenced by `tallies` and `attempts` as a plain string foreign key — no join table. Reveal (FR-5) reads the same static catalog directly.
 
 ### AD-4 — Persisted schema: grid-relative strokes embedded in Attempt, structured Scope, canonical closure enum
 
@@ -110,7 +110,7 @@ flowchart TB
 
 - **Binds:** FR-14
 - **Prevents:** the installed PWA's install/update path silently depending on a laptop being powered on and reachable over LAN, which the PoC setup did.
-- **Rule:** the built static output deploys to **Cloudflare Pages**, connected to the project's GitHub repo via Cloudflare's native Git integration — every push to `main` triggers an automatic build+deploy, other branches get preview deployments, with no GitHub Actions workflow file required for this path. No custom domain in v1 — the default Cloudflare-provided `*.workers.dev` origin satisfies the HTTPS/secure-context requirement Delegated Ink Trails and PWA installability both need, on the Chromium-based Android tablet + stylus target this whole spine is scoped to (no Safari/iPad, no phone form factor). A `Justfile` recipe (`just deploy`) wraps an on-demand `wrangler pages deploy dist` for manual/local deploys outside the Git-triggered flow. *(Amended 2026-09-03: originally specified GitHub Pages + GitHub Actions; changed on user request, no other AD depends on the prior hosting choice.)* *(Amended 2026-09-03: Cloudflare's Pages/Workers unification serves Git-connected Pages projects under a `*.workers.dev` origin rather than the legacy `*.pages.dev`; observed on the actual deployed project, domain updated to match reality.)*
+- **Rule:** the built static output deploys to **Cloudflare Pages**, connected to the project's GitHub repo via Cloudflare's native Git integration — every push to `main` triggers an automatic build+deploy, other branches get preview deployments, with no GitHub Actions workflow file required for this path. No custom domain in v1 — the default Cloudflare-provided `*.workers.dev` origin satisfies the HTTPS/secure-context requirement Delegated Ink Trails and PWA installability both need, on the Chromium-based Android tablet + stylus target this whole spine is scoped to (no Safari/iPad, no phone form factor). A `Justfile` recipe (`just deploy`) wraps an on-demand `wrangler pages deploy dist` for manual/local deploys outside the Git-triggered flow. *(Amended 2026-09-03: originally specified GitHub Pages + GitHub Actions; changed on user request, no other AD depends on the prior hosting choice. Also amended 2026-09-03: Cloudflare's Pages/Workers unification serves Git-connected Pages projects under a `*.workers.dev` origin rather than the legacy `*.pages.dev`; observed on the actual deployed project, domain updated to match reality.)*
 
 ### AD-9 — Repository port method signatures are fixed, not left to implementers
 
@@ -167,7 +167,7 @@ flowchart TB
 
 | Name | Version |
 | --- | --- |
-| TypeScript | 6.0.3, strict mode (downgraded from 7.0.2: TS7 ships without a programmatic API as of 7.0, which svelte-check/typescript-eslint require — not viable until 7.1) |
+| TypeScript | `@typescript/native` 7.0.2 (the real TS7 compiler, run via the `tsc` binary), with the `typescript` package aliased to `npm:@typescript/typescript6@6.0.2` (the typescript6 API shim, used by tools that `require('typescript')`, e.g. svelte-check/typescript-eslint) — strict mode; `npm run typecheck` runs `tsc --noEmit && svelte-check ...` against both (settled in `d7511a3`, superseding the earlier straight downgrade in `8faafe4`) |
 | Vite | 8.2.2 |
 | Svelte | 5.57.0 |
 | @sveltejs/vite-plugin-svelte | 7.3.0 |

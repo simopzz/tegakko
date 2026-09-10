@@ -1,16 +1,8 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { IdbSettingsRepository } from './settings-repository';
+import { resetDb } from './test-reset-db';
 import { DEFAULT_SETTINGS } from '../../domain/settings';
-
-function resetDb(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.deleteDatabase('tegakko');
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error as DOMException);
-    req.onblocked = () => resolve();
-  });
-}
 
 describe('IdbSettingsRepository', () => {
   beforeEach(async () => {
