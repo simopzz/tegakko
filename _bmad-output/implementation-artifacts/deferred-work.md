@@ -14,7 +14,9 @@ resolution-undo: 92603a66961f14c53a556104414a60e314360ddded151059d0a27a0c119e1ef
 origin: migrated from legacy ledger (source_spec: spec-1-1-installable-app-shell-first-run-pen-check.md), 2026-09-10
 location: openSettingsDb() (db.ts)
 reason: With a fixed version 1 this can't fire yet, but once a schema migration happens a stale tab holding an old connection could hang get()/save() indefinitely with no fallback UI.
-status: open
+status: done 2026-09-10
+resolution: resolved by sweep bundle dw-indexeddb-blocked-versionchange-guard
+resolution-undo: 6f5b53bc8a929767583c1678c52260d420b7d2dd2ee14479b25101ee72ecd7aa 2026-09-10 7374617475733a206f70656e
 
 ### DW-3: Add `runtimeCaching` for `fonts.googleapis.com`/`fonts.gstatic.com` in the VitePWA workbox config
 
@@ -160,7 +162,9 @@ status: open
 origin: migrated from legacy ledger ("Deferred from: code review of spec-1-6-per-character-miss-tally, review pass (2026-09-07)"), 2026-09-10
 location: db.ts (openTegakkoDb / openDB, defines only upgrade())
 reason: A stale IndexedDB connection held open in another tab can hang the DB_VERSION upgrade — and every persistence call — indefinitely with no error surfaced; pre-existing since the 1->2 bump, affects settings/attempts/tallies equally, so the fix belongs once in db.ts for all three stores. A blocked handler alone doesn't resolve this: open connections must also close on versionchange or the upgrade can never proceed. Low likelihood for a typically single-instance installed PWA, but severe if two tabs/windows are open simultaneously across a version bump.
-status: open
+status: done 2026-09-10
+resolution: resolved by sweep bundle dw-indexeddb-blocked-versionchange-guard
+resolution-undo: 6f5b53bc8a929767583c1678c52260d420b7d2dd2ee14479b25101ee72ecd7aa 2026-09-10 7374617475733a206f70656e
 
 ### DW-21: If `undoLastGrade`'s persistence calls fail after `handleUndo` already mutated in-memory mirrors, those mirrors stay desynced from the real store for the rest of the session
 
@@ -277,4 +281,20 @@ location: ARCHITECTURE-SPINE.md:161, epics.md:86, epics.md:369
 source_spec: `spec-dw-8-9-10-25-stale-docs-reconciliation.md`
 severity: low
 reason: Confirmed present via grep: ARCHITECTURE-SPINE.md:161 ("Persistence-adapter failures resolve as a typed `Result`/rejected `Promise`, never a raw thrown `DOMException`..."), epics.md:86 ("Persistence-adapter failures must resolve as a typed `Result`/rejected `Promise`..."), epics.md:369 ("it resolves as a rejected `Promise`/typed `Result`..."). Same underlying defect as DW-9: the shipped persistence adapters (e.g. IdbSettingsRepository) only ever resolve a Result, never reject. Out of this bundle's scope because intent.md's DW-9 ledger entry names only epic-1-context.md:51 as the location.
+status: open
+
+### DW-36: deferred-work.md still lists DW-2 and DW-20 as status: open even though this bundle's changes resolve them.
+origin: spec-deferred d3a3aeb7e85f
+location: _bmad-output/implementation-artifacts/deferred-work.md (DW-2, DW-20 entries)
+source_spec: `spec-dw-2-20-indexeddb-blocked-versionchange-guard.md`
+severity: low
+reason: This diff never touches deferred-work.md; the invocation's own instructions explicitly forbid editing the deferred-work ledger from within this build ("Do NOT edit the deferred-work ledger; the orchestrator records resolution"), so updating DW-2/DW-20's status is the orchestrator's responsibility, not this build's.
+status: open
+
+### DW-37: resetDb()'s indexedDB.deleteDatabase(...).onblocked resolves as success instead of surfacing the block, so a connection leaked by an earlier failing test silently "succeeds" at reset without actually
+origin: spec-deferred 05b0dcb153fc
+location: src/adapters/persistence/db.test.ts:6-13 (same pattern in tally-repository.test.ts:8-15, session-repository.test.ts, attempt-repository.test.ts, settings-repository.test.ts)
+source_spec: `spec-dw-2-20-indexeddb-blocked-versionchange-guard.md`
+severity: medium
+reason: This is the exact same pre-existing pattern already used verbatim by tally-repository.test.ts's resetDb() helper (onblocked => resolve()), copied into the new db.test.ts per the spec's own Code Map instruction to follow that file's structure; the new tests in db.test.ts are more likely than most to exercise this weakness since they deliberately hold connections open mid-test to test the blocked/blocking handshake itself.
 status: open

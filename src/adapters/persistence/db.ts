@@ -47,8 +47,8 @@ export interface TegakkoDb extends DBSchema {
   };
 }
 
-export function openTegakkoDb(): Promise<IDBPDatabase<TegakkoDb>> {
-  return openDB<TegakkoDb>(DB_NAME, DB_VERSION, {
+export async function openTegakkoDb(): Promise<IDBPDatabase<TegakkoDb>> {
+  const connection = await openDB<TegakkoDb>(DB_NAME, DB_VERSION, {
     upgrade(db) {
       if (!db.objectStoreNames.contains(SETTINGS_STORE)) {
         // Out-of-line key: `settings` is a singleton written under one
@@ -67,7 +67,30 @@ export function openTegakkoDb(): Promise<IDBPDatabase<TegakkoDb>> {
         db.createObjectStore(SESSIONS_STORE, { keyPath: 'id' });
       }
     },
+    blocked(currentVersion, blockedVersion) {
+      // This connection's own open is the one being stalled -- another tab
+      // holds an older connection open with no handlers of its own. Purely
+      // diagnostic: the request just waits until that other connection closes.
+      console.warn(
+        `openTegakkoDb() blocked: an existing connection at version ${currentVersion} is preventing the upgrade to version ${blockedVersion}`,
+      );
+    },
+    blocking(currentVersion, blockedVersion) {
+      // This connection is the one in the way of another tab's upgrade.
+      // Close it so that tab's `blocked` open can proceed -- `blocked` alone
+      // has nothing to close, only `blocking` holds the connection.
+      // `blockedVersion` is `null` when another connection is deleting the
+      // database (e.g. `indexedDB.deleteDatabase(DB_NAME)`) rather than
+      // opening it at a higher version.
+      const reason =
+        blockedVersion === null
+          ? 'another connection is requesting a database deletion'
+          : `another connection is opening version ${blockedVersion}`;
+      console.warn(`openTegakkoDb() closing this connection (version ${currentVersion}): ${reason}`);
+      connection?.close();
+    },
   });
+  return connection;
 }
 
 /** Never let a raw `DOMException` (or any other thrown value) cross the
