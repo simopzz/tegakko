@@ -51,7 +51,9 @@ decision: 2026-09-10 Remove user-scalable=no app-wide, rely on the canvas's own 
 origin: migrated from legacy ledger (source_spec: spec-1-1-installable-app-shell-first-run-pen-check.md), 2026-09-10
 location: n/a (repo-wide CI workflow, none exists yet)
 reason: Epic context explicitly left CI gates undecided ("decide at story/build time"); none of the new npm scripts are enforced automatically today.
-status: open
+status: done 2026-09-10
+resolution: resolved by sweep bundle dw-ci-workflow-lint-typecheck-test
+resolution-undo: 5f52b9d119fdc1d1bc946bd8f5f9bd324eea59289951a888481e3577312256ac 2026-09-10 7374617475733a206f70656e
 
 ### DW-8: Reconcile pinned-TypeScript-version docs with `package.json`'s actual pins
 
@@ -251,4 +253,12 @@ location: _bmad-output/implementation-artifacts/deferred-work.md (DW-1, DW-11 en
 source_spec: `spec-dw-1-11-eslint-domain-boundary-hardening.md`
 severity: low
 reason: A human editing the ledger by hand would need to reverse-engineer that the trailing hex blob decodes to the prior "status:" line. Same out-of-scope reasoning as above: orchestrator-owned ledger.
+status: open
+
+### DW-34: The new CI workflow runs lint/typecheck/test/build on every push/PR but nothing marks those checks as required in GitHub branch protection, so a red run still would not block a merge.
+origin: spec-deferred 8489dd938d83
+location: .github/workflows/ci.yml (branch-protection settings live outside the repo)
+source_spec: `spec-dw-7-ci-workflow-lint-typecheck-test.md`
+severity: medium
+reason: Verified: no branch-protection configuration exists anywhere in this repository (confirmed by inspecting the diff and repo state — nothing beyond the new .github/workflows/ci.yml touches GitHub settings). Two reviewers converged on this independently (blind-hunter and the intent-alignment auditor's "Reading C"). Not resolvable from a code diff alone: GitHub's required-status-check API needs the check to have run at least once on the default branch before it can be marked required, and configuring branch protection is a shared/admin-level repository setting an unattended code-only pass should not change. Revisit once this workflow has run on main at least once.
 status: open
