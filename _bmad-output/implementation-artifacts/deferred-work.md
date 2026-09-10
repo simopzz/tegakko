@@ -60,14 +60,18 @@ resolution-undo: 5f52b9d119fdc1d1bc946bd8f5f9bd324eea59289951a888481e3577312256a
 origin: migrated from legacy ledger ("Deferred from: code review of spec-1-1-installable-app-shell-first-run-pen-check (2026-09-04)"), 2026-09-10
 location: ARCHITECTURE-SPINE.md, epics.md, epic-1-context.md vs package.json
 reason: Docs say "TypeScript 6.0.3" everywhere, but package.json pins @typescript/typescript6@6.0.2 for tooling plus a separate @typescript/native@7.0.2 for the real compiler, a byproduct of parallel TS7/ESLint dependency-version work outside story 1.1's own commits.
-status: open
+status: done 2026-09-10
+resolution: resolved by sweep bundle dw-stale-docs-reconciliation
+resolution-undo: 8f2d5b2ff4282a213f91aacc0c7abf0f4e86addfd7292a0c8596048b0b4bc026 2026-09-10 7374617475733a206f70656e
 
 ### DW-9: Fix epic-1-context.md's self-contradictory "resolve as a typed Result/rejected Promise" phrasing
 
 origin: migrated from legacy ledger ("Deferred from: code review of spec-1-1-installable-app-shell-first-run-pen-check (2026-09-04)"), 2026-09-10
 location: epic-1-context.md:51
 reason: Reads as if a Result could also be a rejected Promise; the shipped IdbSettingsRepository never rejects, only resolves a Result.
-status: open
+status: done 2026-09-10
+resolution: resolved by sweep bundle dw-stale-docs-reconciliation
+resolution-undo: 8f2d5b2ff4282a213f91aacc0c7abf0f4e86addfd7292a0c8596048b0b4bc026 2026-09-10 7374617475733a206f70656e
 
 ### DW-10: Consolidate ARCHITECTURE-SPINE.md AD-8's two stacked amendment notes into one
 
@@ -75,7 +79,9 @@ origin: migrated from legacy ledger ("Deferred from: code review of spec-1-1-ins
 location: ARCHITECTURE-SPINE.md:113 (AD-8)
 severity: low
 reason: Two separate "(Amended 2026-09-03: ...)" notes sit back-to-back on the same sentence (hosting provider, then domain suffix).
-status: open
+status: done 2026-09-10
+resolution: resolved by sweep bundle dw-stale-docs-reconciliation
+resolution-undo: 8f2d5b2ff4282a213f91aacc0c7abf0f4e86addfd7292a0c8596048b0b4bc026 2026-09-10 7374617475733a206f70656e
 
 ### DW-11: Add a fixture/RuleTester test proving the adapter-boundary ESLint rule (AD-1) actually blocks a cross-adapter import
 
@@ -193,7 +199,9 @@ origin: migrated from legacy ledger ("Deferred from: code review of spec-1-6-per
 location: ARCHITECTURE-SPINE.md (AD-3)
 severity: low
 reason: AD-3 wasn't part of the dakuten/handakuten story's frozen Code Map and wasn't touched by the 2026-09-08 Correct Course architecture pass either (that pass only rewrote AD-10/AD-13); confirmed still stale via grep.
-status: open
+status: done 2026-09-10
+resolution: resolved by sweep bundle dw-stale-docs-reconciliation
+resolution-undo: 8f2d5b2ff4282a213f91aacc0c7abf0f4e86addfd7292a0c8596048b0b4bc026 2026-09-10 7374617475733a206f70656e
 
 ### DW-26: `epic-1-context.md` rewrite drops the continuous pressure-varying stroke-width requirement and the at-least-3 persisted width presets
 
@@ -261,4 +269,12 @@ location: .github/workflows/ci.yml (branch-protection settings live outside the 
 source_spec: `spec-dw-7-ci-workflow-lint-typecheck-test.md`
 severity: medium
 reason: Verified: no branch-protection configuration exists anywhere in this repository (confirmed by inspecting the diff and repo state — nothing beyond the new .github/workflows/ci.yml touches GitHub settings). Two reviewers converged on this independently (blind-hunter and the intent-alignment auditor's "Reading C"). Not resolvable from a code diff alone: GitHub's required-status-check API needs the check to have run at least once on the default branch before it can be marked required, and configuring branch protection is a shared/admin-level repository setting an unattended code-only pass should not change. Revisit once this workflow has run on main at least once.
+status: open
+
+### DW-35: The same stale "resolve as a typed Result/rejected Promise" phrasing DW-9 fixed in epic-1-context.md also stands unfixed in ARCHITECTURE-SPINE.md and epics.md.
+origin: spec-deferred 80c245f8ecfc
+location: ARCHITECTURE-SPINE.md:161, epics.md:86, epics.md:369
+source_spec: `spec-dw-8-9-10-25-stale-docs-reconciliation.md`
+severity: low
+reason: Confirmed present via grep: ARCHITECTURE-SPINE.md:161 ("Persistence-adapter failures resolve as a typed `Result`/rejected `Promise`, never a raw thrown `DOMException`..."), epics.md:86 ("Persistence-adapter failures must resolve as a typed `Result`/rejected `Promise`..."), epics.md:369 ("it resolves as a rejected `Promise`/typed `Result`..."). Same underlying defect as DW-9: the shipped persistence adapters (e.g. IdbSettingsRepository) only ever resolve a Result, never reject. Out of this bundle's scope because intent.md's DW-9 ledger entry names only epic-1-context.md:51 as the location.
 status: open
