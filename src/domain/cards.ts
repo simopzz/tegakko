@@ -18,6 +18,12 @@ export interface Card {
    * drill prompt (Story 1.3) shows this plus the script name -- never a
    * mnemonic or example word. */
   romaji: string;
+  /** Written-form disambiguator (Story 1.12), set only on the 4 cards whose
+   * Hepburn `romaji` collapses onto another card's (ぢ/づ/ヂ/ヅ share "ji"/"zu"
+   * with じ/ず/ジ/ズ). The prompt renders it as "<romaji> (<writtenRomaji>)"
+   * so a bare "ji"/"zu" prompt is unambiguous by elimination -- disambiguating
+   * data intrinsic to the card, not a mnemonic (UX-DR17). */
+  writtenRomaji?: string;
 }
 
 // NFC-normalized so a `cardId` built here always matches one built from any
@@ -74,7 +80,10 @@ const KATAKANA_BASE = [
 // Hepburn readings, index-parallel to HIRAGANA_BASE/KATAKANA_BASE (both
 // scripts share one reading per position: あ and ア are both "a"). Hepburn,
 // not Nihon-shiki: し `shi`, ち `chi`, つ `tsu`, ふ `fu`. ぢ/づ deliberately
-// duplicate じ/ず's readings (`ji`/`zu`) -- standard Hepburn, not a bug.
+// duplicate じ/ず's readings (`ji`/`zu`) -- standard Hepburn, not a bug. The
+// resulting drill-prompt ambiguity (which of the two a bare "ji"/"zu" prompt
+// means) is resolved separately by `writtenRomaji` below (Story 1.12), not
+// by changing these Hepburn readings.
 const HIRAGANA_ROMAJI = [
   'a', 'i', 'u', 'e', 'o',
   'ka', 'ki', 'ku', 'ke', 'ko',
@@ -111,6 +120,18 @@ const YOON_SMALL_SUFFIXES_KATAKANA = ['ャ', 'ュ', 'ョ'] as const;
 const YOON_ROMAJI_STEMS = ['ky', 'sh', 'ch', 'ny', 'hy', 'my', 'ry', 'gy', 'j', 'by', 'py'] as const;
 const YOON_ROMAJI_VOWELS = ['a', 'u', 'o'] as const;
 
+// Written-form disambiguator (Story 1.12): only the da-row's ぢ/づ (and their
+// katakana counterparts ヂ/ヅ) need one -- their Hepburn romaji ("ji"/"zu")
+// collapses onto じ/ず's, so the prompt shows both: "ji (di)" / "zu (du)".
+// Keyed by grapheme, not index, since the disambiguation is identical across
+// scripts and this way it can't drift out of step with either BASE array.
+const WRITTEN_ROMAJI_BY_GRAPHEME: Readonly<Record<string, string>> = {
+  ぢ: 'di',
+  づ: 'du',
+  ヂ: 'di',
+  ヅ: 'du',
+};
+
 function baseCards(graphemes: readonly string[], script: Script): Card[] {
   return graphemes.map((grapheme, index) => {
     const romaji = HIRAGANA_ROMAJI[index];
@@ -120,12 +141,14 @@ function baseCards(graphemes: readonly string[], script: Script): Card[] {
     if (romaji === undefined) {
       throw new Error(`No romaji for base card at index ${index}`);
     }
+    const writtenRomaji = WRITTEN_ROMAJI_BY_GRAPHEME[grapheme];
     return {
       cardId: cardId(grapheme, script),
       grapheme,
       script,
       kind: 'base',
       romaji,
+      ...(writtenRomaji === undefined ? {} : { writtenRomaji }),
     };
   });
 }

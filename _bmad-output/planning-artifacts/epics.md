@@ -119,7 +119,7 @@ UX-DR15: Empty-history state — sparkline area hidden, single centered line ("N
 
 UX-DR16: Accessibility floor — tap targets meet/exceed Android's 48dp minimum by a wide margin on every button and toggle segment; grade/closure states are never color-only (every chip pairs tint with text); WCAG AA contrast per DESIGN.md's verified pairings; basic mouse/touch operability supported as a graceful degradation for non-pen input (Pointer Events default pressure), for dev/testing convenience.
 
-UX-DR17: Voice/microcopy constraints — no praise, streak language, or exclamation marks anywhere (e.g. "I'm done." not "Let's go!"; "Your call — nothing is checking the shape." not "Great job!"); prompt copy is romaji + script name only, never a mnemonic or example word (standing exclusion).
+UX-DR17: Voice/microcopy constraints — no praise, streak language, or exclamation marks anywhere (e.g. "I'm done." not "Let's go!"; "Your call — nothing is checking the shape." not "Great job!"); prompt copy is romaji + script name only, never a mnemonic or example word (standing exclusion). *(Amended 2026-09-11 via Correct Course)* Exactly one carve-out: for the 4 cards where Hepburn romaji alone doesn't disambiguate which grapheme is meant (ぢ/づ/ヂ/ヅ — see Story 1.12), the prompt appends the card's own written-form romaji in parentheses (e.g. `"ji (di)"`). This is disambiguating data intrinsic to the card, not a mnemonic or memory aid, and does not apply to any of the other 204 cards.
 
 UX-DR18: Single-surface navigation — one screen visible at a time, no tab bar, no drawer; six top-level surfaces only (first-run, scope-picker, drill, summary, history, settings) per the IA table; the import-replace confirmation (UX-DR10) is the only modal in v1.
 
@@ -140,6 +140,7 @@ FR-11: Epic 1 - Session history view
 FR-12: Epic 1 - Lossless local persistence
 FR-13: Epic 2 - Export / import for backup
 FR-14: Epic 1 - Installable, offline-capable PWA
+FR-1/FR-5 disambiguation: Epic 1 - Story 1.12 - Written-form romaji for shared-reading dakuten pairs
 ```
 
 ## Epic List
@@ -568,6 +569,38 @@ So that I'm drilled on the complete character set I actually need, not just the 
 **Given** `cards.test.ts`'s bucket-count assertions
 **When** updated
 **Then** they assert 71/71/33/33 instead of 46/46/33/33, and continue to assert id uniqueness and no same-sound collision across the expanded set.
+
+### Story 1.12: Disambiguate Written-Form Romaji for Shared-Reading Dakuten Pairs
+
+*(New 2026-09-11 via Correct Course — see `sprint-change-proposal-2026-09-11.md`. Additive to
+Story 1.3's prompt AC and Story 1.11's catalog; kept as its own story, same rationale as 1.11:
+an independent, purely-additive change with its own test surface.)*
+
+As a learner practicing kana,
+I want the prompt to tell me which of two same-pronunciation dakuten characters is being asked
+for (ぢ vs じ, づ vs ず — both hiragana and katakana),
+So that I'm not guessing 50/50 between two different graphemes that share a Hepburn reading.
+
+**Acceptance Criteria:**
+
+**Given** the static kana catalog (`domain/cards.ts`)
+**When** this story ships
+**Then** the `Card` type gains an optional `writtenRomaji?: string` field, distinct from the
+existing `romaji` (pronunciation) field
+**And** exactly 4 of 208 cards carry it: ぢ (`"di"`), づ (`"du"`), ヂ (`"di"`), ヅ (`"du"`)
+**And** no other card's `romaji` or catalog shape changes.
+
+**Given** the Drill prompt (Story 1.3's AC, UX-DR17)
+**When** a card with `writtenRomaji` set is shown
+**Then** the prompt reads `"<romaji> (<writtenRomaji>)"` — e.g. `"ji (di)"` for ぢ — in the same
+`{typography.heading}` styling as every other prompt, never `{typography.glyph-ink}`
+**And** every other card's prompt is unaffected (romaji only, exactly as today).
+
+**Given** `cards.test.ts`
+**When** updated
+**Then** it asserts the 4 `writtenRomaji` values above, asserts every other card's
+`writtenRomaji` is `undefined`, and continues to assert id uniqueness and no same-sound
+collision across the 208-card set.
 
 ## Epic 2: Backup & Portability
 

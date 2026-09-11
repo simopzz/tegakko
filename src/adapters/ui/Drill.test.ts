@@ -150,18 +150,28 @@ function fakeSessionRepository(
   };
 }
 
-/** Reads the currently-rendered prompt's romaji, matched against `cards`
- * (every candidate `sampleSessionCards` could have drawn from). NB: romaji is
- * NOT unique per scope since Story 1.11's dakuten/handakuten expansion (じ/ぢ
- * both romanize "ji", ず/づ both romanize "zu"), so `find` resolves a
- * colliding prompt to the first match -- callers must avoid scopes containing
- * both members of a colliding pair (see deferred-work.md). Generalizes the
- * file's prior hardcoded `/^(shi|tsu)$/` idiom to an arbitrary scope. */
+/** The exact text the Drill prompt renders for a card -- `romaji` alone, or
+ * `"<romaji> (<writtenRomaji>)"` on the 4 cards Story 1.12 disambiguates. */
+function promptText(card: Card): string {
+  return card.writtenRomaji ? `${card.romaji} (${card.writtenRomaji})` : card.romaji;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Reads the currently-rendered prompt's text, matched against `cards`
+ * (every candidate `sampleSessionCards` could have drawn from). Prior to
+ * Story 1.12, plain romaji collided for two pairs (じ/ぢ both "ji", ず/づ
+ * both "zu" -- see deferred-work.md DW-29); `promptText` now disambiguates
+ * those 4 cards, so every candidate's displayed text is unique again.
+ * Generalizes the file's prior hardcoded `/^(shi|tsu)$/` idiom to an
+ * arbitrary scope. */
 function currentCard(cards: Card[]): Card {
-  const pattern = new RegExp(`^(${cards.map((c) => c.romaji).join('|')})$`);
-  const romaji = screen.getByText(pattern).textContent ?? '';
-  const found = cards.find((c) => c.romaji === romaji);
-  if (!found) throw new Error(`no card matches displayed romaji "${romaji}"`);
+  const pattern = new RegExp(`^(${cards.map((c) => escapeRegExp(promptText(c))).join('|')})$`);
+  const displayed = screen.getByText(pattern).textContent ?? '';
+  const found = cards.find((c) => promptText(c) === displayed);
+  if (!found) throw new Error(`no card matches displayed prompt "${displayed}"`);
   return found;
 }
 
@@ -258,9 +268,35 @@ describe('Drill', () => {
     const cards = cardsInScope([...CARDS], HIRAGANA_BASE_SCOPE);
     const target = currentCard(cards);
 
-    expect(screen.getByText(target.romaji)).toBeTruthy();
+    expect(screen.getByText(promptText(target))).toBeTruthy();
     expect(screen.getByText('Hiragana')).toBeTruthy();
     expect(screen.queryByText(target.grapheme)).toBeNull();
+  });
+
+  it('appends the written-form romaji for the 4 cards whose romaji collides with another card\'s', async () => {
+    // Story 1.12: ぢ reads "ji (di)"; づ reads "zu (du)" -- disambiguates
+    // from じ/ず, which keep rendering plain "ji"/"zu".
+    const dakutenScope: Scope = { scripts: ['hiragana'], units: ['base'] };
+    const cards = cardsInScope([...CARDS], dakutenScope);
+    const disambiguated = cards.filter((c) => c.writtenRomaji !== undefined);
+    expect(disambiguated.map((c) => c.grapheme).sort()).toEqual(['づ', 'ぢ'].sort());
+
+    // Walk the full-scope queue until each disambiguated card is prompted,
+    // asserting its exact rendered text along the way.
+    renderDrill({ scope: dakutenScope, sessionSize: cards.length });
+    const seen = new Set<string>();
+    for (let i = 0; i < cards.length && seen.size < disambiguated.length; i++) {
+      const target = currentCard(cards);
+      if (target.writtenRomaji !== undefined) {
+        expect(screen.getByText(`${target.romaji} (${target.writtenRomaji})`)).toBeTruthy();
+        expect(screen.queryByText(target.romaji, { exact: true })).toBeNull();
+        seen.add(target.cardId);
+      }
+      await fireEvent.click(screen.getByRole('button', { name: 'Reveal' }));
+      await fireEvent.click(screen.getByRole('button', { name: 'Missed' }));
+      await fireEvent.click(screen.getByRole('button', { name: 'Next character' }));
+    }
+    expect(seen.size).toBe(disambiguated.length);
   });
 
   it('starts the counter at "1 / N" for a scope of N cards', () => {
@@ -483,6 +519,24 @@ describe('Drill', () => {
 
     const cellEl = document.querySelector('.cell');
     expect(cellEl?.className).toContain('cell--locked');
+  });
+
+  it('locks the ink cell to pointer input on a grade fired without a prior reveal', async () => {
+    const inkSurface = fakeInkSurface();
+    const attemptRepository = fakeAttemptRepository();
+    renderDrill({ inkSurface, attemptRepository });
+
+    await inkSurface.landStroke();
+    await fireEvent.click(grade('Missed'));
+
+    const cellEl = document.querySelector('.cell');
+    expect(cellEl?.className).toContain('cell--locked');
+
+    // A stroke notification arriving after the grade (e.g. still in flight)
+    // must not be treated as new ink on the already-graded attempt.
+    const strokesBefore = attemptRepository.adds.at(-1)?.strokes.length;
+    await inkSurface.landStroke();
+    expect(attemptRepository.adds.at(-1)?.strokes.length).toBe(strokesBefore);
   });
 
   it('moves focus to Missed so Reveal becoming disabled does not drop it to the page', async () => {
