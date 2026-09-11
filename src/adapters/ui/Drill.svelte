@@ -233,10 +233,12 @@
   onMount(() => {
     if (!cell) return;
     inkSurface.onStrokeComplete((stroke, timing) => {
-      // A reveal locks the cell to pointer input (see `.cell--locked`
-      // below); this guards the same invariant at the state level in case a
-      // stroke-complete notification is ever still in flight when it fires.
-      if (revealed) return;
+      // A reveal, or a grade fired without one (Missed/Correct straight from
+      // the blank cell), locks the cell to pointer input (see
+      // `.cell--locked` below); this guards the same invariant at the state
+      // level in case a stroke-complete notification is ever still in
+      // flight when it fires.
+      if (revealed || graded !== null) return;
       // A stroke is itself an interaction: if it arrives idle-eligible, it
       // closes the session instead of landing -- the interaction that
       // reveals an idle session is dropped, never recorded as part of the
@@ -528,7 +530,7 @@
 
   <section class="prompt" class:dimmed={graded !== null}>
     <p class="label">Write from memory</p>
-    <p class="romaji">{card.romaji}</p>
+    <p class="romaji">{card.writtenRomaji ? `${card.romaji} (${card.writtenRomaji})` : card.romaji}</p>
     <p class="script">{scriptLabel[card.script]}</p>
   </section>
 
@@ -551,7 +553,7 @@
       {#if revealed}<p class="label" id="yours-label">Yours</p>{/if}
       <div
         class="cell"
-        class:cell--locked={revealed}
+        class:cell--locked={revealed || graded !== null}
         bind:this={cell}
         role="group"
         aria-labelledby={revealed ? 'yours-label' : undefined}
@@ -810,10 +812,12 @@
   }
 
   .cell--locked {
-    /* Once revealed, the "Yours" panel is a frozen record of what was
-       written, not an active writing surface -- tracing over the
-       just-revealed reference would undercut the whole point of reveal
-       never assigning a grade for the learner. */
+    /* Once revealed, or once a grade lands (with or without a prior
+       reveal), the cell is a frozen record of what was written, not an
+       active writing surface -- tracing over the just-revealed reference
+       would undercut the whole point of reveal never assigning a grade for
+       the learner, and drawing after a grade has already landed would
+       silently attach strokes to an attempt that's already been recorded. */
     pointer-events: none;
   }
 

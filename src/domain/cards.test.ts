@@ -195,6 +195,30 @@ describe('cards', () => {
     }
   });
 
+  it('sets writtenRomaji only on the 4 cards whose romaji collapses onto another card\'s', () => {
+    // Story 1.12: ぢ/づ (and ヂ/ヅ) share じ/ず's Hepburn romaji ("ji"/"zu"),
+    // so the prompt needs a written-form qualifier to tell them apart.
+    const disambiguated: Array<
+      [grapheme: string, script: 'hiragana' | 'katakana', writtenRomaji: string]
+    > = [
+      ['ぢ', 'hiragana', 'di'],
+      ['づ', 'hiragana', 'du'],
+      ['ヂ', 'katakana', 'di'],
+      ['ヅ', 'katakana', 'du'],
+    ];
+    for (const [grapheme, script, writtenRomaji] of disambiguated) {
+      const card = CARDS.find((c) => c.grapheme === grapheme && c.script === script);
+      expect(card?.writtenRomaji).toBe(writtenRomaji);
+    }
+    const disambiguatedIds = new Set(
+      disambiguated.map(([grapheme, script]) => `${grapheme}:${script}`),
+    );
+    for (const card of CARDS) {
+      if (disambiguatedIds.has(card.cardId)) continue;
+      expect(card.writtenRomaji).toBeUndefined();
+    }
+  });
+
   it('never doubles the i of shi/chi/ji into a yoon reading', () => {
     // しゅ is `shu`, never `shyu`; じょ is `jo`, never `jyo`.
     const readings = new Set(CARDS.map((card) => card.romaji));

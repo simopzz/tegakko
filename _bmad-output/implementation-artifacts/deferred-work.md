@@ -236,7 +236,9 @@ status: open
 origin: migrated from legacy ledger ("Deferred from: code review of spec-1-11-dakuten-handakuten-catalog-expansion (2026-09-09)"), 2026-09-10
 location: src/adapters/ui/Drill.test.ts (currentCard helper: cards.find(c => c.romaji === romaji))
 reason: Assumes unique romaji per scope, no longer true since the dakuten/handakuten expansion introduced two genuine collisions (じ/ぢ both romanize "ji", ず/づ both romanize "zu"). The UI intentionally never displays the grapheme itself, so the helper can't disambiguate from the DOM alone; fixing this needs a test-only cardId attribute or seeded attempts/RNG, a test-infra design decision rather than a quick patch. Reproduced twice in back-to-back just check runs (miss tally, then attempt recording, both HIRAGANA_BASE_SCOPE); collision frequency is unchanged by the sampling rework, not a regression it introduced.
-status: open
+status: done 2026-09-11
+resolution: closed as a byproduct of Story 1.12 (sprint-change-proposal-2026-09-11.md), which was driven by the same underlying collision surfacing as a real UX gap (the drill prompt itself was ambiguous for a user, not just this test helper). `Card.writtenRomaji` makes ぢ/づ's rendered prompt text ("ji (di)"/"zu (du)") distinct from じ/ず's, so `currentCard()` now matches on rendered prompt text (romaji, or romaji+writtenRomaji) instead of bare romaji, and every candidate in any scope has unique displayed text again.
+decision: 2026-09-11 No test-only cardId attribute needed -- the product-level fix (written-form disambiguation) removed the underlying ambiguity the helper was working around.
 
 ### DW-30: `spec-1-10-session-history-view.md` still describes the History chip copy as "Whole scope," now contradicted by the rename to "Session complete"
 

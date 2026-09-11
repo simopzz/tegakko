@@ -44,7 +44,7 @@ Microcopy. Brand voice and aesthetic posture live in `DESIGN.md.Brand & Style`.
 | "Revealing doesn't grade it. Compare, then still say what it was." | "Nice try!" on a miss |
 | "き · hiragana — missed 3 times now, so it'll come round sooner." | Streak language, encouragement, exclamation marks |
 | "Importing replaces everything here — tallies, attempts, history." | Soft-pedaling a destructive action |
-| Prompt is romaji + script name only | Mnemonics, example words, or any memory-aid copy (standing exclusion — brief §Rejected, PRD §5.2) |
+| Prompt is romaji + script name only, plus a written-form parenthetical on the 4 cards where romaji alone is ambiguous (ぢ/づ/ヂ/ヅ — Story 1.12) | Mnemonics, example words, or any memory-aid copy (standing exclusion — brief §Rejected, PRD §5.2) |
 
 ## Component Patterns
 
