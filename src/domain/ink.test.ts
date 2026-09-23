@@ -3,10 +3,9 @@ import { pressureToWidth, WIDTH_PRESETS } from './ink';
 import type { WidthPreset } from './settings';
 
 describe('pressureToWidth', () => {
-  // The three ranges are carried over verbatim from the validated PoC
-  // (poc-web/index.html) -- the ink-feel acceptance is a side-by-side
-  // comparison against it, so a silent drift here would invalidate that.
-  it('keeps the PoC ranges: Subtle 2-5, Expressive 1.5-9, Calligraphy 0.75-18', () => {
+  // The three ranges are fixed -- a silent drift here would change ink feel
+  // with no numeric threshold to catch it.
+  it('keeps the width ranges: Subtle 2-5, Expressive 1.5-9, Calligraphy 0.75-18', () => {
     expect(WIDTH_PRESETS.subtle).toEqual({ min: 2, max: 5 });
     expect(WIDTH_PRESETS.expressive).toEqual({ min: 1.5, max: 9 });
     expect(WIDTH_PRESETS.calligraphy).toEqual({ min: 0.75, max: 18 });

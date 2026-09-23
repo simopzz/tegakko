@@ -2,8 +2,8 @@
   // First Run / pen-check screen (Story 1.1). Own lightweight pointermove
   // listener per AD-2's exemption -- this is a diagnostic surface, not the
   // drill's ink-rendering hot path, so it does not go through InkSurface.
-  // Behavior mirrors poc-web/index.html's normalizedPressure/pointer
-  // handling, simplified: no stroke rendering, just a live pressure readout.
+  // Lightweight normalizedPressure/pointer handling, simplified: no stroke
+  // rendering, just a live pressure readout.
   import { onMount } from 'svelte';
   import type { SettingsRepository } from '../../ports/settings-repository';
 

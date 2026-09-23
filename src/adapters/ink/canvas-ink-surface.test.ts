@@ -6,7 +6,7 @@ import { pressureToWidth } from '../../domain/ink';
 // happy-dom implements no canvas 2D rendering context, so the adapter's
 // drawing is verified against an injected fake that records calls -- pixels
 // are out of reach here by construction (a recorded gap; ink *feel* is a
-// human side-by-side check against poc-web/index.html regardless).
+// human judgement call regardless).
 interface DrawnSegment {
   x0: number;
   y0: number;

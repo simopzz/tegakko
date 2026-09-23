@@ -37,20 +37,18 @@ export interface StrokeTiming {
   endedAt: number;
 }
 
-/** Min/max stroke width in CSS px per preset, carried over verbatim from the
- * validated web PoC (`poc-web/index.html`) so ink feel is comparable
- * side-by-side. "Calligraphy" deliberately reaches brush-pen range
- * (hairline to bold) rather than a subtle nuance. */
+/** Min/max stroke width in CSS px per preset, fixed so ink feel stays
+ * comparable across sessions. "Calligraphy" deliberately reaches brush-pen
+ * range (hairline to bold) rather than a subtle nuance. */
 export const WIDTH_PRESETS: Record<WidthPreset, { min: number; max: number }> = Object.freeze({
   subtle: Object.freeze({ min: 2, max: 5 }),
   expressive: Object.freeze({ min: 1.5, max: 9 }),
   calligraphy: Object.freeze({ min: 0.75, max: 18 }),
 }) as Record<WidthPreset, { min: number; max: number }>;
 
-/** Linear pressure->width, exactly the PoC's `min + p * (max - min)`. No
- * easing curve: the PoC's feel was validated with this mapping, and AD's
- * "match or exceed the PoC" bar is a side-by-side judgement, so changing the
- * curve here would invalidate the comparison. */
+/** Linear pressure->width, `min + p * (max - min)`. No easing curve:
+ * changing the curve here would change ink feel with no numeric threshold
+ * to catch the regression, so it stays linear. */
 export function pressureToWidth(pressure: number, preset: WidthPreset): number {
   const { min, max } = WIDTH_PRESETS[preset];
   return min + pressure * (max - min);

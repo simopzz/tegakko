@@ -1,9 +1,8 @@
 // `InkSurface` adapter: a single <canvas> carrying the genkouyoushi cell
 // guide, the center dot, and the ink itself (AD-2).
 //
-// The mechanics below are ported from the validated web PoC
-// (`poc-web/index.html`, frozen evidence -- read, never edited) because ink
-// feel is judged by side-by-side comparison against it, not by a numeric
+// The mechanics below were validated against a web PoC (since removed)
+// because ink feel is judged by human comparison, not by a numeric
 // threshold. The load-bearing details, all deliberate:
 //
 //   * ONE canvas. Two stacked canvases (opaque guide + transparent ink)
@@ -12,17 +11,17 @@
 //     that canvas's backing surface opaque.
 //   * `desynchronized: true`, DPR-scaled backing store, draw in CSS px.
 //   * Per-segment straight lines with round cap/join, no smoothing: a curve
-//     fit would add a frame of lag, which is the one thing the PoC bought.
+//     fit would add a frame of lag, which is the one thing low-latency ink
+//     cannot afford.
 //   * Width computed ONCE per move event and reused for every coalesced
 //     sub-segment of that event.
 //   * `navigator.ink` feature-detected, every presenter call in try/catch --
 //     a non-Chromium browser or an insecure context degrades to plain canvas
 //     rendering, never to a thrown error.
 //
-// The one deliberate divergence from the PoC: pointer coordinates go through
-// the canvas's `getBoundingClientRect()` before use. The PoC gets away with
-// raw `clientX/clientY` only because its canvas is `position: fixed; inset:
-// 0`; this one is an inset cell. Points are then stored grid-relative (0..1
+// One deliberate design point: pointer coordinates go through
+// the canvas's `getBoundingClientRect()` before use (raw `clientX/clientY`
+// only works for a fullscreen canvas; this one is an inset cell). Points are then stored grid-relative (0..1
 // within the cell) so Story 1.5 can persist and replay them at any viewport
 // size (AD-11).
 
