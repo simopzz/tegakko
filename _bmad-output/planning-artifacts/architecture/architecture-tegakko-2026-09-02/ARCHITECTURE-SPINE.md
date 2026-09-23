@@ -88,11 +88,11 @@ flowchart TB
   - `closureReason` is the one canonical field name and type everywhere in code: `'explicit' | 'full-scope' | 'inactivity'`.
   - `selfGrade` is the literal union `'correct' | 'incorrect'` everywhere, including in `AttemptExport` (AD-5).
 
-### AD-5 — Export/import: the exported Attempt shape strips ink data; import always replaces
+### AD-5 — Export/import: attempts export through an explicit compact `AttemptExport` mapping (strokes included); import always replaces
 
 - **Binds:** FR-13
-- **Prevents:** a naive export implementation serializing the persisted `Attempt` record as-is and leaking raw ink data into the backup file, which FR-13 explicitly puts out of scope; an import implementation that merges instead of replaces, silently diverging from the PRD's stated destructive-by-default behavior.
-- **Rule:** the `io` adapter maps `Attempt → AttemptExport` (all fields except `strokes`) before serializing. Import validates the file against the `AttemptExport` (not `Attempt`) schema + a `version` field, rejecting anything that doesn't match before applying anything. On a valid import, all current `tallies`/`attempts`/`sessions` are deleted and replaced wholesale with the imported data — never merged record-by-record.
+- **Prevents:** a naive export implementation serializing the persisted `Attempt` record as-is and coupling the backup file's format to the IndexedDB record shape (and bloating it with full-precision point objects); an import implementation that merges instead of replaces, silently diverging from the PRD's stated destructive-by-default behavior.
+- **Rule:** the `io` adapter maps `Attempt → AttemptExport` field-by-field before serializing: every `Attempt` field, with `strokes` in compact form — `{ widthPreset, points: [x, y, pressure][] }`, each number rounded to 4 decimals. Plain JSON, no compression (deferred until export/import is validated). *(Amended 2026-09-23 — Story 2.1: export now includes stroke/ink data.)* Import validates the file against the `AttemptExport` (not `Attempt`) schema + a `version` field, rejecting anything that doesn't match before applying anything. On a valid import, all current `tallies`/`attempts`/`sessions` are deleted and replaced wholesale with the imported data — never merged record-by-record.
 
 ### AD-6 — TypeScript strict mode, enforced, no exceptions
 

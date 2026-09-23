@@ -204,15 +204,15 @@ Stroke data, miss tallies, attempt records, and session records persist locally 
 
 #### FR-13: Export / import for backup
 
-The user can export all local progress data (miss tallies, attempt records, session history) to a JSON file, and import a previously exported file to restore it.
+The user can export all local progress data (miss tallies, attempt records with their stroke ink, session history) to a JSON file, and import a previously exported file to restore it.
 
 **Consequences (testable):**
-- Export produces a single JSON file containing miss tallies, attempt records, and session records (stroke-level ink data is out of scope for export — see Out of Scope below).
-- Import from a validly-exported file restores miss tallies, attempt records, and session records, replacing current local data `[ASSUMPTION: replace, not merge — simpler and matches single-device, single-user usage; confirm before build, since it's destructive by default]`.
+- Export produces a single JSON file containing miss tallies, attempt records, and session records, each attempt carrying its grid-relative stroke ink data (FR-12) so a restore loses no handwriting. *(Amended 2026-09-23 — Story 2.1: export now includes stroke/ink data.)*
+- Import from a validly-exported file restores miss tallies, attempt records (including their strokes), and session records, replacing current local data `[ASSUMPTION: replace, not merge — simpler and matches single-device, single-user usage; confirm before build, since it's destructive by default]`.
 - Import validates that the file matches the expected export schema (shape and version) before applying anything; a malformed or unrecognized file is rejected with an error message rather than partially applied.
 
 **Out of Scope:**
-- Exporting raw stroke/ink data — export covers progress data needed to resume practice, not a full ink archive.
+- Compressing the export file (e.g. gzip) — plain JSON until export/import is validated in use. *(Amended 2026-09-23 — Story 2.1: replaces the former "no raw stroke/ink export" exclusion, now lifted.)*
 
 ### 4.6 Platform & Installability
 **Description:** Web/PWA per the addendum's PoC-based decision. Installability specifically was scoped in from the user's framing of v1-done as "really run the app from my tablet" — read as installed and launchable like an app, not a browser tab navigated to each time.

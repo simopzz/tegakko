@@ -322,3 +322,15 @@ status: open
 - source_spec: `_bmad-output/implementation-artifacts/spec-retro-1-2-extract-drill-svelte-helpers.md`
   summary: Undo after a Missed grade whose `attemptRepository.add()` failed but `tallyRepository.increment()` succeeded decrements only the in-memory tally, leaving the persisted miss tally one higher than the drill showed.
   evidence: Pre-existing (the original `Drill.svelte` `handleUndo` had the identical `if (attemptWriteResult?.ok)` gate); `DrillSession.undoLastGrade` preserves it, and the domain `decrement` is reachable only through `undoLastGrade` (`src/domain/drill.ts:165-176`). The new unit test "never calls deleteLast when add() resolved not-ok" codifies `decrements === []` in this case. Distinct from DW-21 (in-memory mirrors applied unconditionally). Needs a split path that decrements the tally without `deleteLast` when only the attempt write failed.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-1-export-progress-data.md`
+  summary: Compress the export file (gzip via the built-in `CompressionStream`, e.g. `.json.gz`) and teach Story 2.2's import to read it.
+  evidence: 2026-09-23 decision while amending FR-13 to include stroke ink in export — user chose plain JSON until export and import are validated in use; compact rounded `[x, y, pressure]` points keep size manageable meanwhile.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-1-export-progress-data.md`
+  summary: Settings uses a flat list of `<h1 class="heading">` section headings (Ink width, Idle close, now Backup) — restructure to one page title with `<h2>` sections for a sane screen-reader outline.
+  evidence: Pre-existing pattern in `src/adapters/ui/Settings.svelte` (two `<h1>` before Story 2.1); Story 2.1 follows it and adds a third. Fits the retro's a11y bundle.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-1-export-progress-data.md`
+  summary: PRD FR-13 still tags replace-not-merge as `[ASSUMPTION: … confirm before build]` although SPEC constraints, AD-5 and the epics treat it as decided — resolve the tag in `prd.md` (FR-13 consequences and open question #3).
+  evidence: Pre-existing doc drift surfaced by Story 2.1 review; the SPEC memlog records the default as promoted to a decided constraint, and Story 2.2 is about to build on it.

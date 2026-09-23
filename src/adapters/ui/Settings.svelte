@@ -1,21 +1,24 @@
 <script lang="ts">
   // Settings screen (Story 1.3): the ink-width pill toggle. Story 1.9 adds
-  // the idle-close threshold toggle below it.
+  // the idle-close threshold toggle below it; Story 2.1 adds Backup/Export.
   //
   // Reuses ScopePicker.svelte's `.pill`/`.pill--active` markup and its
   // radiogroup semantics: exactly one active segment, commits immediately,
   // no confirm step.
   import { onMount } from 'svelte';
   import type { SettingsRepository } from '../../ports/settings-repository';
+  import type { ProgressExporter } from '../../ports/progress-exporter';
+  import { err } from '../../domain/result';
   import { DEFAULT_SETTINGS, type Settings, type WidthPreset } from '../../domain/settings';
 
   interface Props {
     settingsRepository: SettingsRepository;
+    progressExporter: ProgressExporter;
     onPresetChange: (preset: WidthPreset) => void;
     onBack: () => void;
   }
 
-  const { settingsRepository, onPresetChange, onBack }: Props = $props();
+  const { settingsRepository, progressExporter, onPresetChange, onBack }: Props = $props();
 
   const PRESETS: Array<{ value: WidthPreset; label: string; hint: string }> = [
     { value: 'subtle', label: 'Subtle', hint: 'Even line, slight taper' },
@@ -47,6 +50,11 @@
   let widthNote = $state<string | null>(null);
   let idleNote = $state<string | null>(null);
   let loaded = $state(false);
+  // Export's own note -- independent of the settings notes above.
+  let exportNote = $state<string | null>(null);
+  // In-flight guard: a second tap while an export is running is a no-op, so
+  // exactly one file downloads.
+  let exporting = false;
 
   // Serializes `choose()`/`chooseIdle()`'s writes onto one queue. Without
   // this, two saves fired before either resolves would each read `lastRead`
@@ -125,6 +133,24 @@
       idleNote = message;
     });
   }
+
+  async function runExport(): Promise<void> {
+    if (exporting) return;
+    exporting = true;
+    exportNote = null;
+    try {
+      // A rejection is folded into `err` too, so the note always shows.
+      const result = await progressExporter.export().catch((error: unknown) =>
+        err<void>(error instanceof Error ? error : new Error(String(error))),
+      );
+      if (!result.ok) {
+        console.error('Failed to export progress:', result.error);
+        exportNote = "Couldn't export -- try again.";
+      }
+    } finally {
+      exporting = false;
+    }
+  }
 </script>
 
 <main class="settings">
@@ -193,6 +219,14 @@
     {#if readNote}
       <p class="note" role="status" aria-live="polite">{readNote}</p>
     {/if}
+
+    <h1 class="heading">Backup</h1>
+    <p class="body">Download your tallies, attempts, handwriting and history as one file.</p>
+    <button type="button" class="action" onclick={() => void runExport()}>Export</button>
+
+    {#if exportNote}
+      <p class="note" role="status" aria-live="polite">{exportNote}</p>
+    {/if}
   </div>
 </main>
 
@@ -223,7 +257,8 @@
     gap: var(--spacing-3);
   }
 
-  .back {
+  .back,
+  .action {
     min-height: 56px;
     padding: 0 var(--spacing-3);
     border: 1px solid var(--color-ink-faint);
@@ -234,6 +269,10 @@
     font-weight: 600;
     font-size: 1rem;
     cursor: pointer;
+  }
+
+  .action {
+    align-self: flex-start;
   }
 
   .label {

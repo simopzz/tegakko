@@ -4,6 +4,7 @@ import Settings from './Settings.svelte';
 import { DEFAULT_SETTINGS, type Settings as SettingsRecord } from '../../domain/settings';
 import { err, ok } from '../../domain/result';
 import type { SettingsRepository } from '../../ports/settings-repository';
+import type { ProgressExporter } from '../../ports/progress-exporter';
 import type { Result } from '../../domain/result';
 
 // Faked against the port, never `adapters/persistence` (AD-1's boundary
@@ -16,6 +17,12 @@ function repository(
     get: vi.fn().mockResolvedValue(record),
     save: vi.fn().mockResolvedValue(saveResult),
   };
+}
+
+function exporter(
+  result: Result<void> = ok(undefined),
+): ProgressExporter & { export: ReturnType<typeof vi.fn> } {
+  return { export: vi.fn().mockResolvedValue(result) };
 }
 
 function preset(name: 'Subtle' | 'Expressive' | 'Calligraphy'): HTMLElement {
@@ -38,6 +45,7 @@ const STORED: SettingsRecord = {
 describe('Settings', () => {
   it('preselects the preset the repository reports', async () => {
     render(Settings, {
+      progressExporter: exporter(),
       settingsRepository: repository(ok(STORED)),
       onPresetChange: vi.fn(),
       onBack: vi.fn(),
@@ -50,6 +58,7 @@ describe('Settings', () => {
 
   it('keeps exactly one segment active after a tap', async () => {
     render(Settings, {
+      progressExporter: exporter(),
       settingsRepository: repository(ok(STORED)),
       onPresetChange: vi.fn(),
       onBack: vi.fn(),
@@ -66,7 +75,12 @@ describe('Settings', () => {
   it('saves immediately, with no confirm step, and reports the change upward', async () => {
     const settingsRepository = repository(ok(STORED));
     const onPresetChange = vi.fn();
-    render(Settings, { settingsRepository, onPresetChange, onBack: vi.fn() });
+    render(Settings, {
+      progressExporter: exporter(),
+      settingsRepository,
+      onPresetChange,
+      onBack: vi.fn(),
+    });
 
     await screen.findByRole('radiogroup', { name: 'Ink width' });
     await fireEvent.click(preset('Calligraphy'));
@@ -79,6 +93,7 @@ describe('Settings', () => {
     const settingsRepository = repository(ok(STORED));
     render(Settings, {
       settingsRepository,
+      progressExporter: exporter(),
       onPresetChange: vi.fn(),
       onBack: vi.fn(),
     });
@@ -100,7 +115,12 @@ describe('Settings', () => {
     const settingsRepository = repository(err(new Error('IndexedDB blocked')));
     const onPresetChange = vi.fn();
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    render(Settings, { settingsRepository, onPresetChange, onBack: vi.fn() });
+    render(Settings, {
+      progressExporter: exporter(),
+      settingsRepository,
+      onPresetChange,
+      onBack: vi.fn(),
+    });
 
     await screen.findByRole('radiogroup', { name: 'Ink width' });
     expect(preset('Expressive').getAttribute('aria-checked')).toBe('true');
@@ -118,7 +138,12 @@ describe('Settings', () => {
     const settingsRepository = repository(ok(STORED), err(new Error('quota exceeded')));
     const onPresetChange = vi.fn();
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    render(Settings, { settingsRepository, onPresetChange, onBack: vi.fn() });
+    render(Settings, {
+      progressExporter: exporter(),
+      settingsRepository,
+      onPresetChange,
+      onBack: vi.fn(),
+    });
 
     await screen.findByRole('radiogroup', { name: 'Ink width' });
     await fireEvent.click(preset('Calligraphy'));
@@ -132,7 +157,12 @@ describe('Settings', () => {
   it('retries by re-tapping the active preset after its save failed', async () => {
     const settingsRepository = repository(ok(STORED), err(new Error('quota exceeded')));
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    render(Settings, { settingsRepository, onPresetChange: vi.fn(), onBack: vi.fn() });
+    render(Settings, {
+      progressExporter: exporter(),
+      settingsRepository,
+      onPresetChange: vi.fn(),
+      onBack: vi.fn(),
+    });
 
     await screen.findByRole('radiogroup', { name: 'Ink width' });
     await fireEvent.click(preset('Calligraphy'));
@@ -149,6 +179,7 @@ describe('Settings', () => {
     const settingsRepository = repository(ok(STORED));
     render(Settings, {
       settingsRepository,
+      progressExporter: exporter(),
       onPresetChange: vi.fn(),
       onBack: vi.fn(),
     });
@@ -162,7 +193,12 @@ describe('Settings', () => {
   it('shows the global read-failure note and leaves both pill groups inert', async () => {
     const settingsRepository = repository(err(new Error('IndexedDB blocked')));
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    render(Settings, { settingsRepository, onPresetChange: vi.fn(), onBack: vi.fn() });
+    render(Settings, {
+      progressExporter: exporter(),
+      settingsRepository,
+      onPresetChange: vi.fn(),
+      onBack: vi.fn(),
+    });
 
     await screen.findByRole('radiogroup', { name: 'Ink width' });
     await screen.findByRole('radiogroup', { name: 'Idle close' });
@@ -186,7 +222,12 @@ describe('Settings', () => {
       err(new Error('quota exceeded')),
     );
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    render(Settings, { settingsRepository, onPresetChange: vi.fn(), onBack: vi.fn() });
+    render(Settings, {
+      progressExporter: exporter(),
+      settingsRepository,
+      onPresetChange: vi.fn(),
+      onBack: vi.fn(),
+    });
 
     await screen.findByRole('radiogroup', { name: 'Ink width' });
     await fireEvent.click(preset('Calligraphy'));
@@ -209,7 +250,12 @@ describe('Settings', () => {
       .fn()
       .mockReturnValueOnce(firstPending)
       .mockResolvedValue(ok(undefined));
-    render(Settings, { settingsRepository, onPresetChange: vi.fn(), onBack: vi.fn() });
+    render(Settings, {
+      progressExporter: exporter(),
+      settingsRepository,
+      onPresetChange: vi.fn(),
+      onBack: vi.fn(),
+    });
 
     await screen.findByRole('radiogroup', { name: 'Ink width' });
     // Two rapid taps across controls before either save resolves -- without
@@ -236,6 +282,7 @@ describe('Settings', () => {
   it('calls onBack from the Back control', async () => {
     const onBack = vi.fn();
     render(Settings, {
+      progressExporter: exporter(),
       settingsRepository: repository(ok(STORED)),
       onPresetChange: vi.fn(),
       onBack,
@@ -249,6 +296,7 @@ describe('Settings', () => {
   describe('idle-close threshold', () => {
     it('preselects the idle preset the repository reports', async () => {
       render(Settings, {
+        progressExporter: exporter(),
         settingsRepository: repository(ok({ ...STORED, idleTimeoutMs: 120_000 })),
         onPresetChange: vi.fn(),
         onBack: vi.fn(),
@@ -262,6 +310,7 @@ describe('Settings', () => {
 
     it('keeps exactly one segment active after a tap', async () => {
       render(Settings, {
+        progressExporter: exporter(),
         settingsRepository: repository(ok({ ...STORED, idleTimeoutMs: 120_000 })),
         onPresetChange: vi.fn(),
         onBack: vi.fn(),
@@ -277,7 +326,12 @@ describe('Settings', () => {
 
     it('saves immediately, with no confirm step', async () => {
       const settingsRepository = repository(ok({ ...STORED, idleTimeoutMs: 120_000 }));
-      render(Settings, { settingsRepository, onPresetChange: vi.fn(), onBack: vi.fn() });
+      render(Settings, {
+        progressExporter: exporter(),
+        settingsRepository,
+        onPresetChange: vi.fn(),
+        onBack: vi.fn(),
+      });
 
       await screen.findByRole('radiogroup', { name: 'Idle close' });
       await fireEvent.click(idlePreset('10 min'));
@@ -287,7 +341,12 @@ describe('Settings', () => {
 
     it('saves the last-read record with only idleTimeoutMs changed', async () => {
       const settingsRepository = repository(ok({ ...STORED, idleTimeoutMs: 120_000 }));
-      render(Settings, { settingsRepository, onPresetChange: vi.fn(), onBack: vi.fn() });
+      render(Settings, {
+        progressExporter: exporter(),
+        settingsRepository,
+        onPresetChange: vi.fn(),
+        onBack: vi.fn(),
+      });
 
       await screen.findByRole('radiogroup', { name: 'Idle close' });
       await fireEvent.click(idlePreset('10 min'));
@@ -303,7 +362,12 @@ describe('Settings', () => {
     it('renders with the default idle preset and saves nothing when the read fails', async () => {
       const settingsRepository = repository(err(new Error('IndexedDB blocked')));
       vi.spyOn(console, 'error').mockImplementation(() => {});
-      render(Settings, { settingsRepository, onPresetChange: vi.fn(), onBack: vi.fn() });
+      render(Settings, {
+        progressExporter: exporter(),
+        settingsRepository,
+        onPresetChange: vi.fn(),
+        onBack: vi.fn(),
+      });
 
       await screen.findByRole('radiogroup', { name: 'Idle close' });
       expect(idlePreset('5 min').getAttribute('aria-checked')).toBe('true');
@@ -319,7 +383,12 @@ describe('Settings', () => {
         err(new Error('quota exceeded')),
       );
       vi.spyOn(console, 'error').mockImplementation(() => {});
-      render(Settings, { settingsRepository, onPresetChange: vi.fn(), onBack: vi.fn() });
+      render(Settings, {
+        progressExporter: exporter(),
+        settingsRepository,
+        onPresetChange: vi.fn(),
+        onBack: vi.fn(),
+      });
 
       await screen.findByRole('radiogroup', { name: 'Idle close' });
       await fireEvent.click(idlePreset('10 min'));
@@ -330,7 +399,12 @@ describe('Settings', () => {
 
     it('does not re-save when the already-active idle preset is tapped again', async () => {
       const settingsRepository = repository(ok({ ...STORED, idleTimeoutMs: 120_000 }));
-      render(Settings, { settingsRepository, onPresetChange: vi.fn(), onBack: vi.fn() });
+      render(Settings, {
+        progressExporter: exporter(),
+        settingsRepository,
+        onPresetChange: vi.fn(),
+        onBack: vi.fn(),
+      });
 
       await screen.findByRole('radiogroup', { name: 'Idle close' });
       await fireEvent.click(idlePreset('2 min'));
@@ -342,6 +416,7 @@ describe('Settings', () => {
       // STORED.idleTimeoutMs (90_000) is deliberately off-preset -- mirrors
       // the ink-width toggle's coverage of an unrecognized stored value.
       render(Settings, {
+        progressExporter: exporter(),
         settingsRepository: repository(ok(STORED)),
         onPresetChange: vi.fn(),
         onBack: vi.fn(),
@@ -355,6 +430,83 @@ describe('Settings', () => {
       expect(idlePreset('2 min').className).not.toContain('pill--active');
       expect(idlePreset('5 min').className).not.toContain('pill--active');
       expect(idlePreset('10 min').className).not.toContain('pill--active');
+    });
+  });
+
+  describe('export', () => {
+    function renderWith(progressExporter: ProgressExporter): void {
+      render(Settings, {
+        settingsRepository: repository(ok(STORED)),
+        progressExporter,
+        onPresetChange: vi.fn(),
+        onBack: vi.fn(),
+      });
+    }
+
+    it('shows an Export button under a Backup heading', () => {
+      renderWith(exporter());
+
+      expect(screen.getByRole('heading', { name: 'Backup' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Export' })).toBeTruthy();
+    });
+
+    it('calls export() once per tap', async () => {
+      const progressExporter = exporter();
+      renderWith(progressExporter);
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+
+      expect(progressExporter.export).toHaveBeenCalledTimes(1);
+    });
+
+    it('ignores a second tap while an export is in flight', async () => {
+      const progressExporter = exporter();
+      let release!: (result: Result<void>) => void;
+      progressExporter.export.mockReturnValueOnce(
+        new Promise<Result<void>>((resolve) => {
+          release = resolve;
+        }),
+      );
+      renderWith(progressExporter);
+
+      const button = screen.getByRole('button', { name: 'Export' });
+      await fireEvent.click(button);
+      await fireEvent.click(button);
+      expect(progressExporter.export).toHaveBeenCalledTimes(1);
+
+      release(ok(undefined));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await fireEvent.click(button);
+      expect(progressExporter.export).toHaveBeenCalledTimes(2);
+    });
+
+    it('shows an inline note on failure, and a retry clears it', async () => {
+      const progressExporter = exporter(err(new Error('IndexedDB blocked')));
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      renderWith(progressExporter);
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+      expect(await screen.findByText("Couldn't export -- try again.")).toBeTruthy();
+
+      progressExporter.export.mockResolvedValueOnce(ok(undefined));
+      await fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+      // Let the second export() settle, so a success path that re-set the
+      // note would be caught.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(progressExporter.export).toHaveBeenCalledTimes(2);
+      expect(screen.queryByText("Couldn't export -- try again.")).toBeNull();
+    });
+
+    it('shows the note when export() rejects', async () => {
+      const progressExporter = exporter();
+      progressExporter.export.mockRejectedValueOnce(new Error('boom'));
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      renderWith(progressExporter);
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+
+      expect(await screen.findByText("Couldn't export -- try again.")).toBeTruthy();
     });
   });
 });

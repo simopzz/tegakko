@@ -44,7 +44,7 @@ FR-11: Session history view — the user can browse past session records from wi
 
 FR-12: Lossless local persistence — stroke data (grid-relative, not viewport-absolute), miss tallies, attempt records, and session records persist locally via IndexedDB, surviving reload and device restart; replayed strokes render correctly regardless of viewport size.
 
-FR-13: Export / import for backup — the user can export all local progress data (tallies, attempts, sessions — excluding raw ink) to a single JSON file and import a previously exported file to restore it, replacing current data wholesale; import validates schema+version before applying, rejecting malformed/unrecognized files with no partial write.
+FR-13: Export / import for backup — the user can export all local progress data (tallies, attempts with their stroke ink, sessions) to a single JSON file and import a previously exported file to restore it, replacing current data wholesale; import validates schema+version before applying, rejecting malformed/unrecognized files with no partial write.
 
 FR-14: Installable, offline-capable PWA — the app installs to the tablet's home screen via the browser's install prompt and runs fully offline once installed (drill, history, export/import all work with no network connection); requires HTTPS origin in production.
 
@@ -70,7 +70,7 @@ NFR-7: Import is a destructive-by-default operation — the UI must require an e
 - The `ink` adapter implements a formal `InkSurface` port (`mount(node)`, `clear()`, `onStrokeComplete(cb)`) and owns its canvas node outside Svelte's reactive tree — the `ui` adapter calls `mount()` once on `onMount` and never re-renders inside that node. The pen-check screen's live pressure readout is exempted (its own lightweight `pointermove` listener, not the stroke-complete hot path). (AD-2)
 - Card content (158-card catalog) is static, build-time TypeScript data (`domain/cards.ts`) compiled into the bundle — `CardRepository` is an in-memory adapter (`adapters/content`), not IndexedDB-backed. `cardId` is the natural key `"<grapheme>:<script>"`. (AD-3)
 - IndexedDB schema (via `idb`), 4 object stores: `tallies` (`{cardId, missCount}`), `attempts` (embeds `strokes[]` grid-relative, plus `sessionId`, `cardId`, `timestamp`, `timeToFirstStrokeMs`, `totalTimeMs`, `strokeCount`, `revealUsed`, `selfGrade`), `sessions` (`{id, date, scope:{scripts,units}, cardsAttempted, accuracy, closureReason}`), `settings` (singleton: `{widthPreset, idleTimeoutMs, penCheckShown}`). `closureReason` is the one canonical field/type: `'explicit'|'full-scope'|'inactivity'`. (AD-4, AD-11)
-- Export/import: `io` adapter maps `Attempt → AttemptExport` (all fields except `strokes`) before serializing; import validates against `AttemptExport` schema + `version` field before applying; a valid import deletes and replaces all current `tallies`/`attempts`/`sessions` wholesale, never merges. (AD-5)
+- Export/import: `io` adapter maps `Attempt → AttemptExport` (all fields, `strokes` in compact rounded `[x, y, pressure]` form) before serializing; import validates against `AttemptExport` schema + `version` field before applying; a valid import deletes and replaces all current `tallies`/`attempts`/`sessions` wholesale, never merges. (AD-5)
 - Repository port signatures are fixed, not left to implementers: `CardRepository.getAll()/getById()`; `TallyRepository.getAll()/increment(cardId)/decrement(cardId)` (both atomic, decrement clamps at zero, used only by undo); `AttemptRepository.add()/listBySession()/listAll()` (returns complete unpaginated history — never truncated/paginated by default) `/deleteLast(sessionId)`; `SessionRepository.add()/list()`; `SettingsRepository.get()/save()`. (AD-9)
 - Weak-spot selection is a pure domain function `selectNext(attempts: Attempt[], scope: Scope): Card` — no `tallies` param, no clock/schedule input; candidates resolved by filtering the static catalog by scope internally; score decays by elapsed wall-clock time since each incorrect attempt's timestamp (never ordinal position); a correct attempt discounts prior incorrect attempts for that card; sampler enforces a nonzero-probability floor for every candidate. `attempts` is loaded once via `listAll()` at session start and appended to in-memory as new attempts are recorded within that session (not re-fetched per candidate/selection). (AD-10)
 - Undo-last-grade (`undoLastGrade(sessionId)`) is a single atomic domain operation: `AttemptRepository.deleteLast()`, then conditionally `TallyRepository.decrement(cardId)` if the undone grade was incorrect, plus removal from AD-10's in-memory attempts list — called once by `ui`, never sequenced as separate port calls by the UI layer. (AD-13)
@@ -153,7 +153,7 @@ A user can install the app on their tablet, pick a practice scope, write kana fr
 **Also includes:** the full greenfield scaffold (no starter template exists), the hexagonal domain/ports/adapters skeleton, and every architecture/UX requirement except the import-warning modal (UX-DR10) and the `io` adapter (AD-5) — those belong to Epic 2.
 
 ### Epic 2: Backup & Portability
-A user can export all local progress (tallies, attempts, sessions — never raw ink) to a JSON file, and later import a previously exported file to restore it — a safety net against browser/OS storage being cleared, requiring an explicit confirm before the destructive replace.
+A user can export all local progress (tallies, attempts including their stroke ink, sessions) to a JSON file, and later import a previously exported file to restore it — a safety net against browser/OS storage being cleared, requiring an explicit confirm before the destructive replace.
 
 **FRs covered:** FR-13
 **NFRs covered:** NFR-7
@@ -618,11 +618,11 @@ So that I have a backup if my browser or device storage is ever cleared.
 
 **Given** the user taps Export
 **When** the export runs
-**Then** the `io` adapter maps every persisted `Attempt` to an `AttemptExport` (all fields except `strokes`) and produces a single JSON file with the envelope `{version, exportedAt, tallies, attempts: AttemptExport[], sessions}`.
+**Then** the `io` adapter maps every persisted `Attempt` to an `AttemptExport` (all fields, with `strokes` as compact `{widthPreset, points: [x, y, pressure][]}` rounded to 4 decimals) and produces a single plain JSON file with the envelope `{version, exportedAt, tallies, attempts: AttemptExport[], sessions}`.
 
 **Given** the exported file
 **When** inspected
-**Then** it contains no raw stroke/ink data anywhere, while still containing every tally, attempt (minus strokes), and session record currently persisted.
+**Then** it contains every tally, attempt (with its strokes), and session record currently persisted. *(Amended 2026-09-23 — Story 2.1: export now includes stroke/ink data.)*
 
 **Given** the export completes
 **When** the browser handles the download
@@ -650,7 +650,7 @@ So that I can recover after clearing storage or reinstalling — with a clear wa
 
 **Given** the user confirms the import-warning modal
 **When** the import applies
-**Then** all current `tallies`, `attempts`, and `sessions` are deleted and replaced wholesale with the imported data — never merged record-by-record.
+**Then** all current `tallies`, `attempts`, and `sessions` are deleted and replaced wholesale with the imported data (attempts' compact strokes expanded back to the persisted `Stroke` shape) — never merged record-by-record.
 
 **Given** a malformed or unrecognized file (wrong shape or missing/mismatched version)
 **When** import is attempted
