@@ -1,18 +1,18 @@
 <script lang="ts">
   // Drill screen (Story 1.3): prompt -> write from memory -> self-grade.
   //
-  // Follows ScopePicker.svelte's pattern (a scoped style block over existing
-  // theme tokens, callback props, no local routing). NB: a literal style or
-  // script tag written out in a comment here makes svelte-check parse the
-  // whole component as one unterminated script -- hence the prose.
-  // The drill's sub-states (blank
-  // vs. written) are local component state, never members of the `Screen`
-  // union (AD-12).
+  // NB: a literal style or script tag written out in a comment here makes
+  // svelte-check parse the whole component as one unterminated script --
+  // hence the prose. Drill sub-states are local component state, never
+  // members of the `Screen` union (AD-12).
   //
   // The ink surface arrives as a port instance from the composition root --
   // `adapters/ui` never imports `adapters/ink` (AD-1, enforced by
   // import-x/no-restricted-paths). Svelte renders NOTHING inside `.cell`:
   // the adapter owns that node's contents (AD-2).
+  //
+  // All non-rendering bookkeeping (queue, idle, closure, grade/undo
+  // persistence) lives in `DrillSession`; this keeps render state only.
   import { onMount, tick, untrack } from 'svelte';
   import type { Card, Script } from '../../domain/cards';
   import type { Scope } from '../../domain/scope';
@@ -22,11 +22,9 @@
   import type { AttemptRepository } from '../../ports/attempt-repository';
   import type { TallyRepository } from '../../ports/tally-repository';
   import type { Tally } from '../../domain/tally';
-  import type { Result } from '../../domain/result';
-  import { sampleSessionCards, undoLastGrade } from '../../domain/drill';
   import type { SessionRepository } from '../../ports/session-repository';
-  import type { ClosureReason, SessionSummaryView } from '../../domain/session';
-  import { isSessionIdle, buildSummary, buildSessionRecord } from '../../domain/session';
+  import type { SessionSummaryView } from '../../domain/session';
+  import { DrillSession } from './drill-session';
 
   interface Props {
     scope: Scope;
@@ -68,101 +66,66 @@
     onClose,
   }: Props = $props();
 
-  // Minted once per drill entry -- the composition root builds a fresh
-  // component per entry (same lifetime as `card`, below), so this is stable
-  // for every attempt this instance ever persists.
-  const sessionId = crypto.randomUUID();
-
-  // Story 1.9's closure bookkeeping. `sessionStartedAt` is the origin
-  // `closeSession`'s `timeMs` measures from; `lastInteractionAt` is updated
-  // by every interaction (`recordInteraction`) and read-only otherwise --
-  // idle detection is retroactive, never a live timer (Boundaries &
-  // Constraints). `closed` guards every closure path against firing twice.
-  const sessionStartedAt = Date.now();
-  let lastInteractionAt = Date.now();
-  let closed = false;
+  // One session per drill entry -- the composition root builds a fresh
+  // component per entry. `untrack`: a deliberate one-shot seed, not a
+  // subscription to the props -- Svelte otherwise warns
+  // (state_referenced_locally) about exactly that. `$state.snapshot`:
+  // `scope` arrives as a Svelte 5 deep proxy (App's `$state` plus
+  // `$props()` re-wrapping), and a proxy is not structured-cloneable --
+  // handing it on to `sessionRepository.add()` verbatim makes IndexedDB
+  // reject the write with a DataCloneError, so the session silently never
+  // persists. Snapshot to plain data at this boundary; every other record
+  // field is already plain (`strokes` is deliberately a non-`$state` local).
+  const session = untrack(
+    () =>
+      new DrillSession({
+        scope: $state.snapshot(scope),
+        sessionSize,
+        attempts,
+        tallies,
+        idleTimeoutMs,
+        attemptRepository,
+        tallyRepository,
+        sessionRepository,
+        onClose,
+      }),
+  );
+  const queue = session.queue;
 
   const scriptLabel: Record<Script, string> = {
     hiragana: 'Hiragana',
     katakana: 'Katakana',
   };
 
-  // Populated only by this drill entry's own `handleGrade`/`handleUndo` --
-  // the only attempts array `buildSummary`/`buildSessionRecord` ever read
-  // from. Routing those through the learner's entire *lifetime* `attempts`
-  // prop instead would auto-close a returning learner's session after a
-  // single grade and report lifetime totals on the Summary screen (Spec
-  // Change Log, review pass 1's `bad_spec` finding). Sampling itself needs
-  // no equivalent mirror of `attempts` -- `sampleSessionCards` (below) reads
-  // the `attempts` prop directly, once, at mount (AD-10) -- so there is no
-  // `sessionAttempts` array to keep in sync alongside this one.
-  const thisSessionAttempts: Attempt[] = [];
-
-  // Plain, mirrors `thisSessionAttempts` above -- seeded once from the
-  // session-start `tallies` prop, updated in-memory as grades/undos happen,
-  // never re-fetched (Story 1.8's Boundaries & Constraints). Deliberately a
-  // plain `Map`, not `SvelteMap`: nothing renders from it directly (its only
-  // readers are `handleGrade`'s `tallyCount` computation and `handleUndo`'s
-  // decrement), so it needs no reactivity of its own.
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- plain, non-rendering lookup; see comment above.
-  const cardTallies = new Map(untrack(() => tallies.map((t) => [t.cardId, t.missCount])));
-
-  // Sampled exactly once, at mount, from the `attempts` prop as loaded --
-  // weighted-without-replacement, then uniform-shuffled (AD-10). Fixed for
-  // the lifetime of this drill entry: never re-sampled, appended to, or
-  // reordered mid-session. `untrack`: a deliberate one-shot seed, not a
-  // subscription to `attempts`/`scope`/`sessionSize` -- Svelte otherwise
-  // warns (state_referenced_locally) about exactly that. `scope` is fixed
-  // for the lifetime of a drill entry (the composition root builds a fresh
-  // component per entry), so capturing its initial value is the intent.
-  const queue: Card[] = untrack(() => sampleSessionCards(attempts, scope, sessionSize));
-
-  // Index into `queue` of the card currently on screen. Advances only on
-  // "Next character" (`handleNext`), never on the grade itself (Story 1.8's
-  // deferred-advance pattern) -- Undo therefore needs no queue-reinsertion
-  // logic: the pointer can never have passed the just-graded card while
-  // Undo is offered (AD-13).
+  // Index into `queue` of the card on screen. Advances only on "Next
+  // character", never on the grade itself (Story 1.8's deferred-advance
+  // pattern), so Undo needs no queue reinsertion (AD-13).
   let queueIndex = $state(0);
-  // 1-based, purely for display -- `queueIndex + 1`, kept as its own
-  // `$derived` rather than a hand-incremented `$state` so it can never
-  // desync from `queueIndex`.
+  // 1-based, display-only; `$derived` so it can never desync.
   const position = $derived(queueIndex + 1);
   let card = $state<Card>(queue[0]!);
   let hasInk = $state(false);
-  // Reveal (Story 1.4): active the instant a prompt appears, resets on every
-  // grade alongside `hasInk`. Once true it unlocks Missed/Correct even from a
+  // Reveal (Story 1.4): once true it unlocks Missed/Correct even from a
   // blank cell -- revealing nothing is itself an honest "I don't know".
   let revealed = $state(false);
 
-  // Story 1.8's deferred-advance toast. Set the instant a grade is submitted
-  // (`handleGrade`), cleared by either `handleUndo` or `handleNext`. While
-  // set, Missed/Correct/Reveal stay disabled and the prompt/ink/strokes are
-  // exactly as they were the instant the grade fired -- the advance itself
-  // (queue index/clear/reset) is deferred to `handleNext`, so Undo needs no
-  // restore mechanism.
+  // Story 1.8's deferred-advance toast: set by `handleGrade`, cleared by
+  // `handleUndo`/`handleNext`. While set, Missed/Correct/Reveal stay disabled
+  // and prompt/ink/strokes stay frozen, so Undo needs no restore mechanism.
   let graded = $state<{ cardId: string; grade: SelfGrade; tallyCount: number | null } | null>(
     null,
   );
-  // The in-flight `add()`/`increment()` promises fired by the grade `graded`
-  // describes -- `handleUndo` awaits both before calling `deleteLast`/
-  // `decrement`, so a fast Undo can never race the write it's meant to
-  // reverse (Boundaries & Constraints). Plain, not `$state`: nothing renders
-  // from these.
-  let pendingAttemptWrite: Promise<Result<void>> | undefined;
-  let pendingTallyWrite: Promise<Result<void>> | undefined;
-  // Guards `handleUndo` against re-entrancy: a double-tap on "Undo" (or a
-  // stray double keyboard activation) before its `await`s settle would
-  // otherwise pop `thisSessionAttempts` and call `undoLastGrade` twice for
-  // one grade (mirrors `App.svelte`'s `starting` guard on `handleStart`).
+  // Component-side undo-in-flight flag: drives rendering (dims "Next
+  // character") and `handleUndo`'s double-tap guard. `DrillSession`'s own
+  // flag is authoritative for session-level guards (idle/close/interaction).
+  // Set synchronously around the awaited `session.undoLastGrade()`.
   let undoing = $state(false);
 
-  // Story 1.5's persistence locals. None of these render anything -- `hasInk`
-  // above already drives the UI -- so they are plain `let`, not `$state`.
-  // Every completed stroke since the last Clear/grade, embedded verbatim into
-  // the persisted `Attempt`.
+  // Story 1.5's per-prompt ink bookkeeping: plain `let`, nothing renders
+  // from it. Every stroke since the last Clear/advance, persisted verbatim.
   let strokes: Stroke[] = [];
   // `performance.now()` when the current prompt appeared (and again after
-  // each grade, for the next one) -- the origin `timeToFirstStrokeMs` and
+  // each advance, for the next one) -- the origin `timeToFirstStrokeMs` and
   // `totalTimeMs` are both measured from.
   let promptShownAt = performance.now();
   // The first post-Clear stroke's `pointerdown` time, same clock as
@@ -170,13 +133,8 @@
   // `undefined` through a reveal-from-blank grade.
   let firstStrokeStartedAt: number | undefined;
 
-  // Sampling is without replacement (sampled once at session start, AD-10),
-  // so the counter advances exactly one per grade and always reaches exactly
-  // 100% -- it can never exceed `queue.length` (Boundaries & Constraints: no
-  // overshoot-handling needed). Full-scope closure (Story 1.9) fires once
-  // `queue` is exhausted, checked directly in `handleNext` below. The text
-  // counter is never the only position signal -- it always shows alongside
-  // this bar.
+  // Sampled without replacement (AD-10): always reaches exactly 100%, never
+  // overshoots. Always shown alongside the text counter, never alone.
   const progress = $derived(position / queue.length);
 
   // Assigned by `bind:this` before `onMount` runs; typed as possibly
@@ -189,46 +147,12 @@
   // block (A4's action row swap), so it's rebound/unbound on every toast
   // show/hide, not just once at mount.
   let missedButton: HTMLButtonElement | undefined = $state();
-  // Focus target after a grade fires and the toast appears: Missed/Correct
-  // become `disabled` the same way Reveal does above, so focus would
-  // otherwise drop to `<body>` right as two new controls (Undo/Next
-  // character) appear. `$state`, unlike `missedButton` above: this one binds
-  // inside a conditional (`{#if graded}`) block, so it's rebound/unbound on
-  // every toast show/hide rather than once at mount.
+  // Focus target once the toast appears (Missed/Correct just went
+  // `disabled`); `$state` for the same conditional-binding reason.
   let undoButton: HTMLButtonElement | undefined = $state();
 
-  // Story 1.9's idle-detection mechanism: retroactive, never a live timer.
-  // Every interaction routes through `recordInteraction` first -- if idle
-  // time has already elapsed, that interaction closes the session instead
-  // of landing, and is itself dropped (Boundaries & Constraints).
-  function recordInteraction(): boolean {
-    // Guards `undoing` too (same reasoning as `checkIdleOnResume`/
-    // `handleExplicitClose`): an interaction landing mid-Undo must neither
-    // bump `lastInteractionAt` nor close/persist ahead of the in-flight
-    // reversal -- it is dropped, exactly like the idle-revealing interaction.
-    if (closed || undoing) return false;
-    if (isSessionIdle(lastInteractionAt, idleTimeoutMs)) {
-      closeSession('inactivity', lastInteractionAt);
-      return false;
-    }
-    lastInteractionAt = Date.now();
-    return true;
-  }
-
-  // Fired on `visibilitychange`/`focus` (below): the same idle check as
-  // `recordInteraction`, but never updates `lastInteractionAt` itself -- a
-  // resume is not, on its own, proof of presence the way an actual
-  // interaction is. Guards `undoing` too: firing mid-Undo (its pending
-  // attempt/tally writes still in flight) would otherwise close/persist the
-  // session counting the not-yet-reversed grade while the in-flight Undo
-  // still reverses it afterward, desyncing the persisted session from the
-  // attempts/tallies store.
-  function checkIdleOnResume(): void {
-    if (undoing) return;
-    if (isSessionIdle(lastInteractionAt, idleTimeoutMs)) {
-      closeSession('inactivity', lastInteractionAt);
-    }
-  }
+  // No-op mid-undo (see `DrillSession.checkIdleOnResume`'s guard).
+  const checkIdleOnResume = (): void => session.checkIdleOnResume();
 
   onMount(() => {
     if (!cell) return;
@@ -242,8 +166,8 @@
       // A stroke is itself an interaction: if it arrives idle-eligible, it
       // closes the session instead of landing -- the interaction that
       // reveals an idle session is dropped, never recorded as part of the
-      // closed session (Boundaries & Constraints).
-      if (!recordInteraction()) return;
+      // closed session.
+      if (!session.recordInteraction()) return;
       hasInk = true;
       strokes.push(stroke);
       // Only the first stroke since the last Clear/grade sets this --
@@ -252,8 +176,7 @@
     });
     inkSurface.mount(cell);
     // Idle detection is retroactive, never a live timer: every resume
-    // (`visibilitychange`/`focus`) re-checks elapsed idle time against
-    // `lastInteractionAt` instead of a running countdown.
+    // re-checks elapsed idle time instead of a running countdown.
     document.addEventListener('visibilitychange', checkIdleOnResume);
     window.addEventListener('focus', checkIdleOnResume);
     return () => {
@@ -264,7 +187,7 @@
   });
 
   function handleClear(): void {
-    if (!recordInteraction()) return;
+    if (!session.recordInteraction()) return;
     // Clear never advances and never grades: same prompt, empty cell. Only
     // the post-Clear stroke(s) may end up persisted, so the in-progress
     // stroke bookkeeping resets too -- `promptShownAt` does not, since the
@@ -276,7 +199,7 @@
   }
 
   function handleReveal(): void {
-    if (!recordInteraction()) return;
+    if (!session.recordInteraction()) return;
     // Never assigns a grade -- Missed/Correct stay required afterward.
     revealed = true;
     // Move focus onto the newly-active Missed button so a keyboard/screen
@@ -285,74 +208,19 @@
   }
 
   function handleGrade(grade: SelfGrade): void {
-    if (!recordInteraction()) return;
-    // A grade always persists an attempt, ink or not, reveal or not (I/O
-    // matrix) -- built and fired before the state below resets for the next
-    // card. Never awaited: persistence must not block advancing (Boundaries
-    // & Constraints), so a slow or failing write is logged, not blocking.
-    const gradedAt = performance.now();
-    const totalTimeMs = gradedAt - promptShownAt;
-    const timeToFirstStrokeMs =
-      firstStrokeStartedAt === undefined ? totalTimeMs : firstStrokeStartedAt - promptShownAt;
-    const attempt: Attempt = {
-      id: crypto.randomUUID(),
-      sessionId,
-      cardId: card.cardId,
-      timestamp: new Date().toISOString(),
-      timeToFirstStrokeMs,
-      totalTimeMs,
-      strokeCount: strokes.length,
-      revealUsed: revealed,
-      selfGrade: grade,
+    if (!session.recordInteraction()) return;
+    // A grade always persists an attempt, ink or not, reveal or not; the
+    // writes are never awaited. The advance (queue index/clear/reset) is
+    // deferred to `handleNext` -- the toast shows instead, offering Undo
+    // (always) and the new cumulative tally (only on Missed).
+    const tallyCount = session.recordGrade({
+      card,
+      grade,
       strokes,
-    };
-    // This drill entry's own attempts only (Story 1.9) -- feeds
-    // `buildSummary`/`buildSessionRecord`. The sampled `queue` above needs
-    // no equivalent append: it was drawn once at mount and never grows or
-    // reorders mid-session (AD-10).
-    thisSessionAttempts.push(attempt);
-    // Captured (not awaited here) so `handleUndo` can await the same
-    // promise before calling `deleteLast` -- a fast Undo could otherwise
-    // race the write it's meant to reverse. The logging chain below still
-    // fires independently and never blocks advancing.
-    const attemptWrite = attemptRepository.add(attempt);
-    pendingAttemptWrite = attemptWrite;
-    void attemptWrite
-      .then((result) => {
-        if (!result.ok) console.error('Failed to persist attempt:', result.error);
-      })
-      .catch((error: unknown) => {
-        console.error('Failed to persist attempt:', error);
-      });
-
-    // Every self-graded Missed bumps the card's running miss tally -- never
-    // Correct (Boundaries & Constraints). Same never-awaited pattern as the
-    // attempt write above: persistence must not block advancing.
-    if (grade === 'incorrect') {
-      const tallyWrite = tallyRepository.increment(card.cardId);
-      pendingTallyWrite = tallyWrite;
-      void tallyWrite
-        .then((result) => {
-          if (!result.ok) console.error('Failed to increment tally:', result.error);
-        })
-        .catch((error: unknown) => {
-          console.error('Failed to increment tally:', error);
-        });
-    } else {
-      pendingTallyWrite = undefined;
-    }
-
-    // Defer the advance (queue index/clear/reset) to `handleNext` -- the
-    // toast shows instead, offering Undo (always) and the new cumulative
-    // tally (only on Missed). Committed here (not just computed) so a later
-    // Missed grade on the same card this session reads the updated count
-    // instead of the stale pre-grade one -- `handleUndo`'s decrement is what
-    // reverses exactly this write.
-    let tallyCount: number | null = null;
-    if (grade === 'incorrect') {
-      tallyCount = (cardTallies.get(card.cardId) ?? 0) + 1;
-      cardTallies.set(card.cardId, tallyCount);
-    }
+      revealed,
+      promptShownAt,
+      firstStrokeStartedAt,
+    });
     graded = { cardId: card.cardId, grade, tallyCount };
     // Move focus onto Undo, the same way Reveal moves it onto Missed:
     // Missed/Correct/Reveal just went `disabled`, and the toast's two
@@ -361,19 +229,14 @@
   }
 
   function handleNext(): void {
-    if (!recordInteraction()) return;
+    if (!session.recordInteraction()) return;
     // Full-scope closure (Story 1.9) rides this existing tap rather than a
     // new control: the queue-completing grade still shows the normal
-    // toast/Undo, and only tapping past it (here, with no next queue entry
-    // to load) closes the session -- exact, since `queue` is sampled without
-    // replacement (AD-10), never merely "probably done".
-    if (queueIndex + 1 >= queue.length) {
-      closeSession('full-scope', Date.now());
+    // toast/Undo, and only tapping past it closes the session.
+    if (session.isLastCard(queueIndex)) {
+      session.closeFullScope();
       return;
     }
-    // Exactly the advance block that used to run at the end of `handleGrade`
-    // (Story 1.8 defers it to here) -- now a queue-pointer advance instead
-    // of a fresh weighted draw.
     queueIndex += 1;
     card = queue[queueIndex]!;
     revealed = false;
@@ -383,130 +246,24 @@
     firstStrokeStartedAt = undefined;
     promptShownAt = performance.now();
     graded = null;
-    pendingAttemptWrite = undefined;
-    pendingTallyWrite = undefined;
+    session.clearUndoable();
   }
 
   async function handleUndo(): Promise<void> {
-    if (!recordInteraction()) return;
-    // Re-entrancy guard: a double-tap before the `await`s below settle would
-    // otherwise run everything from here down twice for one grade (pop
-    // `thisSessionAttempts` twice, decrement `cardTallies` twice, call
-    // `undoLastGrade` twice).
+    if (!session.recordInteraction()) return;
     if (!graded || undoing) return;
     undoing = true;
     try {
-      const { cardId, grade } = graded;
-      // Await the pending writes first -- a fast Undo must never race the
-      // store it's meant to reverse (Boundaries & Constraints). Their
-      // resolved `Result` (not just settlement) matters below: a write that
-      // never actually landed has nothing in the store for `undoLastGrade`
-      // to reverse.
-      const attemptWriteResult = await pendingAttemptWrite?.catch(
-        (error: unknown): Result<void> => ({
-          ok: false,
-          error: error instanceof Error ? error : new Error(String(error)),
-        }),
-      );
-      const tallyWriteResult =
-        grade === 'incorrect'
-          ? await pendingTallyWrite?.catch(
-              (error: unknown): Result<void> => ({
-                ok: false,
-                error: error instanceof Error ? error : new Error(String(error)),
-              }),
-            )
-          : undefined;
-
-      // Unconditional, regardless of the repository calls' outcome below --
-      // the in-memory mirror must reflect "this grade never happened"
-      // either way. No queue-side reversal needed alongside it: `queueIndex`
-      // only ever advances on "Next character", which Undo is offered as an
-      // alternative to, so the pointer has never passed this card while
-      // Undo is reachable (AD-13) -- there is nothing to reinsert.
-      thisSessionAttempts.pop();
-      if (grade === 'incorrect') {
-        cardTallies.set(cardId, Math.max(0, (cardTallies.get(cardId) ?? 0) - 1));
-      }
-
-      // Only reverse what the store actually recorded: if `add()` never
-      // succeeded, nothing was persisted for `deleteLast` to remove, and
-      // calling it anyway would delete an unrelated, previously-persisted
-      // attempt for this session instead of no-op'ing. Same reasoning for
-      // `decrement` against a failed `increment()`.
-      if (attemptWriteResult?.ok) {
-        const wasIncorrect = grade === 'incorrect' && tallyWriteResult?.ok === true;
-        const result = await undoLastGrade(
-          sessionId,
-          cardId,
-          wasIncorrect,
-          attemptRepository,
-          tallyRepository,
-        );
-        if (!result.ok) console.error('Failed to undo grade:', result.error);
-      }
-
+      await session.undoLastGrade();
       graded = null;
-      pendingAttemptWrite = undefined;
-      pendingTallyWrite = undefined;
     } finally {
       undoing = false;
     }
   }
 
-  // Closes the session exactly once, regardless of which of the three
-  // triggers fired it (Boundaries & Constraints). An idle closure's
-  // `dateIso`/`timeMs` are backdated to `closedAt` (`lastInteractionAt`,
-  // when activity actually stopped) rather than credited to whenever the
-  // app happened to resume; every other closure uses `Date.now()`.
-  function closeSession(reason: ClosureReason, closedAt: number): void {
-    if (closed) return;
-    closed = true;
-    const effectiveClosedAt = reason === 'inactivity' ? closedAt : Date.now();
-    const dateIso = new Date(effectiveClosedAt).toISOString();
-    // Clamped at 0: a backward system-clock adjustment mid-session would
-    // otherwise yield a negative duration (device clock skew -- this is an
-    // offline client with no server clock authority, mirrors
-    // `domain/drill.ts`'s `score()` clamp).
-    const timeMs = Math.max(0, effectiveClosedAt - sessionStartedAt);
-    // `thisSessionAttempts`, never the learner's lifetime `attempts` prop --
-    // the persisted record and the Summary view must reflect only this
-    // session's own attempts (Spec Change Log).
-    const summary = buildSummary(thisSessionAttempts, cardTallies, reason, timeMs);
-    // `sessionId`, not a fresh UUID -- keeps the persisted `Session.id`
-    // correlated with this session's own `Attempt.sessionId` values.
-    // `$state.snapshot`: `scope` arrives as a Svelte 5 deep proxy (App's
-    // `$state` plus `$props()` re-wrapping), and a proxy is not
-    // structured-cloneable -- handing it to `sessionRepository.add()`
-    // verbatim makes IndexedDB reject the write with a DataCloneError, so
-    // the session silently never persists (only a console.error remains).
-    // Snapshot to plain data at this boundary; every other record field is
-    // already plain (`strokes` is deliberately a non-`$state` local above).
-    const record = buildSessionRecord(sessionId, $state.snapshot(scope), thisSessionAttempts, reason, dateIso);
-    // Fire-and-forget, logged on failure, same as every other write in this
-    // codebase (Boundaries & Constraints) -- it must never block reaching
-    // the Summary screen.
-    void sessionRepository
-      .add(record)
-      .then((result) => {
-        if (!result.ok) console.error('Failed to persist session:', result.error);
-      })
-      .catch((error: unknown) => {
-        console.error('Failed to persist session:', error);
-      });
-    onClose(summary);
-  }
-
-  // "I'm done" always closes with `closureReason: 'explicit'` immediately,
-  // regardless of elapsed idle time -- never routed through
-  // `recordInteraction`/gated by the idle check, so a deliberate close is
-  // never confusingly relabeled as an idle one (Boundaries & Constraints).
-  // Guards `undoing` too, same reasoning as `checkIdleOnResume` above -- a
-  // tap landing mid-Undo must not close/persist the session ahead of that
-  // Undo's still-in-flight reversal.
+  // No-op once closed or mid-undo (see `DrillSession.closeExplicit`'s guards).
   function handleExplicitClose(): void {
-    if (closed || undoing) return;
-    closeSession('explicit', Date.now());
+    session.closeExplicit();
   }
 </script>
 
