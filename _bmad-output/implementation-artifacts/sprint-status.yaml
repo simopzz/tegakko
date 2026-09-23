@@ -81,7 +81,7 @@ action_items:
     action: "Extract Drill.svelte queue/idle/grade helpers before Epic 2 to cap 1001-line
       growth"
     owner: "simo"
-    status: open
+    status: done
     ref: "/home/simopzz/dev/personal/tegakko/_bmad-output/implementation-artifacts/epic-1-retro-09-10-2026.md"
   - id: "epic-1-retro-item-3-run-deferred-work-sweep-bmad-loop-sweep"
     epic: 1
