@@ -17,6 +17,7 @@
   import { IdbSessionRepository } from '../adapters/persistence/session-repository';
   import { InMemoryCardRepository } from '../adapters/content/card-repository';
   import { CanvasInkSurface } from '../adapters/ink/canvas-ink-surface';
+  import { JsonProgressExporter } from '../adapters/io/json-progress-exporter';
   import type { InkSurface } from '../ports/ink-surface';
   import type { SessionRepository } from '../ports/session-repository';
   import {
@@ -38,6 +39,13 @@
   const tallyRepository = new IdbTallyRepository();
   const sessionRepository: SessionRepository = new IdbSessionRepository();
   const cardRepository = new InMemoryCardRepository();
+  // Story 2.1: the io adapter reads through the same repo instances as the
+  // rest of the app -- it never imports `adapters/persistence` itself (AD-1).
+  const progressExporter = new JsonProgressExporter({
+    attempts: attemptRepository,
+    tallies: tallyRepository,
+    sessions: sessionRepository,
+  });
 
   // A canvas can't read CSS custom properties, so `theme.css`'s token values
   // are handed to the ink adapter from here -- the composition root is the
@@ -204,7 +212,12 @@
       onSessionSizeChange={(next) => (sessionSize = next)}
     />
   {:else if screen === 'settings'}
-    <Settings {settingsRepository} onPresetChange={handlePresetChange} onBack={handleSettingsBack} />
+    <Settings
+      {settingsRepository}
+      {progressExporter}
+      onPresetChange={handlePresetChange}
+      onBack={handleSettingsBack}
+    />
   {:else if screen === 'drill' && inkSurface}
     <Drill
       {scope}

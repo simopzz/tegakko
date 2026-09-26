@@ -69,8 +69,8 @@ Existing kana tools test recognition, not recall: Renshuu traces the correct str
   - **success:** A full reload/process-kill reproduces prior tallies, attempts, and sessions exactly, and replayed strokes render correctly regardless of viewport size.
 
 - **CAP-13** — Export / import for backup
-  - **intent:** The user can export all local progress data (tallies, attempts, sessions — excluding raw ink) to a JSON file and import a previously exported file to restore it, replacing current data.
-  - **success:** Export produces one JSON file with tallies/attempts/sessions and no stroke ink; import from a valid file replaces current local data wholesale; import of a malformed/unrecognized file is rejected with an error and no partial write.
+  - **intent:** The user can export all local progress data (tallies, attempts with their stroke ink, sessions) to a JSON file and import a previously exported file to restore it, replacing current data.
+  - **success:** Export produces one plain JSON file with tallies/attempts (including their grid-relative strokes)/sessions; import from a valid file replaces current local data wholesale; import of a malformed/unrecognized file is rejected with an error and no partial write.
 
 - **CAP-14** — Installable, offline-capable PWA
   - **intent:** The app installs to the tablet's home screen via the browser's install prompt and runs fully offline once installed.
@@ -85,7 +85,7 @@ Existing kana tools test recognition, not recall: Renshuu traces the correct str
 - Not a spaced-repetition system — no due dates, review intervals, or scheduling state machine is ever added to the miss-tally mechanism.
 - Production origin must be HTTPS — Delegated Ink Trails requires a secure context.
 - The genkouyoushi grid and ink strokes render on one canvas element, never two layered canvases — avoids a known black-canvas compositing bug hit in the web PoC under Delegated Ink Trails.
-- Export excludes raw stroke/ink data; import always replaces current local data wholesale, never merges (destructive by default).
+- Export includes each attempt's grid-relative stroke data (compact, rounded, plain JSON — no compression in v1); import restores it and always replaces current local data wholesale, never merges (destructive by default).
 - Weak-spot recency weighting (CAP-7) is computed at selection time from Attempt history (CAP-8), not stored on Tally — Tally's own schema stays `{cardId, missCount}`, no timestamp or interval added to it.
 - Architecture follows Ports & Adapters (Hexagonal); the ink adapter is isolated from the Svelte reactive tree for latency — full rule set in `ARCHITECTURE-SPINE.md`.
 
