@@ -5,7 +5,10 @@ import { DEFAULT_SETTINGS, type Settings as SettingsRecord } from '../../domain/
 import { err, ok } from '../../domain/result';
 import type { SettingsRepository } from '../../ports/settings-repository';
 import type { ProgressExporter } from '../../ports/progress-exporter';
+import type { PendingImport, ProgressImporter } from '../../ports/progress-importer';
+import { ImportError } from '../../domain/import';
 import type { Result } from '../../domain/result';
+import { formatDate } from './format-date';
 
 // Faked against the port, never `adapters/persistence` (AD-1's boundary
 // rule) -- same approach as FirstRun.test.ts.
@@ -23,6 +26,22 @@ function exporter(
   result: Result<void> = ok(undefined),
 ): ProgressExporter & { export: ReturnType<typeof vi.fn> } {
   return { export: vi.fn().mockResolvedValue(result) };
+}
+
+const PENDING: PendingImport = {
+  fileDate: '2026-09-24T08:00:00.000Z',
+  localDate: '2026-09-27T09:00:00.000Z',
+  data: { tallies: [], attempts: [], sessions: [] },
+};
+
+function importer(
+  prepared: Result<PendingImport> = ok(PENDING),
+  applied: Result<void> = ok(undefined),
+): ProgressImporter & { prepare: ReturnType<typeof vi.fn>; apply: ReturnType<typeof vi.fn> } {
+  return {
+    prepare: vi.fn().mockResolvedValue(prepared),
+    apply: vi.fn().mockResolvedValue(applied),
+  };
 }
 
 function preset(name: 'Subtle' | 'Expressive' | 'Calligraphy'): HTMLElement {
@@ -46,6 +65,7 @@ describe('Settings', () => {
   it('preselects the preset the repository reports', async () => {
     render(Settings, {
       progressExporter: exporter(),
+      progressImporter: importer(),
       settingsRepository: repository(ok(STORED)),
       onPresetChange: vi.fn(),
       onBack: vi.fn(),
@@ -59,6 +79,7 @@ describe('Settings', () => {
   it('keeps exactly one segment active after a tap', async () => {
     render(Settings, {
       progressExporter: exporter(),
+      progressImporter: importer(),
       settingsRepository: repository(ok(STORED)),
       onPresetChange: vi.fn(),
       onBack: vi.fn(),
@@ -77,6 +98,7 @@ describe('Settings', () => {
     const onPresetChange = vi.fn();
     render(Settings, {
       progressExporter: exporter(),
+      progressImporter: importer(),
       settingsRepository,
       onPresetChange,
       onBack: vi.fn(),
@@ -94,6 +116,7 @@ describe('Settings', () => {
     render(Settings, {
       settingsRepository,
       progressExporter: exporter(),
+      progressImporter: importer(),
       onPresetChange: vi.fn(),
       onBack: vi.fn(),
     });
@@ -117,6 +140,7 @@ describe('Settings', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     render(Settings, {
       progressExporter: exporter(),
+      progressImporter: importer(),
       settingsRepository,
       onPresetChange,
       onBack: vi.fn(),
@@ -140,6 +164,7 @@ describe('Settings', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     render(Settings, {
       progressExporter: exporter(),
+      progressImporter: importer(),
       settingsRepository,
       onPresetChange,
       onBack: vi.fn(),
@@ -159,6 +184,7 @@ describe('Settings', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     render(Settings, {
       progressExporter: exporter(),
+      progressImporter: importer(),
       settingsRepository,
       onPresetChange: vi.fn(),
       onBack: vi.fn(),
@@ -180,6 +206,7 @@ describe('Settings', () => {
     render(Settings, {
       settingsRepository,
       progressExporter: exporter(),
+      progressImporter: importer(),
       onPresetChange: vi.fn(),
       onBack: vi.fn(),
     });
@@ -195,6 +222,7 @@ describe('Settings', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     render(Settings, {
       progressExporter: exporter(),
+      progressImporter: importer(),
       settingsRepository,
       onPresetChange: vi.fn(),
       onBack: vi.fn(),
@@ -224,6 +252,7 @@ describe('Settings', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     render(Settings, {
       progressExporter: exporter(),
+      progressImporter: importer(),
       settingsRepository,
       onPresetChange: vi.fn(),
       onBack: vi.fn(),
@@ -252,6 +281,7 @@ describe('Settings', () => {
       .mockResolvedValue(ok(undefined));
     render(Settings, {
       progressExporter: exporter(),
+      progressImporter: importer(),
       settingsRepository,
       onPresetChange: vi.fn(),
       onBack: vi.fn(),
@@ -283,6 +313,7 @@ describe('Settings', () => {
     const onBack = vi.fn();
     render(Settings, {
       progressExporter: exporter(),
+      progressImporter: importer(),
       settingsRepository: repository(ok(STORED)),
       onPresetChange: vi.fn(),
       onBack,
@@ -297,6 +328,7 @@ describe('Settings', () => {
     it('preselects the idle preset the repository reports', async () => {
       render(Settings, {
         progressExporter: exporter(),
+        progressImporter: importer(),
         settingsRepository: repository(ok({ ...STORED, idleTimeoutMs: 120_000 })),
         onPresetChange: vi.fn(),
         onBack: vi.fn(),
@@ -311,6 +343,7 @@ describe('Settings', () => {
     it('keeps exactly one segment active after a tap', async () => {
       render(Settings, {
         progressExporter: exporter(),
+        progressImporter: importer(),
         settingsRepository: repository(ok({ ...STORED, idleTimeoutMs: 120_000 })),
         onPresetChange: vi.fn(),
         onBack: vi.fn(),
@@ -328,6 +361,7 @@ describe('Settings', () => {
       const settingsRepository = repository(ok({ ...STORED, idleTimeoutMs: 120_000 }));
       render(Settings, {
         progressExporter: exporter(),
+        progressImporter: importer(),
         settingsRepository,
         onPresetChange: vi.fn(),
         onBack: vi.fn(),
@@ -343,6 +377,7 @@ describe('Settings', () => {
       const settingsRepository = repository(ok({ ...STORED, idleTimeoutMs: 120_000 }));
       render(Settings, {
         progressExporter: exporter(),
+        progressImporter: importer(),
         settingsRepository,
         onPresetChange: vi.fn(),
         onBack: vi.fn(),
@@ -364,6 +399,7 @@ describe('Settings', () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       render(Settings, {
         progressExporter: exporter(),
+        progressImporter: importer(),
         settingsRepository,
         onPresetChange: vi.fn(),
         onBack: vi.fn(),
@@ -385,6 +421,7 @@ describe('Settings', () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       render(Settings, {
         progressExporter: exporter(),
+        progressImporter: importer(),
         settingsRepository,
         onPresetChange: vi.fn(),
         onBack: vi.fn(),
@@ -401,6 +438,7 @@ describe('Settings', () => {
       const settingsRepository = repository(ok({ ...STORED, idleTimeoutMs: 120_000 }));
       render(Settings, {
         progressExporter: exporter(),
+        progressImporter: importer(),
         settingsRepository,
         onPresetChange: vi.fn(),
         onBack: vi.fn(),
@@ -417,6 +455,7 @@ describe('Settings', () => {
       // the ink-width toggle's coverage of an unrecognized stored value.
       render(Settings, {
         progressExporter: exporter(),
+        progressImporter: importer(),
         settingsRepository: repository(ok(STORED)),
         onPresetChange: vi.fn(),
         onBack: vi.fn(),
@@ -438,6 +477,7 @@ describe('Settings', () => {
       render(Settings, {
         settingsRepository: repository(ok(STORED)),
         progressExporter,
+        progressImporter: importer(),
         onPresetChange: vi.fn(),
         onBack: vi.fn(),
       });
@@ -507,6 +547,266 @@ describe('Settings', () => {
       await fireEvent.click(screen.getByRole('button', { name: 'Export' }));
 
       expect(await screen.findByText("Couldn't export -- try again.")).toBeTruthy();
+    });
+  });
+
+  describe('import', () => {
+    const INVALID = "That file isn't a tegakko backup -- nothing was changed.";
+    const FAILED = "Couldn't import -- nothing was changed.";
+    const IMPORTED = 'Imported. Your progress now matches the file.';
+
+    function renderWith(progressImporter: ProgressImporter): void {
+      render(Settings, {
+        settingsRepository: repository(ok(STORED)),
+        progressExporter: exporter(),
+        progressImporter,
+        onPresetChange: vi.fn(),
+        onBack: vi.fn(),
+      });
+    }
+
+    function fileInput(): HTMLInputElement {
+      return screen.getByTestId('import-file') as HTMLInputElement;
+    }
+
+    async function pick(contents = '{"version":1}'): Promise<void> {
+      const input = fileInput();
+      const file = new File([contents], 'backup.json', { type: 'application/json' });
+      Object.defineProperty(input, 'files', { value: [file], configurable: true });
+      await fireEvent.change(input);
+    }
+
+    function flush(): Promise<void> {
+      return new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    it('shows an Import button under Backup, next to Export', () => {
+      renderWith(importer());
+
+      expect(screen.getByRole('button', { name: 'Import' })).toBeTruthy();
+      expect(fileInput().accept).toBe('.json,application/json');
+    });
+
+    it('opens the hidden file picker from the Import button', async () => {
+      renderWith(importer());
+      const click = vi.spyOn(fileInput(), 'click').mockImplementation(() => {});
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Import' }));
+
+      expect(click).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows the warning with both dates for a valid file, and writes nothing yet', async () => {
+      const progressImporter = importer();
+      renderWith(progressImporter);
+
+      await pick('{"file":true}');
+
+      const dialog = await screen.findByRole('alertdialog');
+      expect(dialog.getAttribute('aria-modal')).toBe('true');
+      expect(progressImporter.prepare).toHaveBeenCalledWith('{"file":true}');
+      expect(
+        screen.getByText('Importing replaces everything here — tallies, attempts, history.'),
+      ).toBeTruthy();
+      expect(
+        screen.getByText(`On this device: last practiced ${formatDate(PENDING.localDate!)}`),
+      ).toBeTruthy();
+      expect(screen.getByText(`In the file: ${formatDate(PENDING.fileDate)}`)).toBeTruthy();
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel' }));
+      expect(progressImporter.apply).not.toHaveBeenCalled();
+      // Reset so the same file can be picked again.
+      expect(fileInput().value).toBe('');
+    });
+
+    it('says "nothing yet" when there is no local activity', async () => {
+      renderWith(importer(ok({ ...PENDING, localDate: null })));
+
+      await pick();
+
+      expect(await screen.findByText('On this device: nothing yet')).toBeTruthy();
+    });
+
+    it('cancel closes the warning with no apply and no note', async () => {
+      const progressImporter = importer();
+      renderWith(progressImporter);
+      await pick();
+      await screen.findByRole('alertdialog');
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+      await flush();
+
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+      expect(progressImporter.apply).not.toHaveBeenCalled();
+      expect(screen.queryByRole('status')).toBeNull();
+
+      // Picking again re-prepares.
+      await pick();
+      expect(await screen.findByRole('alertdialog')).toBeTruthy();
+      expect(progressImporter.prepare).toHaveBeenCalledTimes(2);
+    });
+
+    it('confirm applies exactly the pending import once and shows the note', async () => {
+      const progressImporter = importer();
+      renderWith(progressImporter);
+      await pick();
+      await screen.findByRole('alertdialog');
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Replace everything' }));
+
+      expect(await screen.findByText(IMPORTED)).toBeTruthy();
+      expect(progressImporter.apply).toHaveBeenCalledTimes(1);
+      expect(progressImporter.apply).toHaveBeenCalledWith(PENDING);
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+    });
+
+    it('a double tap on Replace applies exactly once', async () => {
+      const progressImporter = importer();
+      let release: (result: Result<void>) => void = () => {};
+      progressImporter.apply.mockReturnValueOnce(
+        new Promise<Result<void>>((resolve) => {
+          release = resolve;
+        }),
+      );
+      renderWith(progressImporter);
+      await pick();
+      await screen.findByRole('alertdialog');
+
+      const replace = screen.getByRole('button', { name: 'Replace everything' });
+      await fireEvent.click(replace);
+      await fireEvent.click(replace);
+      release(ok(undefined));
+
+      expect(await screen.findByText(IMPORTED)).toBeTruthy();
+      expect(progressImporter.apply).toHaveBeenCalledTimes(1);
+    });
+
+    it('a rejected file shows the inline note and no warning', async () => {
+      const progressImporter = importer(err(new ImportError('invalid', 'version: expected 1')));
+      const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+      renderWith(progressImporter);
+
+      await pick('nope');
+
+      expect(await screen.findByText(INVALID)).toBeTruthy();
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+      expect(progressImporter.apply).not.toHaveBeenCalled();
+      expect(log).toHaveBeenCalled();
+    });
+
+    it('a local read failure shows the failed note and no warning', async () => {
+      const progressImporter = importer(err(new ImportError('failed', 'IndexedDB blocked')));
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      renderWith(progressImporter);
+
+      await pick();
+
+      expect(await screen.findByText(FAILED)).toBeTruthy();
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+    });
+
+    it('an apply failure closes the warning and shows the failed note', async () => {
+      const progressImporter = importer(ok(PENDING), err(new ImportError('failed', 'aborted')));
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      renderWith(progressImporter);
+      await pick();
+      await screen.findByRole('alertdialog');
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Replace everything' }));
+
+      expect(await screen.findByText(FAILED)).toBeTruthy();
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+      expect(screen.queryByText(IMPORTED)).toBeNull();
+    });
+
+    it('Escape on the warning cancels with no apply', async () => {
+      const progressImporter = importer();
+      renderWith(progressImporter);
+      await pick();
+      const dialog = await screen.findByRole('alertdialog');
+
+      await fireEvent.keyDown(dialog, { key: 'Escape' });
+      await flush();
+
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+      expect(progressImporter.apply).not.toHaveBeenCalled();
+    });
+
+    it('makes main inert while the warning is open, and restores it after Cancel', async () => {
+      renderWith(importer());
+      const main = document.querySelector('main')!;
+      expect(main.hasAttribute('inert')).toBe(false);
+
+      await pick();
+      await screen.findByRole('alertdialog');
+      expect(main.hasAttribute('inert')).toBe(true);
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+      await flush();
+      expect(main.hasAttribute('inert')).toBe(false);
+    });
+
+    it('returns focus to the Import button after Cancel', async () => {
+      renderWith(importer());
+      await pick();
+      await screen.findByRole('alertdialog');
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+      await flush();
+
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Import' }));
+    });
+
+    it('a file that cannot be read shows the failed note without preparing', async () => {
+      const progressImporter = importer();
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      renderWith(progressImporter);
+      const input = fileInput();
+      const file = new File(['{}'], 'backup.json', { type: 'application/json' });
+      Object.defineProperty(file, 'text', { value: () => Promise.reject(new Error('unreadable')) });
+      Object.defineProperty(input, 'files', { value: [file], configurable: true });
+
+      await fireEvent.change(input);
+
+      expect(await screen.findByText(FAILED)).toBeTruthy();
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+      expect(progressImporter.prepare).not.toHaveBeenCalled();
+    });
+
+    it('keeps only one Backup note: export and import clear each other', async () => {
+      const progressExporter = exporter(err(new Error('IndexedDB blocked')));
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      render(Settings, {
+        settingsRepository: repository(ok(STORED)),
+        progressExporter,
+        progressImporter: importer(),
+        onPresetChange: vi.fn(),
+        onBack: vi.fn(),
+      });
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+      expect(await screen.findByText("Couldn't export -- try again.")).toBeTruthy();
+
+      await pick();
+      await fireEvent.click(await screen.findByRole('button', { name: 'Replace everything' }));
+      expect(await screen.findByText(IMPORTED)).toBeTruthy();
+      expect(screen.queryByText("Couldn't export -- try again.")).toBeNull();
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+      expect(await screen.findByText("Couldn't export -- try again.")).toBeTruthy();
+      expect(screen.queryByText(IMPORTED)).toBeNull();
+    });
+
+    it('an apply rejection also shows the failed note', async () => {
+      const progressImporter = importer();
+      progressImporter.apply.mockRejectedValueOnce(new Error('boom'));
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      renderWith(progressImporter);
+      await pick();
+      await screen.findByRole('alertdialog');
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Replace everything' }));
+
+      expect(await screen.findByText(FAILED)).toBeTruthy();
     });
   });
 });

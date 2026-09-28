@@ -18,6 +18,8 @@
   import { InMemoryCardRepository } from '../adapters/content/card-repository';
   import { CanvasInkSurface } from '../adapters/ink/canvas-ink-surface';
   import { JsonProgressExporter } from '../adapters/io/json-progress-exporter';
+  import { JsonProgressImporter } from '../adapters/io/json-progress-importer';
+  import { IdbProgressReplacer } from '../adapters/persistence/progress-replacer';
   import type { InkSurface } from '../ports/ink-surface';
   import type { SessionRepository } from '../ports/session-repository';
   import {
@@ -45,6 +47,14 @@
     attempts: attemptRepository,
     tallies: tallyRepository,
     sessions: sessionRepository,
+  });
+  // Story 2.2: persistence's atomic replace is handed to io through the
+  // `ProgressReplacer` port. ScopePicker and History re-read on mount, so no
+  // cache needs invalidating after an import.
+  const progressImporter = new JsonProgressImporter({
+    attempts: attemptRepository,
+    sessions: sessionRepository,
+    replacer: new IdbProgressReplacer(),
   });
 
   // A canvas can't read CSS custom properties, so `theme.css`'s token values
@@ -215,6 +225,7 @@
     <Settings
       {settingsRepository}
       {progressExporter}
+      {progressImporter}
       onPresetChange={handlePresetChange}
       onBack={handleSettingsBack}
     />
