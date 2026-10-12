@@ -334,3 +334,7 @@ status: open
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-1-export-progress-data.md`
   summary: PRD FR-13 still tags replace-not-merge as `[ASSUMPTION: … confirm before build]` although SPEC constraints, AD-5 and the epics treat it as decided — resolve the tag in `prd.md` (FR-13 consequences and open question #3).
   evidence: Pre-existing doc drift surfaced by Story 2.1 review; the SPEC memlog records the default as promoted to a decided constraint, and Story 2.2 is about to build on it.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-2-import-progress-data-with-confirmation.md`
+  summary: `sprint-status.yaml` still lists `2-1-export-progress-data: review` although its spec is `done` and PR #15 is merged — set it to `done`.
+  evidence: Pre-existing drift from Story 2.1 surfaced by Story 2.2 review (BH); `spec-2-1-export-progress-data.md` frontmatter says `status: 'done'` and commit 5ba8852 is on main.
