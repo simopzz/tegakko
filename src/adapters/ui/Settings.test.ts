@@ -659,6 +659,24 @@ describe('Settings', () => {
       expect(screen.queryByRole('alertdialog')).toBeNull();
     });
 
+    it('hands apply() plain, structured-cloneable data, never a reactive proxy', async () => {
+      // IndexedDB structured-clones every record it stores, and a Svelte
+      // `$state` proxy can't be cloned -- the real replacer would abort with
+      // "could not be cloned" (found in manual testing on the tablet).
+      const progressImporter = importer();
+      progressImporter.apply.mockImplementation((pending: PendingImport) => {
+        structuredClone(pending.data);
+        return Promise.resolve(ok(undefined));
+      });
+      renderWith(progressImporter);
+      await pick();
+      await screen.findByRole('alertdialog');
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Replace everything' }));
+
+      expect(await screen.findByText(IMPORTED)).toBeTruthy();
+    });
+
     it('a double tap on Replace applies exactly once', async () => {
       const progressImporter = importer();
       let release: (result: Result<void>) => void = () => {};
