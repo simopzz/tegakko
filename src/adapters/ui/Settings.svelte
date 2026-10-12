@@ -63,8 +63,12 @@
 
   // Import (Story 2.2). `pending` holds a validated file between the warning
   // toast and Replace/Cancel -- nothing is written until `confirmImport()`.
+  // `$state.raw`, not `$state`: deep `$state` wraps the records in Proxies,
+  // which IndexedDB's structured clone rejects ("could not be cloned"), so
+  // every confirmed import would abort. `pending` is only ever reassigned
+  // whole, never mutated, so it needs no deep reactivity.
   let importNote = $state<string | null>(null);
-  let pending = $state<PendingImport | null>(null);
+  let pending = $state.raw<PendingImport | null>(null);
   let fileInput = $state<HTMLInputElement | null>(null);
   let cancelButton = $state<HTMLButtonElement | null>(null);
   let importButton = $state<HTMLButtonElement | null>(null);
