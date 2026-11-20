@@ -22,7 +22,7 @@ function session(overrides: Partial<Session> = {}): Session {
   return {
     id: overrides.id ?? crypto.randomUUID(),
     date: overrides.date ?? '2026-09-01T00:00:00.000Z',
-    scope: overrides.scope ?? { scripts: ['hiragana'], units: ['base'] },
+    scope: overrides.scope ?? { scripts: ['hiragana'], sets: ['base'] },
     cardsAttempted: overrides.cardsAttempted ?? 10,
     accuracy: overrides.accuracy ?? 0.5,
     closureReason: overrides.closureReason ?? 'explicit',
@@ -45,10 +45,10 @@ describe('History', () => {
       closureReason: 'inactivity',
       accuracy: 0.6,
     });
-    const fullScope = session({
-      id: 'full-scope',
+    const completeSession = session({
+      id: 'complete',
       date: '2026-09-03T00:00:00.000Z',
-      closureReason: 'full-scope',
+      closureReason: 'complete',
       accuracy: 0.9,
     });
     const explicit = session({
@@ -59,20 +59,20 @@ describe('History', () => {
     });
 
     render(History, {
-      sessionRepository: fakeSessionRepository({ ok: true, value: [idle, fullScope, explicit] }),
+      sessionRepository: fakeSessionRepository({ ok: true, value: [idle, completeSession, explicit] }),
       onBack: vi.fn(),
     });
 
-    await screen.findByText(formatDate(fullScope.date));
+    await screen.findByText(formatDate(completeSession.date));
     const rendered = rows();
     expect(rendered).toHaveLength(3);
 
-    // Reverse-chronological: full-scope (09-03), explicit (09-02), idle (09-01).
-    expect(within(rendered[0]!).getByText(formatDate(fullScope.date))).toBeTruthy();
+    // Reverse-chronological: complete (09-03), explicit (09-02), idle (09-01).
+    expect(within(rendered[0]!).getByText(formatDate(completeSession.date))).toBeTruthy();
     expect(within(rendered[1]!).getByText(formatDate(explicit.date))).toBeTruthy();
     expect(within(rendered[2]!).getByText(formatDate(idle.date))).toBeTruthy();
 
-    // Full-scope: positive "Session complete" chip, no dimming.
+    // Complete: positive "Session complete" chip, no dimming.
     expect(within(rendered[0]!).getByText('Session complete').className).toContain('chip--positive');
     expect(within(rendered[0]!).getByText('90%').className).not.toContain('dimmed');
 

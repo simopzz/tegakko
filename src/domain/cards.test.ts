@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { CARDS } from './cards';
 
-function bucket(script: 'hiragana' | 'katakana', kind: 'base' | 'yoon') {
-  return CARDS.filter((card) => card.script === script && card.kind === kind);
+function bucket(script: 'hiragana' | 'katakana', set: 'base' | 'yoon') {
+  return CARDS.filter((card) => card.script === script && card.set === set);
 }
 
 describe('cards', () => {
@@ -39,7 +39,7 @@ describe('cards', () => {
 
   it('never collapses a yoon card into its base-row counterpart', () => {
     // For every one of the 11 yoon consonant rows, in both scripts: each of
-    // its 3 yoon cards (きゃ, きゅ, きょ) must carry `kind: 'yoon'` and a
+    // its 3 yoon cards (きゃ, きゅ, きょ) must carry `set: 'yoon'` and a
     // cardId distinct from its siblings and from any same-row base card --
     // not just spot-checked on a single row, since the yoon cardId
     // construction is shared code and a row-specific bug could hide behind
@@ -76,7 +76,7 @@ describe('cards', () => {
       // All 11 rows have a base card, so an undefined lookup here must fail
       // loudly, not silently skip.
       expect(baseCard).toBeDefined();
-      expect(baseCard?.kind).toBe('base');
+      expect(baseCard?.set).toBe('base');
 
       const yoonCards = suffixes.map((yoonGrapheme) =>
         CARDS.find((c) => c.grapheme === yoonGrapheme && c.script === script),
@@ -84,7 +84,7 @@ describe('cards', () => {
       const yoonIds = new Set<string>();
       for (const yoonCard of yoonCards) {
         expect(yoonCard).toBeDefined();
-        expect(yoonCard?.kind).toBe('yoon');
+        expect(yoonCard?.set).toBe('yoon');
         expect(yoonCard?.cardId).not.toBe(baseCard?.cardId);
         yoonIds.add(yoonCard!.cardId);
       }
@@ -170,7 +170,7 @@ describe('cards', () => {
     }
   });
 
-  it('maps every dakuten/handakuten base grapheme to its correct Hepburn reading and `base` kind', () => {
+  it('maps every dakuten/handakuten base grapheme to its correct Hepburn reading and `base` set', () => {
     // Hand-typed independently of cards.ts's declaration order, mirroring the
     // seion gojuon fixture above. ぢ and づ deliberately duplicate じ/ず's
     // readings (`ji`/`zu`) -- standard Hepburn, not a bug.
@@ -186,9 +186,9 @@ describe('cards', () => {
       const hiraganaCard = CARDS.find((c) => c.grapheme === hiragana && c.script === 'hiragana');
       const katakanaCard = CARDS.find((c) => c.grapheme === katakana && c.script === 'katakana');
       expect(hiraganaCard?.romaji).toBe(romaji);
-      expect(hiraganaCard?.kind).toBe('base');
+      expect(hiraganaCard?.set).toBe('base');
       expect(katakanaCard?.romaji).toBe(romaji);
-      expect(katakanaCard?.kind).toBe('base');
+      expect(katakanaCard?.set).toBe('base');
     }
   });
 
@@ -232,7 +232,7 @@ describe('cards', () => {
     expect(hiragana).toHaveLength(katakana.length);
     for (const [index, card] of hiragana.entries()) {
       expect(katakana[index]?.romaji).toBe(card.romaji);
-      expect(katakana[index]?.kind).toBe(card.kind);
+      expect(katakana[index]?.set).toBe(card.set);
     }
   });
 });

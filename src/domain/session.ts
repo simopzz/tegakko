@@ -2,7 +2,7 @@
 // here (docs/adr/0001-hexagonal-boundary.md).
 //
 // The `sessions` IndexedDB store's record shape: a session closes
-// three ways (explicit "I'm done", full-scope completion, retroactively
+// three ways (explicit "I'm done", complete closure, retroactively
 // -detected inactivity), and every closure persists exactly one `Session`
 // record plus computes an in-memory `SessionSummaryView` for the Summary
 // screen. `time` is deliberately never persisted (see `Session`).
@@ -12,7 +12,7 @@ import { CARDS } from './cards';
 import type { Scope } from './scope';
 import type { Attempt } from './attempt';
 
-export type ClosureReason = 'explicit' | 'full-scope' | 'inactivity';
+export type ClosureReason = 'explicit' | 'complete' | 'inactivity';
 
 /** The `sessions` IndexedDB store's record shape. No `duration` field: time
  * is shown only on the Summary screen as the session closes, and History
@@ -28,12 +28,12 @@ export interface Session {
 
 /** One entry in the Session Summary's missed-chip list: a deduped in-scope
  * card the learner self-graded incorrect this session, paired with its
- * running cumulative miss tally. */
+ * lifetime miss count. */
 export interface MissedChip {
   cardId: string;
   grapheme: string;
   script: Script;
-  tallyCount: number;
+  missCount: number;
 }
 
 /** In-memory view the Session Summary screen renders from -- never persisted
@@ -72,8 +72,8 @@ export function computeAccuracy(attempts: Attempt[]): number {
 
 /** Builds the in-memory view the Session Summary screen renders. Misses are
  * deduped by `cardId` -- a card missed more than once this session still
- * renders as exactly one chip, carrying its final (most current) cumulative
- * tally from `cardTallies`, not a per-occurrence count. */
+ * renders as exactly one chip, carrying its final (most current) lifetime
+ * miss count from `cardTallies`, not a per-occurrence count. */
 export function buildSummary(
   sessionAttempts: Attempt[],
   cardTallies: Map<string, number>,
@@ -93,7 +93,7 @@ export function buildSummary(
       cardId,
       grapheme: card.grapheme,
       script: card.script,
-      tallyCount: cardTallies.get(cardId) ?? 0,
+      missCount: cardTallies.get(cardId) ?? 0,
     });
   }
 

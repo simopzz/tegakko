@@ -49,7 +49,7 @@
     /** Loaded once at drill entry, same as `widthPreset`/`tallies` -- no
      * live-reload mid-drill. */
     idleTimeoutMs: number;
-    /** Fires on every session closure (explicit, full-scope, or inactivity)
+    /** Fires on every session closure (explicit, complete, or inactivity)
      * with the closed session's Summary view. */
     onClose: (summary: SessionSummaryView) => void;
   }
@@ -113,7 +113,7 @@
   // The post-grade toast: set by `handleGrade`, cleared by
   // `handleUndo`/`handleNext`. While set, Missed/Correct/Reveal stay disabled
   // and prompt/ink/strokes stay frozen, so Undo needs no restore mechanism.
-  let graded = $state<{ cardId: string; grade: SelfGrade; tallyCount: number | null } | null>(
+  let graded = $state<{ cardId: string; grade: SelfGrade; missCount: number | null } | null>(
     null,
   );
   // Component-side undo-in-flight flag: drives rendering (dims "Next
@@ -213,8 +213,8 @@
     // A grade always persists an attempt, ink or not, reveal or not; the
     // writes are never awaited. The advance (queue index/clear/reset) is
     // deferred to `handleNext` -- the toast shows instead, offering Undo
-    // (always) and the new cumulative tally (only on Missed).
-    const tallyCount = session.recordGrade({
+    // (always) and the new miss count (only on Missed).
+    const missCount = session.recordGrade({
       card,
       grade,
       strokes,
@@ -222,7 +222,7 @@
       promptShownAt,
       firstStrokeStartedAt,
     });
-    graded = { cardId: card.cardId, grade, tallyCount };
+    graded = { cardId: card.cardId, grade, missCount };
     // Move focus onto Undo, the same way Reveal moves it onto Missed:
     // Missed/Correct/Reveal just went `disabled`, and the toast's two
     // controls are new to the page.
@@ -231,11 +231,11 @@
 
   function handleNext(): void {
     if (!session.recordInteraction()) return;
-    // Full-scope closure rides this existing tap rather than a
+    // Complete closure rides this existing tap rather than a
     // new control: the queue-completing grade still shows the normal
     // toast/Undo, and only tapping past it closes the session.
     if (session.isLastCard(queueIndex)) {
-      session.closeFullScope();
+      session.closeComplete();
       return;
     }
     queueIndex += 1;
@@ -321,7 +321,7 @@
       <div class="panel">
         <p class="label" id="reference-label">Reference</p>
         <div class="reference-cell" role="group" aria-labelledby="reference-label">
-          <span class="glyph" class:glyph--yoon={card.kind === 'yoon'}>{card.grapheme}</span>
+          <span class="glyph" class:glyph--yoon={card.set === 'yoon'}>{card.grapheme}</span>
         </div>
       </div>
     {/if}
@@ -393,13 +393,13 @@
     <div class="toast" role="status">
       <div class="toast-copy">
         <p class="toast-headline">
-          {graded.tallyCount !== null ? 'Marked missed' : 'Marked correct'}
+          {graded.missCount !== null ? 'Marked missed' : 'Marked correct'}
         </p>
         <p class="toast-detail">
           {card.grapheme} · {scriptLabel[card.script]}
-          {#if graded.tallyCount !== null}
-            — missed {graded.tallyCount}
-            {graded.tallyCount === 1 ? 'time' : 'times'} now, so it'll come round
+          {#if graded.missCount !== null}
+            — missed {graded.missCount}
+            {graded.missCount === 1 ? 'time' : 'times'} now, so it'll come round
             sooner.
           {/if}
         </p>

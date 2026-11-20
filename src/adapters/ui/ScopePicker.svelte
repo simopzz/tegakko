@@ -14,7 +14,7 @@
     type SessionSizeChoice,
   } from '../../domain/scope';
   import { countShaky, type Tally } from '../../domain/tally';
-  import type { Script, CardKind } from '../../domain/cards';
+  import type { Script, CardSet } from '../../domain/cards';
 
   function capitalize(value: string): string {
     return value.charAt(0).toUpperCase() + value.slice(1);
@@ -83,7 +83,7 @@
   const allCards = $derived(cardRepository.getAll());
 
   type ScriptChoice = 'both' | Script;
-  type SetChoice = 'all' | CardKind;
+  type SetChoice = 'all' | CardSet;
 
   // A restored `Scope` maps back onto the pill choices unambiguously: a
   // two-entry array is the unnarrowed "Both", anything else is the single
@@ -98,8 +98,8 @@
   );
   let setChoice = $state<SetChoice>(
     untrack(() => {
-      const units = initialScope?.units;
-      return units && units.length === 1 && units[0] ? units[0] : 'all';
+      const sets = initialScope?.sets;
+      return sets && sets.length === 1 && sets[0] ? sets[0] : 'all';
     }),
   );
   // Restored verbatim -- unlike `scriptChoice`/`setChoice`, there is no
@@ -113,7 +113,7 @@
   // literal instead of importing it).
   const scope = $derived<Scope>({
     scripts: scriptChoice === 'both' ? FULL_SCOPE.scripts : [scriptChoice],
-    units: setChoice === 'all' ? FULL_SCOPE.units : [setChoice],
+    sets: setChoice === 'all' ? FULL_SCOPE.sets : [setChoice],
   });
 
   const scopedCount = $derived(cardsInScope(allCards, scope).length);
@@ -136,7 +136,7 @@
   // `scriptChoice`/`setChoice` a second time, so the chips the learner sees
   // can never drift from the scope actually handed to `onStart`.
   const scriptChipLabels = $derived(scope.scripts.map(capitalize));
-  const setChipLabels = $derived(scope.units.map(capitalize));
+  const setChipLabels = $derived(scope.sets.map(capitalize));
 
   // Report every change, not just the one at "Start writing" -- Settings can
   // be opened mid-selection, and coming back must land on the same pills.

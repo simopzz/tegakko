@@ -13,7 +13,7 @@ export interface Tally {
   missCount: number;
 }
 
-/** Count of in-scope cards whose miss tally exceeds the in-scope running
+/** Count of in-scope cards whose miss count exceeds the in-scope running
  * average -- the Scope picker's "N shaky" badge. Informational
  * only: `Tally` never feeds `sampleSessionCards`' weighting -- that
  * reads `Attempt` history directly, since the count of incorrect attempts

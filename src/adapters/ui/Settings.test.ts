@@ -569,7 +569,7 @@ describe('Settings', () => {
       return screen.getByTestId('import-file') as HTMLInputElement;
     }
 
-    async function pick(contents = '{"version":1}'): Promise<void> {
+    async function pick(contents = '{"version":2}'): Promise<void> {
       const input = fileInput();
       const file = new File([contents], 'backup.json', { type: 'application/json' });
       Object.defineProperty(input, 'files', { value: [file], configurable: true });
@@ -606,7 +606,7 @@ describe('Settings', () => {
       expect(dialog.getAttribute('aria-modal')).toBe('true');
       expect(progressImporter.prepare).toHaveBeenCalledWith('{"file":true}');
       expect(
-        screen.getByText('Importing replaces everything here — tallies, attempts, history.'),
+        screen.getByText('Importing replaces everything here — miss counts, attempts, history.'),
       ).toBeTruthy();
       expect(
         screen.getByText(`On this device: last practiced ${formatDate(PENDING.localDate!)}`),
@@ -699,7 +699,7 @@ describe('Settings', () => {
     });
 
     it('a rejected file shows the inline note and no warning', async () => {
-      const progressImporter = importer(err(new ImportError('invalid', 'version: expected 1')));
+      const progressImporter = importer(err(new ImportError('invalid', 'version: expected 2')));
       const log = vi.spyOn(console, 'error').mockImplementation(() => {});
       renderWith(progressImporter);
 

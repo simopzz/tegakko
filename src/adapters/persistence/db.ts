@@ -14,12 +14,12 @@ import type { Tally } from '../../domain/tally';
 import type { Session } from '../../domain/session';
 
 export const DB_NAME = 'tegakko';
-// v4: adds the `sessions` store. `upgrade()` only re-runs when
-// the requested version exceeds a database's *stored* version -- a
-// pre-existing v3 database (settings+attempts+tallies only) would otherwise
-// open at v3==3 forever and never grow `sessions`, so this bump is required,
-// not cosmetic. Same reasoning as the prior 2->3 bump.
-export const DB_VERSION = 4;
+// v5: renames scope to sets and closure reason to complete; wipes every
+// store on upgrade so no migration code is needed. `upgrade()` only re-runs
+// when the requested version exceeds a database's *stored* version -- a
+// pre-existing v4 database would otherwise keep its old record shapes forever,
+// so this bump is required, not cosmetic.
+export const DB_VERSION = 5;
 
 export const SETTINGS_STORE = 'settings';
 export const ATTEMPTS_STORE = 'attempts';
@@ -50,22 +50,21 @@ export interface TegakkoDb extends DBSchema {
 export async function openTegakkoDb(): Promise<IDBPDatabase<TegakkoDb>> {
   const connection = await openDB<TegakkoDb>(DB_NAME, DB_VERSION, {
     upgrade(db) {
-      if (!db.objectStoreNames.contains(SETTINGS_STORE)) {
-        // Out-of-line key: `settings` is a singleton written under one
-        // caller-chosen key (`SETTINGS_KEY` in settings-repository.ts), not a
-        // record carrying its own key field.
-        db.createObjectStore(SETTINGS_STORE);
+      // v5 deletes every store before recreating them. The issue's required
+      // upgrade wipe means settings (including `penCheckShown`) are cleared,
+      // so First Run shows again and no migration of old record shapes is
+      // attempted.
+      for (const storeName of [...db.objectStoreNames]) {
+        db.deleteObjectStore(storeName);
       }
-      if (!db.objectStoreNames.contains(ATTEMPTS_STORE)) {
-        const store = db.createObjectStore(ATTEMPTS_STORE, { keyPath: 'id' });
-        store.createIndex(ATTEMPTS_SESSION_INDEX, 'sessionId');
-      }
-      if (!db.objectStoreNames.contains(TALLIES_STORE)) {
-        db.createObjectStore(TALLIES_STORE, { keyPath: 'cardId' });
-      }
-      if (!db.objectStoreNames.contains(SESSIONS_STORE)) {
-        db.createObjectStore(SESSIONS_STORE, { keyPath: 'id' });
-      }
+      // Out-of-line key: `settings` is a singleton written under one
+      // caller-chosen key (`SETTINGS_KEY` in settings-repository.ts), not a
+      // record carrying its own key field.
+      db.createObjectStore(SETTINGS_STORE);
+      const attemptsStore = db.createObjectStore(ATTEMPTS_STORE, { keyPath: 'id' });
+      attemptsStore.createIndex(ATTEMPTS_SESSION_INDEX, 'sessionId');
+      db.createObjectStore(TALLIES_STORE, { keyPath: 'cardId' });
+      db.createObjectStore(SESSIONS_STORE, { keyPath: 'id' });
     },
     blocked(currentVersion, blockedVersion) {
       // This connection's own open is the one being stalled -- another tab

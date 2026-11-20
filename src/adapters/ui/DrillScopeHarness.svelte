@@ -33,7 +33,7 @@
   // fixture object. (Initialized inline, not from a prop, so no
   // `state_referenced_locally` capture is involved.)
   // eslint-disable-next-line prefer-const -- the `$state` rune requires `let`.
-  let scope = $state<Scope>({ scripts: ['hiragana'], units: ['base'] });
+  let scope = $state<Scope>({ scripts: ['hiragana'], sets: ['base'] });
 </script>
 
 <Drill {scope} {...drillProps} />

@@ -10,7 +10,7 @@ import type { Session } from '../../domain/session';
 const SESSION: Session = {
   id: 'session-1',
   date: '2026-09-08T09:00:00.000Z',
-  scope: { scripts: ['hiragana'], units: ['base'] },
+  scope: { scripts: ['hiragana'], sets: ['base'] },
   cardsAttempted: 12,
   accuracy: 0.75,
   closureReason: 'explicit',
@@ -53,10 +53,11 @@ describe('IdbSessionRepository', () => {
     expect(listResult.ok && listResult.value.map((s) => s.id).sort()).toEqual(['session-1', 'session-2']);
   });
 
-  it('migrates a pre-existing v3 (settings+attempts+tallies) database so add() succeeds against sessions', async () => {
+  it('wipes every store when upgrading a pre-existing v3 database', async () => {
     // Simulate a device that already has the previously-shipped v3 schema --
-    // `settings`+`attempts`+`tallies`, no `sessions` store -- created and
-    // closed before `sessions` (and DB_VERSION 4) existed.
+    // `settings`+`attempts`+`tallies`, no `sessions` store. The v5 upgrade
+    // deletes every store and recreates them, so old data is gone and First
+    // Run shows again.
     const legacyDb = await openDB(DB_NAME, 3, {
       upgrade(db) {
         db.createObjectStore('settings');
@@ -83,17 +84,15 @@ describe('IdbSessionRepository', () => {
     const repo = new IdbSessionRepository();
     const result = await repo.add(SESSION);
 
-    // The v3->v4 upgrade must have fired and created `sessions`, or this
-    // rejects/fails instead of succeeding.
     expect(result).toEqual({ ok: true, value: undefined });
     expect(await repo.list()).toEqual({ ok: true, value: [SESSION] });
 
-    // The upgrade must not have disturbed the pre-existing stores' rows.
+    // The upgrade wiped all pre-existing stores, including settings.
     const db = await openTegakkoDb();
     try {
-      expect(await db.get(SETTINGS_STORE, 'singleton')).toMatchObject({ penCheckShown: true });
-      expect((await db.get(ATTEMPTS_STORE, 'seed-attempt-1'))?.cardId).toBe('あ:hiragana');
-      expect(await db.get(TALLIES_STORE, 'あ:hiragana')).toEqual({ cardId: 'あ:hiragana', missCount: 1 });
+      expect(await db.get(SETTINGS_STORE, 'singleton')).toBeUndefined();
+      expect(await db.get(ATTEMPTS_STORE, 'seed-attempt-1')).toBeUndefined();
+      expect(await db.get(TALLIES_STORE, 'あ:hiragana')).toBeUndefined();
     } finally {
       db.close();
     }

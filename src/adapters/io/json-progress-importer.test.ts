@@ -28,7 +28,7 @@ const SESSIONS: Session[] = [
   {
     id: 's1',
     date: '2026-09-23T10:05:00.000Z',
-    scope: { scripts: ['hiragana'], units: ['base'] },
+    scope: { scripts: ['hiragana'], sets: ['base'] },
     cardsAttempted: 1,
     accuracy: 0,
     closureReason: 'explicit',
@@ -91,7 +91,7 @@ describe('JsonProgressImporter.prepare', () => {
   it('rejects a bad shape as invalid, naming the failing path', async () => {
     const { subject } = importer();
     const bad = JSON.parse(FILE) as Record<string, unknown>;
-    bad.version = 2;
+    bad.version = 99;
 
     const result = await subject.prepare(JSON.stringify(bad));
 

@@ -332,7 +332,7 @@
     {/if}
 
     <h1 class="heading">Backup</h1>
-    <p class="body">Download your tallies, attempts, handwriting and history as one file.</p>
+    <p class="body">Download your miss counts, attempts, handwriting and history as one file.</p>
     <button type="button" class="action" onclick={() => void runExport()}>Export</button>
 
     {#if exportNote}
@@ -375,7 +375,7 @@
       onkeydown={handleDialogKeydown}
     >
       <p class="toast-headline" id="import-warning-title">
-        Importing replaces everything here — tallies, attempts, history.
+        Importing replaces everything here — miss counts, attempts, history.
       </p>
       <div class="toast-dates" id="import-warning-dates">
         <p class="toast-detail">

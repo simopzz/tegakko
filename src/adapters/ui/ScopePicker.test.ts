@@ -161,7 +161,7 @@ describe('ScopePicker', () => {
     expect(pill('Katakana').className).not.toContain('pill--active');
   });
 
-  it('passes the exact narrowed {scripts, units} scope to onStart on "Start writing"', async () => {
+  it('passes the exact narrowed {scripts, sets} scope to onStart on "Start writing"', async () => {
     const onStart = vi.fn();
     render(ScopePicker, {
       cardRepository: realRepository(),
@@ -175,7 +175,7 @@ describe('ScopePicker', () => {
     await fireEvent.click(pill('Base'));
     await fireEvent.click(pill('Start writing'));
 
-    expect(onStart).toHaveBeenCalledWith({ scripts: ['hiragana'], units: ['base'] });
+    expect(onStart).toHaveBeenCalledWith({ scripts: ['hiragana'], sets: ['base'] });
   });
 
   it('passes the full scope to onStart when nothing was narrowed', async () => {
@@ -192,7 +192,7 @@ describe('ScopePicker', () => {
 
     expect(onStart).toHaveBeenCalledWith({
       scripts: ['hiragana', 'katakana'],
-      units: ['base', 'yoon'],
+      sets: ['base', 'yoon'],
     });
   });
 
@@ -269,7 +269,7 @@ describe('ScopePicker', () => {
       onStart: vi.fn(),
       onSettings: vi.fn(),
       onHistory: vi.fn(),
-      initialScope: { scripts: ['katakana'], units: ['yoon'] },
+      initialScope: { scripts: ['katakana'], sets: ['yoon'] },
     });
 
     expect(pill('Katakana').className).toContain('pill--active');
@@ -292,7 +292,7 @@ describe('ScopePicker', () => {
 
     expect(onScopeChange).toHaveBeenLastCalledWith({
       scripts: ['hiragana'],
-      units: ['base', 'yoon'],
+      sets: ['base', 'yoon'],
     });
   });
 
@@ -369,7 +369,7 @@ describe('ScopePicker', () => {
     });
 
     it('counts an in-scope card whose tally exceeds the in-scope average once fetched', async () => {
-      const heavy = CARDS.find((c) => c.script === 'hiragana' && c.kind === 'base')!;
+      const heavy = CARDS.find((c) => c.script === 'hiragana' && c.set === 'base')!;
       render(ScopePicker, {
         cardRepository: realRepository(),
         tallyRepository: fakeTallyRepository({
@@ -387,8 +387,8 @@ describe('ScopePicker', () => {
     it('recomputes on a script/set toggle -- only in-scope cards count toward the average', async () => {
       // A miss tally on a katakana card must not count toward -- or inflate
       // the average against -- a hiragana-only scope.
-      const katakanaCard = CARDS.find((c) => c.script === 'katakana' && c.kind === 'base')!;
-      const hiraganaCard = CARDS.find((c) => c.script === 'hiragana' && c.kind === 'base')!;
+      const katakanaCard = CARDS.find((c) => c.script === 'katakana' && c.set === 'base')!;
+      const hiraganaCard = CARDS.find((c) => c.script === 'hiragana' && c.set === 'base')!;
       render(ScopePicker, {
         cardRepository: realRepository(),
         tallyRepository: fakeTallyRepository({
@@ -506,9 +506,9 @@ describe('ScopePicker', () => {
       // unreachable scope size.
       const threeCardRepository: CardRepository = {
         getAll: () => [
-          { cardId: 'あ:hiragana', grapheme: 'あ', script: 'hiragana', kind: 'base', romaji: 'a' },
-          { cardId: 'い:hiragana', grapheme: 'い', script: 'hiragana', kind: 'base', romaji: 'i' },
-          { cardId: 'う:hiragana', grapheme: 'う', script: 'hiragana', kind: 'base', romaji: 'u' },
+          { cardId: 'あ:hiragana', grapheme: 'あ', script: 'hiragana', set: 'base', romaji: 'a' },
+          { cardId: 'い:hiragana', grapheme: 'い', script: 'hiragana', set: 'base', romaji: 'i' },
+          { cardId: 'う:hiragana', grapheme: 'う', script: 'hiragana', set: 'base', romaji: 'u' },
         ],
         getById: () => {
           throw new Error('not used by this test');
@@ -564,7 +564,7 @@ describe('ScopePicker', () => {
       expect(onSessionSizeChange).toHaveBeenLastCalledWith(0.75);
     });
 
-    it('never threads the session-size choice into onStart -- the existing {scripts, units} payload is unchanged', async () => {
+    it('never threads the session-size choice into onStart -- the existing {scripts, sets} payload is unchanged', async () => {
       const onStart = vi.fn();
       render(ScopePicker, {
         cardRepository: realRepository(),
@@ -579,7 +579,7 @@ describe('ScopePicker', () => {
 
       expect(onStart).toHaveBeenCalledWith({
         scripts: ['hiragana', 'katakana'],
-        units: ['base', 'yoon'],
+        sets: ['base', 'yoon'],
       });
     });
   });

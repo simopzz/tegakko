@@ -8,7 +8,7 @@
 // unknown extra field is dropped rather than spread through into storage.
 
 import type { Attempt, SelfGrade } from './attempt';
-import { CARDS, type CardKind, type Script } from './cards';
+import { CARDS, type CardSet, type Script } from './cards';
 import { EXPORT_VERSION } from './export';
 import type { Stroke, StrokePoint } from './ink';
 import { err, ok, type Result } from './result';
@@ -49,10 +49,10 @@ export function isInvalidImportError(error: unknown): boolean {
 }
 
 const SELF_GRADES: readonly SelfGrade[] = ['correct', 'incorrect'];
-const CLOSURE_REASONS: readonly ClosureReason[] = ['explicit', 'full-scope', 'inactivity'];
+const CLOSURE_REASONS: readonly ClosureReason[] = ['explicit', 'complete', 'inactivity'];
 const WIDTH_PRESETS: readonly WidthPreset[] = ['subtle', 'expressive', 'calligraphy'];
 const SCRIPTS: readonly Script[] = ['hiragana', 'katakana'];
-const CARD_KINDS: readonly CardKind[] = ['base', 'yoon'];
+const CARD_SETS: readonly CardSet[] = ['base', 'yoon'];
 const CARD_IDS: ReadonlySet<string> = new Set(CARDS.map((card) => card.cardId));
 
 /** Thrown only inside this module and caught by `validateImport` -- never
@@ -178,8 +178,8 @@ function toSession(value: unknown, path: string): Session {
       scripts: array(scope.scripts, `${path}.scope.scripts`).map((script, index) =>
         oneOf(script, SCRIPTS, `${path}.scope.scripts[${index}]`),
       ),
-      units: array(scope.units, `${path}.scope.units`).map((unit, index) =>
-        oneOf(unit, CARD_KINDS, `${path}.scope.units[${index}]`),
+      sets: array(scope.sets, `${path}.scope.sets`).map((set, index) =>
+        oneOf(set, CARD_SETS, `${path}.scope.sets[${index}]`),
       ),
     },
     cardsAttempted: finite(source.cardsAttempted, `${path}.cardsAttempted`),
@@ -188,10 +188,10 @@ function toSession(value: unknown, path: string): Session {
   };
 }
 
-/** Validates a parsed 2.1 export envelope and expands it into persisted
- * record shapes (compact `[x, y, pressure]` triples back to `StrokePoint`s,
- * stroke and point order preserved). Pure, never throws: any failure is an
- * `err` whose message names the first failing path. */
+/** Validates a parsed export envelope (version 2) and expands it into
+ * persisted record shapes (compact `[x, y, pressure]` triples back to
+ * `StrokePoint`s, stroke and point order preserved). Pure, never throws: any
+ * failure is an `err` whose message names the first failing path. */
 export function validateImport(input: unknown): Result<ValidatedImport> {
   try {
     const envelope = record(input, 'file');

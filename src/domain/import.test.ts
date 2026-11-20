@@ -35,7 +35,7 @@ function session(overrides: Partial<Session> = {}): Session {
   return {
     id: 's1',
     date: '2026-09-23T10:05:00.000Z',
-    scope: { scripts: ['hiragana', 'katakana'], units: ['base', 'yoon'] },
+    scope: { scripts: ['hiragana', 'katakana'], sets: ['base', 'yoon'] },
     cardsAttempted: 1,
     accuracy: 1,
     closureReason: 'explicit',
@@ -48,7 +48,7 @@ const TALLIES: Tally[] = [
   { cardId: 'ア:katakana', missCount: 0 },
 ];
 
-/** A JSON round-tripped 2.1 envelope, as a file would actually parse. */
+/** A JSON round-tripped version-2 envelope, as a file would actually parse. */
 function envelope(): Record<string, unknown> {
   const built = buildExportEnvelope(
     TALLIES,
@@ -147,7 +147,7 @@ describe('validateImport', () => {
       'widthPreset',
     ]);
     expect(Object.keys(result.value.data.sessions[0]!)).not.toContain('extra');
-    expect(Object.keys(result.value.data.sessions[0]!.scope).sort()).toEqual(['scripts', 'units']);
+    expect(Object.keys(result.value.data.sessions[0]!.scope).sort()).toEqual(['scripts', 'sets']);
   });
 
   it('accepts a decomposed (NFD) cardId and stores the NFC id', () => {
@@ -173,8 +173,11 @@ describe('validateImport', () => {
 
     it('a wrong or missing version', () => {
       const wrong = envelope();
-      wrong.version = 2;
+      wrong.version = 99;
       expectRejected(wrong, 'version');
+      const oldVersion = envelope();
+      oldVersion.version = 1;
+      expectRejected(oldVersion, 'version');
       const asString = envelope();
       asString.version = '1';
       expectRejected(asString, 'version');
@@ -229,12 +232,12 @@ describe('validateImport', () => {
       expectRejected(width, 'attempts[0].strokes[1].widthPreset');
 
       const scripts = envelope();
-      sessions(scripts)[0]!.scope = { scripts: ['hiragana', 'kanji'], units: ['base'] };
+      sessions(scripts)[0]!.scope = { scripts: ['hiragana', 'kanji'], sets: ['base'] };
       expectRejected(scripts, 'sessions[0].scope.scripts[1]');
 
-      const units = envelope();
-      sessions(units)[0]!.scope = { scripts: ['hiragana'], units: ['sokuon'] };
-      expectRejected(units, 'sessions[0].scope.units[0]');
+      const sets = envelope();
+      sessions(sets)[0]!.scope = { scripts: ['hiragana'], sets: ['sokuon'] };
+      expectRejected(sets, 'sessions[0].scope.sets[0]');
 
       const scopeString = envelope();
       sessions(scopeString)[0]!.scope = 'hiragana';

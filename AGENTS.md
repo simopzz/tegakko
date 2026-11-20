@@ -4,7 +4,7 @@ Japanese kana handwriting-practice PWA: prompt → write on a pressure-sensitive
 
 ## Working on an issue
 
-Implement each issue on its own feature branch off `main`, named `<issue>-<slug>` (e.g. `6-settings`), created before the first commit. `main` takes work only through PRs. This overrides any skill step that says to commit to the current branch.
+Implement each issue on its own feature branch off `main`, named `<issue>-<slug>` (e.g. `6-settings`), created before the first commit. `main` takes work only through PRs. PR bodies must include a closing keyword for the issue (e.g. `Closes #6`). This overrides any skill step that says to commit to the current branch.
 
 Before writing code, list the domain decisions the issue leaves open (behaviour it implies but doesn't state) and confirm them with the user.
 
