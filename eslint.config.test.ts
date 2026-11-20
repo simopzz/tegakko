@@ -64,7 +64,7 @@ describe('eslint.config.js hexagonal boundary zones', () => {
         {
           // ports/ -> domain/ stays allowed too: the boundary never
           // restricts this direction.
-          filename: abs('src/ports/card-repository.ts'),
+          filename: abs('src/ports/tally-repository.ts'),
           code: "import '../domain/drill';",
           options: [{ zones }],
         },
@@ -105,7 +105,7 @@ describe('eslint.config.js hexagonal boundary zones', () => {
         {
           // ports/ -> app/: new domainPurityZones zone, second `from` entry
           // (./src/app/**).
-          filename: abs('src/ports/card-repository.ts'),
+          filename: abs('src/ports/tally-repository.ts'),
           code: "import '../app/main';",
           options: [{ zones }],
           errors: [{ messageId: 'zone' }],
@@ -114,7 +114,7 @@ describe('eslint.config.js hexagonal boundary zones', () => {
           // ports/ -> adapters/: new domainPurityZones zone, first `from`
           // entry (./src/adapters/**) -- a regression narrowing just this
           // entry would otherwise ship silently.
-          filename: abs('src/ports/card-repository.ts'),
+          filename: abs('src/ports/tally-repository.ts'),
           code: "import '../adapters/persistence/db';",
           options: [{ zones }],
           errors: [{ messageId: 'zone' }],
@@ -150,8 +150,8 @@ describe('eslint.config.js hexagonal boundary zones', () => {
     expect(violations('src/domain/cards.ts', "import '../ports/tally-repository';")).toHaveLength(
       0,
     );
-    expect(violations('src/ports/card-repository.ts', "import '../app/main';")).toHaveLength(1);
-    expect(violations('src/ports/card-repository.ts', "import './tally-repository';")).toHaveLength(
+    expect(violations('src/ports/tally-repository.ts', "import '../app/main';")).toHaveLength(1);
+    expect(violations('src/ports/tally-repository.ts', "import './session-repository';")).toHaveLength(
       0,
     );
 

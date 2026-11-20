@@ -4,7 +4,7 @@ import type { WidthPreset } from '../domain/settings';
 
 /**
  * The ink port (docs/adr/0002-ink-adapter-owns-its-canvas.md). Sync and
- * un-wrapped like `CardRepository` (no `Result`, no
+ * un-wrapped, unlike the repository ports (no `Result`, no
  * `Promise`): rendering ink is a local DOM concern with no failure mode worth
  * surfacing to the UI -- a missing 2D context or an absent `navigator.ink`
  * degrades silently to less capable rendering, never to an error the learner

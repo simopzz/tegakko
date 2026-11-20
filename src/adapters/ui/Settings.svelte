@@ -7,23 +7,32 @@
   // radiogroup semantics: exactly one active segment, commits immediately,
   // no confirm step.
   import { onMount, tick } from 'svelte';
-  import type { SettingsRepository } from '../../ports/settings-repository';
-  import type { ProgressExporter } from '../../ports/progress-exporter';
-  import type { PendingImport, ProgressImporter } from '../../ports/progress-importer';
-  import { err, type Result } from '../../domain/result';
+  import type { PendingImport } from '../../ports/progress-importer';
+  import type { Result } from '../../domain/result';
   import { isInvalidImportError } from '../../domain/import';
   import { formatDate } from './format-date';
   import { DEFAULT_SETTINGS, type Settings, type WidthPreset } from '../../domain/settings';
 
   interface Props {
-    settingsRepository: SettingsRepository;
-    progressExporter: ProgressExporter;
-    progressImporter: ProgressImporter;
+    /** The composition root's use-cases. `settings` is a read and a
+     * whole-record save -- this screen owns the read-modify-write merge
+     * onto the freshest record it read. `backup` never rejects: every
+     * failure resolves as `err`, so the notes below are the only
+     * failure surface. */
+    settings: {
+      load(): Promise<Result<Settings>>;
+      save(record: Settings): Promise<Result<void>>;
+    };
+    backup: {
+      export(): Promise<Result<void>>;
+      prepare(json: string): Promise<Result<PendingImport>>;
+      apply(pending: PendingImport): Promise<Result<void>>;
+    };
     onPresetChange: (preset: WidthPreset) => void;
     onBack: () => void;
   }
 
-  const { settingsRepository, progressExporter, progressImporter, onPresetChange, onBack }: Props = $props();
+  const { settings, backup, onPresetChange, onBack }: Props = $props();
 
   const PRESETS: Array<{ value: WidthPreset; label: string; hint: string }> = [
     { value: 'subtle', label: 'Subtle', hint: 'Even line, slight taper' },
@@ -81,10 +90,6 @@
   const INVALID_NOTE = "That file isn't a tegakko backup -- nothing was changed.";
   const FAILED_NOTE = "Couldn't import -- nothing was changed.";
 
-  function toErr<T>(error: unknown): Result<T> {
-    return err<T>(error instanceof Error ? error : new Error(String(error)));
-  }
-
   // Focus goes to Cancel whenever the warning opens -- the safe default for
   // the only destructive two-step action in the app.
   $effect(() => {
@@ -109,7 +114,7 @@
     const run = saveQueue.then(async () => {
       if (!lastRead) return;
       const updated: Settings = { ...lastRead, ...patch };
-      const result = await settingsRepository.save(updated);
+      const result = await settings.save(updated);
       if (!result.ok) {
         console.error(logLabel, result.error);
         setNote("Couldn't save that -- it'll apply for now but won't stick.");
@@ -122,7 +127,7 @@
   }
 
   onMount(() => {
-    void settingsRepository.get().then((result) => {
+    void settings.load().then((result) => {
       if (result.ok) {
         lastRead = result.value;
         preset = result.value.widthPreset;
@@ -176,10 +181,9 @@
     // One Backup note at a time: a stale import note never sits beside this.
     importNote = null;
     try {
-      // A rejection is folded into `err` too, so the note always shows.
-      const result = await progressExporter.export().catch((error: unknown) =>
-        err<void>(error instanceof Error ? error : new Error(String(error))),
-      );
+      // The use-case never rejects -- a failure resolves as `err`, so the
+      // note always shows.
+      const result = await backup.export();
       if (!result.ok) {
         console.error('Failed to export progress:', result.error);
         exportNote = "Couldn't export -- try again.";
@@ -213,7 +217,7 @@
         importNote = FAILED_NOTE;
         return;
       }
-      const result = await progressImporter.prepare(json).catch(toErr<PendingImport>);
+      const result = await backup.prepare(json);
       if (!result.ok) {
         console.error('Failed to prepare import:', result.error);
         importNote = isInvalidImportError(result.error) ? INVALID_NOTE : FAILED_NOTE;
@@ -243,7 +247,7 @@
     applying = true;
     const toApply = pending;
     try {
-      const result = await progressImporter.apply(toApply).catch(toErr<void>);
+      const result = await backup.apply(toApply);
       if (result.ok) {
         importNote = 'Imported. Your progress now matches the file.';
       } else {

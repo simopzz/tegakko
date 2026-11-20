@@ -4,11 +4,20 @@ import FirstRun from './FirstRun.svelte';
 import { DEFAULT_SETTINGS } from '../../domain/settings';
 import { err, ok, type Result } from '../../domain/result';
 import type { Settings } from '../../domain/settings';
-import type { SettingsRepository } from '../../ports/settings-repository';
 
-function fakeRepository(overrides: Partial<SettingsRepository> = {}): SettingsRepository {
+/** Fakes the composition root's settings use-case -- the screen's own
+ * structural prop type, never a repository. */
+type FakeSettings = {
+  load(): Promise<Result<Settings>>;
+  save(record: Settings): Promise<Result<void>>;
+} & {
+  load: ReturnType<typeof vi.fn>;
+  save: ReturnType<typeof vi.fn>;
+};
+
+function fakeSettings(overrides: Partial<Pick<FakeSettings, 'load' | 'save'>> = {}): FakeSettings {
   return {
-    get: vi.fn(async (): Promise<Result<Settings>> => ok({ ...DEFAULT_SETTINGS })),
+    load: vi.fn(async (): Promise<Result<Settings>> => ok({ ...DEFAULT_SETTINGS })),
     save: vi.fn(async (): Promise<Result<void>> => ok(undefined)),
     ...overrides,
   };
@@ -28,8 +37,8 @@ function dispatchPointer(
 
 describe('FirstRun', () => {
   it('updates the pressure readout across multiple pointermove events, not just the first', async () => {
-    const settingsRepository = fakeRepository();
-    render(FirstRun, { settingsRepository, onDismiss: vi.fn() });
+    const settings = fakeSettings();
+    render(FirstRun, { settings, onDismiss: vi.fn() });
 
     const pad = screen.getByText('touch here').parentElement as HTMLElement;
 
@@ -44,8 +53,8 @@ describe('FirstRun', () => {
   });
 
   it('transitions the chip from idle to pressure-detected on a pen pointer with pressure', async () => {
-    const settingsRepository = fakeRepository();
-    render(FirstRun, { settingsRepository, onDismiss: vi.fn() });
+    const settings = fakeSettings();
+    render(FirstRun, { settings, onDismiss: vi.fn() });
 
     expect(screen.getByText('Touch the pad with your stylus')).toBeTruthy();
 
@@ -56,8 +65,8 @@ describe('FirstRun', () => {
   });
 
   it('transitions the chip from idle to no-pressure for a non-pen pointer', async () => {
-    const settingsRepository = fakeRepository();
-    render(FirstRun, { settingsRepository, onDismiss: vi.fn() });
+    const settings = fakeSettings();
+    render(FirstRun, { settings, onDismiss: vi.fn() });
 
     const pad = screen.getByText('touch here').parentElement as HTMLElement;
     await dispatchPointer(pad, 'pointermove', { pointerType: 'mouse', pressure: 0 });
@@ -66,8 +75,8 @@ describe('FirstRun', () => {
   });
 
   it('transitions to no-pressure only on pointerup, not on a zero-pressure pointermove', async () => {
-    const settingsRepository = fakeRepository();
-    render(FirstRun, { settingsRepository, onDismiss: vi.fn() });
+    const settings = fakeSettings();
+    render(FirstRun, { settings, onDismiss: vi.fn() });
 
     const pad = screen.getByText('touch here').parentElement as HTMLElement;
     await dispatchPointer(pad, 'pointerdown', { pointerType: 'pen', pressure: 0 });
@@ -78,8 +87,8 @@ describe('FirstRun', () => {
   });
 
   it('does not confirm a pressure sensor on a lone 0.5 reading (the no-pressure-API default), but does once a differing reading arrives', async () => {
-    const settingsRepository = fakeRepository();
-    render(FirstRun, { settingsRepository, onDismiss: vi.fn() });
+    const settings = fakeSettings();
+    render(FirstRun, { settings, onDismiss: vi.fn() });
 
     const pad = screen.getByText('touch here').parentElement as HTMLElement;
     await dispatchPointer(pad, 'pointermove', { pointerType: 'pen', pressure: 0.5 });
@@ -90,8 +99,8 @@ describe('FirstRun', () => {
   });
 
   it('stays undetected across repeated 0.5 readings and falls back to no-pressure on liftoff', async () => {
-    const settingsRepository = fakeRepository();
-    render(FirstRun, { settingsRepository, onDismiss: vi.fn() });
+    const settings = fakeSettings();
+    render(FirstRun, { settings, onDismiss: vi.fn() });
 
     const pad = screen.getByText('touch here').parentElement as HTMLElement;
     await dispatchPointer(pad, 'pointermove', { pointerType: 'pen', pressure: 0.5 });
@@ -103,8 +112,8 @@ describe('FirstRun', () => {
   });
 
   it('keeps the readout live after confirmation even when a later reading is exactly 0.5', async () => {
-    const settingsRepository = fakeRepository();
-    render(FirstRun, { settingsRepository, onDismiss: vi.fn() });
+    const settings = fakeSettings();
+    render(FirstRun, { settings, onDismiss: vi.fn() });
 
     const pad = screen.getByText('touch here').parentElement as HTMLElement;
     await dispatchPointer(pad, 'pointermove', { pointerType: 'pen', pressure: 0.62 });
@@ -116,8 +125,8 @@ describe('FirstRun', () => {
 
   it('never hard-blocks: "Just use it here" dismisses the screen on a successful save', async () => {
     const onDismiss = vi.fn();
-    const settingsRepository = fakeRepository();
-    render(FirstRun, { settingsRepository, onDismiss });
+    const settings = fakeSettings();
+    render(FirstRun, { settings, onDismiss });
 
     await fireEvent.click(screen.getByText('Just use it here'));
     await vi.waitFor(() => expect(onDismiss).toHaveBeenCalledTimes(1));
@@ -125,11 +134,11 @@ describe('FirstRun', () => {
 
   it('shows a generic error note (not the raw Error message) on a save failure, without dismissing', async () => {
     const onDismiss = vi.fn();
-    const settingsRepository = fakeRepository({
+    const settings = fakeSettings({
       save: vi.fn(async (): Promise<Result<void>> => err(new Error('quota exceeded on put()'))),
     });
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-    render(FirstRun, { settingsRepository, onDismiss });
+    render(FirstRun, { settings, onDismiss });
 
     await fireEvent.click(screen.getByText('Just use it here'));
 
@@ -148,17 +157,17 @@ describe('FirstRun', () => {
 
   it('shows a generic error note and does not overwrite settings when the pre-save read fails', async () => {
     const onDismiss = vi.fn();
-    const settingsRepository = fakeRepository({
-      get: vi.fn(async (): Promise<Result<Settings>> => err(new Error('IndexedDB blocked'))),
+    const settings = fakeSettings({
+      load: vi.fn(async (): Promise<Result<Settings>> => err(new Error('IndexedDB blocked'))),
     });
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-    render(FirstRun, { settingsRepository, onDismiss });
+    render(FirstRun, { settings, onDismiss });
 
     await fireEvent.click(screen.getByText('Just use it here'));
 
     const errorNote = await screen.findByText(/Couldn't save that/);
     expect(errorNote.textContent).not.toContain('IndexedDB blocked');
-    expect(settingsRepository.save).not.toHaveBeenCalled();
+    expect(settings.save).not.toHaveBeenCalled();
     expect(onDismiss).not.toHaveBeenCalled();
     expect(consoleError).toHaveBeenCalled();
 
@@ -178,8 +187,8 @@ describe('FirstRun', () => {
 
   it('persists penCheckShown and dismisses when the install prompt is accepted', async () => {
     const onDismiss = vi.fn();
-    const settingsRepository = fakeRepository();
-    render(FirstRun, { settingsRepository, onDismiss });
+    const settings = fakeSettings();
+    render(FirstRun, { settings, onDismiss });
 
     fireInstallPrompt({
       prompt: vi.fn().mockResolvedValue(undefined),
@@ -190,7 +199,7 @@ describe('FirstRun', () => {
     await fireEvent.click(installButton);
 
     await vi.waitFor(() =>
-      expect(settingsRepository.save).toHaveBeenCalledWith(
+      expect(settings.save).toHaveBeenCalledWith(
         expect.objectContaining({ penCheckShown: true }),
       ),
     );
@@ -199,9 +208,9 @@ describe('FirstRun', () => {
 
   it('shows an error note and does not dismiss when the install prompt itself fails', async () => {
     const onDismiss = vi.fn();
-    const settingsRepository = fakeRepository();
+    const settings = fakeSettings();
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-    render(FirstRun, { settingsRepository, onDismiss });
+    render(FirstRun, { settings, onDismiss });
 
     fireInstallPrompt({
       prompt: vi.fn().mockRejectedValue(new Error('prompt already used')),
@@ -212,7 +221,7 @@ describe('FirstRun', () => {
     await fireEvent.click(installButton);
 
     await screen.findByText(/Couldn't open the install prompt/);
-    expect(settingsRepository.save).not.toHaveBeenCalled();
+    expect(settings.save).not.toHaveBeenCalled();
     expect(onDismiss).not.toHaveBeenCalled();
     expect(consoleError).toHaveBeenCalled();
 
@@ -221,9 +230,9 @@ describe('FirstRun', () => {
 
   it('still persists penCheckShown via "Just use it here" after an earlier install-prompt failure', async () => {
     const onDismiss = vi.fn();
-    const settingsRepository = fakeRepository();
+    const settings = fakeSettings();
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-    render(FirstRun, { settingsRepository, onDismiss });
+    render(FirstRun, { settings, onDismiss });
 
     fireInstallPrompt({
       prompt: vi.fn().mockRejectedValue(new Error('prompt already used')),
@@ -240,7 +249,7 @@ describe('FirstRun', () => {
     await fireEvent.click(screen.getByText('Just use it here'));
 
     await vi.waitFor(() =>
-      expect(settingsRepository.save).toHaveBeenCalledWith(
+      expect(settings.save).toHaveBeenCalledWith(
         expect.objectContaining({ penCheckShown: true }),
       ),
     );

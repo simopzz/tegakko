@@ -29,8 +29,7 @@ const HIRAGANA_YOON_SCOPE: Scope = { scripts: ['hiragana'], sets: ['yoon'] }; //
 
 // A `ui` adapter must never import a sibling adapter's implementation
 // (docs/adr/0001-hexagonal-boundary.md),
-// so the ink surface is faked against the port -- the same way
-// ScopePicker.test.ts fakes `CardRepository`. Landing a stroke here means
+// so the ink surface is faked against the port. Landing a stroke here means
 // invoking the subscriber the component registered, which is exactly what
 // the real adapter does once per completed stroke.
 function fakeInkSurface(): InkSurface & {
