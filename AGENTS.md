@@ -1,9 +1,6 @@
-<!-- bmad:context -->
-<!-- Verified 2026-09-23 against ef75663. Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
-
 ## tegakko
 
-Japanese kana handwriting-practice PWA: prompt → write on a pressure-sensitive canvas → self-grade, with weak-spot-biased card selection. Single-user, local-only, no accounts. TypeScript (strict) + Svelte + Vite + idb, Ports & Adapters (Hexagonal), deployed to Cloudflare Pages via wrangler. Planning contract lives in `_bmad-output/` (spec, architecture spine, epics, UX designs).
+Japanese kana handwriting-practice PWA: prompt → write on a pressure-sensitive canvas → self-grade, with weak-spot-biased card selection. Single-user, local-only, no accounts. TypeScript (strict) + Svelte + Vite + idb, Ports & Adapters (Hexagonal), deployed to Cloudflare Pages via wrangler. Planning docs from the retired BMAD workflow live in `docs/bmad/` as transitional reference; they will be removed once superseded.
 
 ## Policy
 
@@ -11,10 +8,9 @@ Japanese kana handwriting-practice PWA: prompt → write on a pressure-sensitive
 
 ## Where things are
 
-- Before writing application code, read `_bmad-output/specs/spec-tegakko/SPEC.md` and `_bmad-output/planning-artifacts/architecture/architecture-tegakko-2026-09-02/ARCHITECTURE-SPINE.md` — the canonical contract, not background reading.
-- Story-level breakdown and acceptance detail: `_bmad-output/planning-artifacts/epics.md`.
-- Visual/interaction design: `_bmad-output/planning-artifacts/ux-designs/ux-tegakko-2026-09-02/DESIGN.md` and `EXPERIENCE.md`.
-- Sprint state: `_bmad-output/implementation-artifacts/sprint-status.yaml`; open follow-ups in `deferred-work.md` in the same directory.
+- Before writing application code, read `docs/bmad/SPEC.md` and `docs/bmad/ARCHITECTURE-SPINE.md` — the canonical contract, not background reading.
+- Visual/interaction design: `docs/bmad/DESIGN.md` and `EXPERIENCE.md`.
+- Work items: GitHub Issues (see `## Agent skills` below).
 
 ## Running and verifying
 
@@ -26,4 +22,16 @@ Japanese kana handwriting-practice PWA: prompt → write on a pressure-sensitive
 
 - Hexagonal boundary (AD-1, enforced by `eslint.config.js`): `domain/` and `ports/` never import from `adapters/` or `app/`; adapters never import sibling adapters — wire concrete adapters only in `src/app/`.
 
-<!-- /bmad:context -->
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `simopzz/tegakko`, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: root `GLOSSARY.md` + `docs/adr/`. See `docs/agents/domain.md`.
