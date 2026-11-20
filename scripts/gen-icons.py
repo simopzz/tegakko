@@ -10,7 +10,7 @@ import struct
 import sys
 import zlib
 
-ACCENT = (0xC6, 0x71, 0x39)  # DESIGN.md colors.accent
+ACCENT = (0xC6, 0x71, 0x39)  # theme.css --color-accent
 
 
 def write_png(path: str, size: int, rgb: tuple[int, int, int]) -> None:
