@@ -15,6 +15,7 @@ import type { Tally } from '../../domain/tally';
 import type { Result } from '../../domain/result';
 import type { SessionRepository } from '../../ports/session-repository';
 import type { Session, SessionSummaryView } from '../../domain/session';
+import { DrillSession } from './drill-session';
 
 // `sampleSessionCards` draws from the real `CARDS` catalog filtered
 // by `scope` -- a `Scope` can only narrow to a full script+set combination
@@ -203,7 +204,9 @@ async function flushAsync(): Promise<void> {
 /** `render(Drill, ...)` with both port fakes defaulted, so call sites that
  * don't care about ink/attempt persistence don't have to construct both
  * fakes every time -- pass an override to capture a reference when a test
- * does care. */
+ * does care. The practice module is bypassed here: tests build a
+ * DrillSession directly and hand it to Drill, the same shape App.svelte
+ * receives from `PracticeModule.start()`. */
 function renderDrill(
   overrides: {
     scope?: Scope;
@@ -232,18 +235,18 @@ function renderDrill(
   const sessionRepository = overrides.sessionRepository ?? fakeSessionRepository();
   const idleTimeoutMs = overrides.idleTimeoutMs ?? 300_000;
   const onClose = overrides.onClose ?? vi.fn();
-  const result = render(Drill, {
+  const drillSession = new DrillSession({
     scope,
     sessionSize,
     attempts,
     tallies,
-    inkSurface,
+    idleTimeoutMs,
     attemptRepository,
     tallyRepository,
     sessionRepository,
-    idleTimeoutMs,
     onClose,
   });
+  const result = render(Drill, { drillSession, inkSurface });
   return {
     ...result,
     scope,
@@ -256,6 +259,7 @@ function renderDrill(
     sessionRepository,
     idleTimeoutMs,
     onClose,
+    drillSession,
   };
 }
 

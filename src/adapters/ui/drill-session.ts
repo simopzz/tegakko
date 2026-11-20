@@ -133,14 +133,20 @@ export class DrillSession {
   private readonly onClose: (summary: SessionSummaryView) => void;
 
   constructor(options: DrillSessionOptions) {
-    this.scope = options.scope;
+    // Scope may arrive as a Svelte reactive proxy (App.svelte's `$state` or
+    // a test harness). IndexedDB rejects proxies with DataCloneError, so
+    // snapshot to plain data at the session boundary -- the same boundary
+    // Drill.svelte used to guard before this logic moved into DrillSession.
+    // `JSON.parse(JSON.stringify(...))` works where `structuredClone` does
+    // not because proxies transparently serialize their underlying values.
+    this.scope = JSON.parse(JSON.stringify(options.scope)) as Scope;
     this.idleTimeoutMs = options.idleTimeoutMs;
     this.attemptRepository = options.attemptRepository;
     this.tallyRepository = options.tallyRepository;
     this.sessionRepository = options.sessionRepository;
     this.onClose = options.onClose;
     this.cardTallies = new Map(options.tallies.map((t) => [t.cardId, t.missCount]));
-    this.queue = sampleSessionCards(options.attempts, options.scope, options.sessionSize);
+    this.queue = sampleSessionCards(options.attempts, this.scope, options.sessionSize);
   }
 
   /** Every interaction routes through here first -- if idle time has already

@@ -32,10 +32,9 @@
   } from '../domain/scope';
   import { CARDS } from '../domain/cards';
   import { DEFAULT_SETTINGS, type WidthPreset } from '../domain/settings';
-  import type { Attempt } from '../domain/attempt';
-  import type { Tally } from '../domain/tally';
   import type { SessionSummaryView } from '../domain/session';
-  import { err } from '../domain/result';
+  import { PracticeModule } from './practice';
+  import type { DrillSession } from '../adapters/ui/drill-session';
 
   const settingsRepository = new IdbSettingsRepository();
   const attemptRepository = new IdbAttemptRepository();
@@ -68,6 +67,22 @@
     canvas: '#F9F4ED', // --color-surface-canvas
   });
 
+  function createInkSurfaceFactory(): InkSurface {
+    const surface = new CanvasInkSurface({ colors: INK_COLORS });
+    surface.setWidthPreset(widthPreset);
+    return surface;
+  }
+
+  interface Props {
+    /** Injectable ink-surface factory: production uses the real canvas
+     * adapter; tests can supply a fake surface. The factory is a closure so
+     * the composition root can inject theme colors and the current width
+     * preset without Drill or the practice module knowing either. */
+    inkSurfaceFactory?: () => InkSurface;
+  }
+
+  const { inkSurfaceFactory = createInkSurfaceFactory }: Props = $props();
+
   let screen = $state<Screen>('pen-check');
   let ready = $state(false);
   // The Scope picker is unmounted while the drill or Settings is open, so its
@@ -76,20 +91,12 @@
   let scope = $state<Scope>(FULL_SCOPE);
   // Sibling to `scope` above, wired the same way, purely for Back-navigation
   // persistence. `handleStart` resolves this into an exact card count
-  // (`resolveSessionSize`) and passes it to `<Drill sessionSize={...}>`,
-  // which samples it exactly once at mount.
+  // (`resolveSessionSize`) and passes it to the practice module, which
+  // samples the queue exactly once at session start.
   let sessionSize = $state<SessionSizeChoice>('all');
   // The exact resolved count for the drill entry currently open -- set once
-  // per `handleStart` call, alongside `drillAttempts`/`drillTallies` below.
+  // per `handleStart` call.
   let resolvedSessionSize = $state(0);
-  // Loaded once via `listAll()` at drill entry -- `Drill` reads this directly
-  // to sample its session queue
-  // (docs/adr/0004-session-sampled-once-by-weakness.md) and never asks this
-  // composition root to re-fetch mid-session.
-  let drillAttempts = $state<Attempt[]>([]);
-  // Loaded once via `getAll()` at drill entry -- mirrors
-  // `drillAttempts` above, never re-fetched mid-session.
-  let drillTallies = $state<Tally[]>([]);
   let widthPreset = $state<WidthPreset>(DEFAULT_SETTINGS.widthPreset);
   // Loaded once on boot, same as `widthPreset` -- Settings is unreachable
   // while Drill is mounted (no nav path exists), so this never needs a
@@ -98,16 +105,25 @@
   // Set by `handleDrillClose` when a Drill session closes (any reason);
   // drives the `summary` screen below and is cleared on "Another round".
   let summary = $state<SessionSummaryView | null>(null);
+  // The running DrillSession for the current drill entry, created by the
+  // practice module; unmounted along with Drill when the screen changes.
+  let drillSession = $state<DrillSession | null>(null);
   // A fresh instance per drill entry: `mount()` is called exactly once per
   // adapter instance, and `Drill.svelte`'s unmount cleanup calls `destroy()`.
   let inkSurface = $state<InkSurface | null>(null);
   // Guards `handleStart` against re-entrancy: a double-tap on "Start
   // writing" (realistic on a stylus tablet) would otherwise fire it twice
-  // before the first `listAll()` resolves, racing two `CanvasInkSurface`s
-  // into existence -- the losing one never mounted or `destroy()`ed, and
-  // `drillAttempts` seeded from whichever `listAll()` call happens to
-  // resolve last.
+  // before the first `listAll()` resolves, racing two ink surfaces into
+  // existence -- the losing one never mounted or `destroy()`ed.
   let starting = false;
+
+  // svelte-ignore state_referenced_locally
+  const practiceModule = new PracticeModule({
+    attemptRepository,
+    tallyRepository,
+    sessionRepository,
+    inkSurfaceFactory,
+  });
 
   onMount(() => {
     void settingsRepository.get().then((result) => {
@@ -129,7 +145,8 @@
 
   async function handleStart(chosenScope: Scope): Promise<void> {
     // A second concurrent call (a double-tap while the first is still
-    // awaiting `listAll()`) is a no-op -- see `starting`'s declaration.
+    // awaiting the practice module's start) is a no-op -- see `starting`'s
+    // declaration.
     if (starting) return;
     starting = true;
     try {
@@ -139,30 +156,14 @@
       // computes, so the drill entry's actual sampled size can never drift
       // from what the learner saw before tapping "Start writing".
       resolvedSessionSize = resolveSessionSize(sessionSize, cardsInScope(CARDS, chosenScope).length);
-      // Loaded once per drill entry, never re-fetched mid-session. Fails
-      // open to `[]` on either failure path this codebase's
-      // adapters can take -- a resolved `{ok: false}` Result or an outright
-      // rejected promise -- the same as `Drill.svelte`'s
-      // `attemptRepository.add()`/`tallyRepository.increment()` calls. An
-      // unreadable attempt history just means `sampleSessionCards` falls
-      // back to its uniform floor rather than blocking the drill from
-      // starting.
-      const result = await attemptRepository.listAll().catch((error: unknown) => {
-        console.error('Failed to load attempt history:', error);
-        return err<Attempt[]>(error instanceof Error ? error : new Error(String(error)));
-      });
-      drillAttempts = result.ok ? result.value : [];
-      // Same fail-open pattern as `drillAttempts` above -- an unreadable
-      // tally store just means the toast's cumulative count starts from an
-      // empty baseline rather than blocking the drill from starting.
-      const tallyResult = await tallyRepository.getAll().catch((error: unknown) => {
-        console.error('Failed to load tallies:', error);
-        return err<Tally[]>(error instanceof Error ? error : new Error(String(error)));
-      });
-      drillTallies = tallyResult.ok ? tallyResult.value : [];
-      const surface = new CanvasInkSurface({ colors: INK_COLORS });
-      surface.setWidthPreset(widthPreset);
-      inkSurface = surface;
+      const handle = await practiceModule.start(
+        chosenScope,
+        resolvedSessionSize,
+        idleTimeoutMs,
+        handleDrillClose,
+      );
+      drillSession = handle.session;
+      inkSurface = handle.inkSurface;
       screen = 'drill';
     } finally {
       starting = false;
@@ -172,6 +173,7 @@
   function handleDrillClose(closedSummary: SessionSummaryView): void {
     summary = closedSummary;
     screen = 'summary';
+    drillSession = null;
     inkSurface = null;
   }
 
@@ -231,19 +233,8 @@
       onPresetChange={handlePresetChange}
       onBack={handleSettingsBack}
     />
-  {:else if screen === 'drill' && inkSurface}
-    <Drill
-      {scope}
-      sessionSize={resolvedSessionSize}
-      attempts={drillAttempts}
-      tallies={drillTallies}
-      {inkSurface}
-      {attemptRepository}
-      {tallyRepository}
-      {sessionRepository}
-      {idleTimeoutMs}
-      onClose={handleDrillClose}
-    />
+  {:else if screen === 'drill' && drillSession && inkSurface}
+    <Drill {drillSession} {inkSurface} />
   {:else if screen === 'summary' && summary}
     <SessionSummary {summary} onAgain={handleSummaryAgain} onHistory={handleOpenHistory} />
   {:else if screen === 'history'}

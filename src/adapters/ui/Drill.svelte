@@ -14,84 +14,21 @@
   //
   // All non-rendering bookkeeping (queue, idle, closure, grade/undo
   // persistence) lives in `DrillSession`; this keeps render state only.
-  import { onMount, tick, untrack } from 'svelte';
-  import type { Card, Script } from '../../domain/cards';
-  import type { Scope } from '../../domain/scope';
+  import { onMount, tick } from 'svelte';
+  import type { Script } from '../../domain/cards';
   import type { InkSurface } from '../../ports/ink-surface';
   import type { Stroke } from '../../domain/ink';
-  import type { Attempt, SelfGrade } from '../../domain/attempt';
-  import type { AttemptRepository } from '../../ports/attempt-repository';
-  import type { TallyRepository } from '../../ports/tally-repository';
-  import type { Tally } from '../../domain/tally';
-  import type { SessionRepository } from '../../ports/session-repository';
-  import type { SessionSummaryView } from '../../domain/session';
+  import type { SelfGrade } from '../../domain/attempt';
   import { DrillSession } from './drill-session';
 
   interface Props {
-    scope: Scope;
-    /** Resolved card count for this session (`domain/scope.ts`'s
-     * `resolveSessionSize`, computed by the composition root from the Scope
-     * picker's `SessionSizeChoice`). Read exactly once, at mount, to draw
-     * the sampled queue below -- never re-resolved mid-session. */
-    sessionSize: number;
-    /** Session-start attempt history from the composition root, loaded once
-     * via `listAll()` at drill entry -- never re-fetched mid-session
-     * (docs/adr/0004-session-sampled-once-by-weakness.md). */
-    attempts: Attempt[];
-    /** Session-start tally snapshot from the composition root, loaded once
-     * via `getAll()` at drill entry -- mirrors `attempts` above, never
-     * re-fetched mid-session. */
-    tallies: Tally[];
+    /** The running session, created and owned by the practice module. */
+    drillSession: DrillSession;
     inkSurface: InkSurface;
-    attemptRepository: AttemptRepository;
-    tallyRepository: TallyRepository;
-    sessionRepository: SessionRepository;
-    /** Loaded once at drill entry, same as `widthPreset`/`tallies` -- no
-     * live-reload mid-drill. */
-    idleTimeoutMs: number;
-    /** Fires on every session closure (explicit, complete, or inactivity)
-     * with the closed session's Summary view. */
-    onClose: (summary: SessionSummaryView) => void;
   }
 
-  const {
-    scope,
-    sessionSize,
-    attempts,
-    tallies,
-    inkSurface,
-    attemptRepository,
-    tallyRepository,
-    sessionRepository,
-    idleTimeoutMs,
-    onClose,
-  }: Props = $props();
-
-  // One session per drill entry -- the composition root builds a fresh
-  // component per entry. `untrack`: a deliberate one-shot seed, not a
-  // subscription to the props -- Svelte otherwise warns
-  // (state_referenced_locally) about exactly that. `$state.snapshot`:
-  // `scope` arrives as a Svelte 5 deep proxy (App's `$state` plus
-  // `$props()` re-wrapping), and a proxy is not structured-cloneable --
-  // handing it on to `sessionRepository.add()` verbatim makes IndexedDB
-  // reject the write with a DataCloneError, so the session silently never
-  // persists. Snapshot to plain data at this boundary; every other record
-  // field is already plain (`strokes` is deliberately a non-`$state` local).
-  const session = untrack(
-    () =>
-      new DrillSession({
-        scope: $state.snapshot(scope),
-        sessionSize,
-        attempts,
-        tallies,
-        idleTimeoutMs,
-        attemptRepository,
-        tallyRepository,
-        sessionRepository,
-        onClose,
-      }),
-  );
-  const queue = session.queue;
+  const { drillSession: session, inkSurface }: Props = $props();
+  const queue = $derived(session.queue);
 
   const scriptLabel: Record<Script, string> = {
     hiragana: 'Hiragana',
@@ -104,7 +41,7 @@
   let queueIndex = $state(0);
   // 1-based, display-only; `$derived` so it can never desync.
   const position = $derived(queueIndex + 1);
-  let card = $state<Card>(queue[0]!);
+  const card = $derived(queue[queueIndex]!);
   let hasInk = $state(false);
   // Reveal: once true it unlocks Missed/Correct even from a
   // blank cell -- revealing nothing is itself an honest "I don't know".
@@ -239,7 +176,6 @@
       return;
     }
     queueIndex += 1;
-    card = queue[queueIndex]!;
     revealed = false;
     inkSurface.clear();
     hasInk = false;
