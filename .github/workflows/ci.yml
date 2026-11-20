@@ -1,9 +1,9 @@
 name: CI
 
 on:
-  push:
-    branches: ['**']
   pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -13,31 +13,22 @@ concurrency:
 permissions:
   contents: read
 
+# Deploys aren't here: Cloudflare Workers Builds deploys every push on its own.
 jobs:
   ci:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Node
-        uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+      - uses: actions/cache@v6
         with:
-          node-version: '26'
-          cache: npm
-
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: npm-${{ runner.os }}-
       - name: Install dependencies
         run: npm ci
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Test
-        run: npm run test
-
+      - name: Check
+        run: mise run check
       - name: Build
-        run: npm run build
+        run: mise run build
