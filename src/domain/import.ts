@@ -188,10 +188,10 @@ function toSession(value: unknown, path: string): Session {
   };
 }
 
-/** Validates a parsed 2.1 export envelope and expands it into persisted
- * record shapes (compact `[x, y, pressure]` triples back to `StrokePoint`s,
- * stroke and point order preserved). Pure, never throws: any failure is an
- * `err` whose message names the first failing path. */
+/** Validates a parsed export envelope (version 2) and expands it into
+ * persisted record shapes (compact `[x, y, pressure]` triples back to
+ * `StrokePoint`s, stroke and point order preserved). Pure, never throws: any
+ * failure is an `err` whose message names the first failing path. */
 export function validateImport(input: unknown): Result<ValidatedImport> {
   try {
     const envelope = record(input, 'file');

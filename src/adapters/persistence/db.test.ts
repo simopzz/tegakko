@@ -10,15 +10,7 @@ import {
   TALLIES_STORE,
   SESSIONS_STORE,
 } from './db';
-
-function resetDb(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.deleteDatabase(DB_NAME);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error as DOMException);
-    req.onblocked = () => resolve();
-  });
-}
+import { resetDb } from './test-reset-db';
 
 describe('openTegakkoDb() upgrade wipe', () => {
   beforeEach(async () => {

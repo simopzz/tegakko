@@ -48,7 +48,7 @@ const TALLIES: Tally[] = [
   { cardId: 'ア:katakana', missCount: 0 },
 ];
 
-/** A JSON round-tripped 2.1 envelope, as a file would actually parse. */
+/** A JSON round-tripped version-2 envelope, as a file would actually parse. */
 function envelope(): Record<string, unknown> {
   const built = buildExportEnvelope(
     TALLIES,
