@@ -16,6 +16,8 @@ Cloudflare Workers Builds deploys every push on its own; there is no manual depl
 
 - Vocabulary: `GLOSSARY.md`. Decisions that would surprise a reader: `docs/adr/`. Behaviour itself is specified by the code and its tests.
 - Visual and interaction design: `docs/design.md`. Update it in the same PR as a change to what it describes.
+- Session lifecycle: `src/app/practice.ts` (module/orchestrator) → `src/adapters/ui/drill-session.ts` (state machine) → `src/adapters/ui/Drill.svelte` (rendering).
+- Coding standards for review: `CODING_STANDARDS.md`.
 
 ## Conventions that differ from defaults
 
