@@ -1,12 +1,11 @@
-// Pure domain type -- no DOM/IndexedDB/Svelte import ever appears here (AD-1).
+// Pure domain type -- no DOM/IndexedDB/Svelte import ever appears here
+// (docs/adr/0001-hexagonal-boundary.md).
 
-/** Ink-width preset (Story 1.3 uses this for stroke width; only stored here
- * this story, per AD-11's singleton `settings` record). */
+/** Ink-width preset: the pressure-to-width range a stroke is drawn with. */
 export type WidthPreset = 'subtle' | 'expressive' | 'calligraphy';
 
-/** The `settings` IndexedDB store's singleton record shape (AD-11). Only
- * `penCheckShown` is meaningfully used by Story 1.1 -- the others get sane
- * defaults so the record shape is stable from the first write onward. */
+/** The `settings` IndexedDB store's singleton record shape. Every field gets
+ * a sane default so the record shape is stable from the first write onward. */
 export interface Settings {
   widthPreset: WidthPreset;
   idleTimeoutMs: number;

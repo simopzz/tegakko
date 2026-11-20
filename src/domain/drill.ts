@@ -1,17 +1,14 @@
 // Pure domain function -- no DOM/IndexedDB/Svelte import ever appears here
-// (AD-1).
+// (docs/adr/0001-hexagonal-boundary.md).
 //
-// AD-10 (2026-09-08 course correction) supersedes Story 1.7's per-draw,
-// with-replacement single-card selector: weak-spot bias now governs
-// **session sampling**, not per-draw reselection. `sampleSessionCards(
+// Weak-spot bias governs **session sampling**, not per-draw reselection
+// (docs/adr/0004-session-sampled-once-by-weakness.md). `sampleSessionCards(
 // attempts, scope, sessionSize)` is called exactly once, at session start --
 // it draws `min(sessionSize, candidates.length)` distinct cards via
-// sequential weighted removal without replacement (reusing the prior
-// selector's cumulative-weight walk, extracted below into
-// `weightedPickIndex`), then uniform-shuffles the drawn set so sampling
-// weight never leaks into presentation order. Drill advances through the
-// resulting fixed queue; closure fires on queue exhaustion -- exact, never
-// probabilistic.
+// sequential weighted removal without replacement (`weightedPickIndex`),
+// then uniform-shuffles the drawn set so sampling weight never leaks into
+// presentation order. Drill advances through the resulting fixed queue;
+// closure fires on queue exhaustion -- exact, never probabilistic.
 
 import type { Card } from './cards';
 import { CARDS } from './cards';
@@ -61,14 +58,12 @@ function score(card: Card, attempts: Attempt[]): number {
   return total;
 }
 
-/** Draws one index from `weights` via the cumulative-weight walk -- the same
- * single-pick primitive Story 1.7's original per-draw selector used
- * directly, now extracted so `sampleSessionCards` below can call it in a
- * loop against a shrinking pool (AD-10: reuse the existing primitive `k`
- * times rather than inventing a new weighted-sampling algorithm). A
- * degenerate `random() === 1` (or floating-point rounding) leaves `target`
- * at or past `totalWeight` -- clamp to the last index rather than fall
- * through to `undefined` (mirrors the original `pickRandomCard`'s clamp). */
+/** Draws one index from `weights` via the cumulative-weight walk.
+ * `sampleSessionCards` calls it in a loop against a shrinking pool -- simpler
+ * than a dedicated weighted-sampling algorithm and fast enough at catalog
+ * sizes. A degenerate `random() === 1` (or floating-point rounding) leaves
+ * `target` at or past `totalWeight` -- clamp to the last index rather than
+ * fall through to `undefined`. */
 function weightedPickIndex(weights: number[], random: () => number): number {
   const totalWeight = weights.reduce((sum, w) => sum + w, 0);
   const target = random() * totalWeight;
@@ -85,8 +80,8 @@ function weightedPickIndex(weights: number[], random: () => number): number {
 
 /** In-place-free uniform (Fisher-Yates) shuffle -- returns a new array,
  * never mutates `items`. Decouples presentation order from the weighted
- * draw order above (AD-10: "sampling procedure's natural pick order is not
- * the session's presentation order"). `random` shares the same injection
+ * draw order above: weight decides *which* cards come up, never their order.
+ * `random` shares the same injection
  * point as `weightedPickIndex`/`sampleSessionCards` for deterministic
  * tests. */
 function shuffle<T>(items: T[], random: () => number): T[] {
@@ -100,7 +95,7 @@ function shuffle<T>(items: T[], random: () => number): T[] {
   return result;
 }
 
-/** Sample this session's card queue, biased toward weak spots (AD-10).
+/** Sample this session's card queue, biased toward weak spots.
  *
  * Candidates are `cardsInScope(CARDS, scope)` -- always the static catalog
  * filtered by `scope`, never a passed-in card list. Draws
@@ -115,8 +110,8 @@ function shuffle<T>(items: T[], random: () => number): T[] {
  * get sampled (weighted) is decoupled from *what order* they're presented in
  * (unweighted).
  *
- * Called exactly once, at session start -- never re-invoked mid-session
- * (AD-10): a miss recorded mid-session affects only the *next* session's
+ * Called exactly once, at session start -- never re-invoked mid-session:
+ * a miss recorded mid-session affects only the *next* session's
  * sample, not this one's already-fixed queue.
  *
  * `random` is injectable purely so tests are deterministic; production
@@ -156,7 +151,7 @@ export function sampleSessionCards(
   return shuffle(sampled, random);
 }
 
-/** Reverse the just-graded attempt (Story 1.8): atomically sequences
+/** Reverse the just-graded attempt: atomically sequences
  * `attemptRepository.deleteLast(sessionId)` then, only when the grade being
  * undone was `'incorrect'`, `tallyRepository.decrement(cardId)`. A `'correct'`
  * grade never touched the tally, so undoing one never calls `decrement`

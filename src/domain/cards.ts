@@ -1,6 +1,7 @@
-// Pure domain data -- no DOM/IndexedDB/Svelte import ever appears here (AD-1).
+// Pure domain data -- no DOM/IndexedDB/Svelte import ever appears here
+// (docs/adr/0001-hexagonal-boundary.md).
 //
-// The static 208-card kana catalog (AD-3): compiled into the bundle, never an
+// The static 208-card kana catalog: compiled into the bundle, never an
 // IndexedDB store. `cardId` is the natural key `"<grapheme>:<script>"` -- a
 // yoon card's grapheme is always the full two-character combination (e.g.
 // "きゃ"), never decomposed into its base kana + small-ya/yu/yo parts, so a
@@ -15,14 +16,14 @@ export interface Card {
   script: Script;
   kind: CardKind;
   /** Hepburn reading, shared across scripts (あ and ア are both "a"). The
-   * drill prompt (Story 1.3) shows this plus the script name -- never a
+   * drill prompt shows this plus the script name -- never a
    * mnemonic or example word. */
   romaji: string;
-  /** Written-form disambiguator (Story 1.12), set only on the 4 cards whose
+  /** Written-form disambiguator, set only on the 4 cards whose
    * Hepburn `romaji` collapses onto another card's (ぢ/づ/ヂ/ヅ share "ji"/"zu"
    * with じ/ず/ジ/ズ). The prompt renders it as "<romaji> (<writtenRomaji>)"
    * so a bare "ji"/"zu" prompt is unambiguous by elimination -- disambiguating
-   * data intrinsic to the card, not a mnemonic (UX-DR17). */
+   * data intrinsic to the card, not a mnemonic. */
   writtenRomaji?: string;
 }
 
@@ -36,8 +37,7 @@ function cardId(grapheme: string, script: Script): string {
 
 // Base gojuon order, hiragana. 46 seion entries followed by the 25
 // dakuten/handakuten entries (が/ざ/だ/ば/ぱ-rows, in that consonant order,
-// each in a/i/u/e/o vowel order) -- 71 total, matching AD-3's
-// 71-base-per-script rule (Story 1.11).
+// each in a/i/u/e/o vowel order) -- 71 base cards per script.
 const HIRAGANA_BASE = [
   'あ', 'い', 'う', 'え', 'お',
   'か', 'き', 'く', 'け', 'こ',
@@ -82,7 +82,7 @@ const KATAKANA_BASE = [
 // not Nihon-shiki: し `shi`, ち `chi`, つ `tsu`, ふ `fu`. ぢ/づ deliberately
 // duplicate じ/ず's readings (`ji`/`zu`) -- standard Hepburn, not a bug. The
 // resulting drill-prompt ambiguity (which of the two a bare "ji"/"zu" prompt
-// means) is resolved separately by `writtenRomaji` below (Story 1.12), not
+// means) is resolved separately by `writtenRomaji` below, not
 // by changing these Hepburn readings.
 const HIRAGANA_ROMAJI = [
   'a', 'i', 'u', 'e', 'o',
@@ -105,8 +105,7 @@ const HIRAGANA_ROMAJI = [
 
 // Standard yoon rows -- 11 consonant rows (7 seion + 4 voiced/semi-voiced:
 // ぎ/じ/び/ぴ), each combining with small ゃ/ゅ/ょ. 11 * 3 = 33 per script,
-// matching AD-3's 33-yoon-per-script rule. No extended/loanword yoon rows
-// (e.g. ふぁ, ゔぁ) -- out of this story's frozen scope.
+// No extended/loanword yoon rows (e.g. ふぁ, ゔぁ).
 const HIRAGANA_YOON_ROWS = ['き', 'し', 'ち', 'に', 'ひ', 'み', 'り', 'ぎ', 'じ', 'び', 'ぴ'] as const;
 const KATAKANA_YOON_ROWS = ['キ', 'シ', 'チ', 'ニ', 'ヒ', 'ミ', 'リ', 'ギ', 'ジ', 'ビ', 'ピ'] as const;
 const YOON_SMALL_SUFFIXES = ['ゃ', 'ゅ', 'ょ'] as const;
@@ -120,7 +119,7 @@ const YOON_SMALL_SUFFIXES_KATAKANA = ['ャ', 'ュ', 'ョ'] as const;
 const YOON_ROMAJI_STEMS = ['ky', 'sh', 'ch', 'ny', 'hy', 'my', 'ry', 'gy', 'j', 'by', 'py'] as const;
 const YOON_ROMAJI_VOWELS = ['a', 'u', 'o'] as const;
 
-// Written-form disambiguator (Story 1.12): only the da-row's ぢ/づ (and their
+// Written-form disambiguator: only the da-row's ぢ/づ (and their
 // katakana counterparts ヂ/ヅ) need one -- their Hepburn romaji ("ji"/"zu")
 // collapses onto じ/ず's, so the prompt shows both: "ji (di)" / "zu (du)".
 // Keyed by grapheme, not index, since the disambiguation is identical across
@@ -177,7 +176,7 @@ function yoonCards(
   );
 }
 
-/** The full 208-card static catalog (AD-3): 71 base hiragana (46 seion + 25
+/** The full 208-card static catalog: 71 base hiragana (46 seion + 25
  * dakuten/handakuten) + 71 base katakana + 33 hiragana yoon + 33 katakana
  * yoon.
  *

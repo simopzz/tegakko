@@ -14,9 +14,9 @@ export const adapterZones = ['content', 'ink', 'persistence', 'ui', 'io'].map((n
   from: `./src/adapters/!(${name})/**`,
 }));
 
-// AD-1's other half: domain/ imports nothing from adapters/ or app/, and
-// ports/ types reference only domain/ types -- app/ is the composition root
-// and stays exempt (it's the only layer allowed to wire concrete adapters).
+// The other half of the hexagonal boundary (docs/adr/0001-hexagonal-boundary.md):
+// domain/ and ports/ import nothing from adapters/ or app/. app/ is the
+// composition root and stays exempt.
 export const domainPurityZones = [
   { target: './src/domain', from: ['./src/adapters/**', './src/app/**'] },
   { target: './src/ports', from: ['./src/adapters/**', './src/app/**'] },
@@ -63,7 +63,7 @@ export default tseslint.config(
     extends: [...tseslint.configs.recommended],
     plugins: { 'import-x': importPlugin },
     rules: {
-      // AD-6: no `any` anywhere, least of all at a port boundary.
+      // No `any` anywhere, least of all at a port boundary.
       '@typescript-eslint/no-explicit-any': 'error',
     },
   },
@@ -86,18 +86,14 @@ export default tseslint.config(
       // rule set -- see tsRecommendedRules above for why this isn't a plain
       // `extends`), applied to a component's <script lang="ts"> block.
       ...tsRecommendedRules,
-      // AD-6: no `any` anywhere -- same bar as plain .ts.
+      // No `any` anywhere -- same bar as plain .ts.
       '@typescript-eslint/no-explicit-any': 'error',
     },
   },
   {
-    // AD-1: cross-adapter interaction goes through a port, never a direct
-    // sibling-adapter import -- only `app/` may import concrete adapters.
-    // Covers both .ts adapter modules and .svelte adapter components (e.g.
-    // src/adapters/ui/*.svelte) -- a component doesn't get a boundary pass
-    // just because it's markup-flavored. Also covers domain/ and ports/ so
-    // domainPurityZones (AD-1's other half: domain/ports stay clean of
-    // adapters/app) actually runs against those files.
+    // The hexagonal boundary (docs/adr/0001-hexagonal-boundary.md). Covers
+    // .svelte components as well as .ts modules, and domain/ and ports/ so
+    // domainPurityZones actually runs against those files.
     files: [
       'src/adapters/**/*.ts',
       'src/adapters/**/*.svelte',

@@ -1,15 +1,16 @@
 <script lang="ts">
-  // Drill screen (Story 1.3): prompt -> write from memory -> self-grade.
+  // Drill screen: prompt -> write from memory -> self-grade.
   //
   // NB: a literal style or script tag written out in a comment here makes
   // svelte-check parse the whole component as one unterminated script --
   // hence the prose. Drill sub-states are local component state, never
-  // members of the `Screen` union (AD-12).
+  // members of the `Screen` union.
   //
   // The ink surface arrives as a port instance from the composition root --
-  // `adapters/ui` never imports `adapters/ink` (AD-1, enforced by
-  // import-x/no-restricted-paths). Svelte renders NOTHING inside `.cell`:
-  // the adapter owns that node's contents (AD-2).
+  // `adapters/ui` never imports `adapters/ink`
+  // (docs/adr/0001-hexagonal-boundary.md). Svelte renders NOTHING inside
+  // `.cell`: the adapter owns that node's contents
+  // (docs/adr/0002-ink-adapter-owns-its-canvas.md).
   //
   // All non-rendering bookkeeping (queue, idle, closure, grade/undo
   // persistence) lives in `DrillSession`; this keeps render state only.
@@ -31,22 +32,22 @@
     /** Resolved card count for this session (`domain/scope.ts`'s
      * `resolveSessionSize`, computed by the composition root from the Scope
      * picker's `SessionSizeChoice`). Read exactly once, at mount, to draw
-     * the sampled queue below -- never re-resolved mid-session (AD-10). */
+     * the sampled queue below -- never re-resolved mid-session. */
     sessionSize: number;
     /** Session-start attempt history from the composition root, loaded once
      * via `listAll()` at drill entry -- never re-fetched mid-session
-     * (AD-10). */
+     * (docs/adr/0004-session-sampled-once-by-weakness.md). */
     attempts: Attempt[];
     /** Session-start tally snapshot from the composition root, loaded once
      * via `getAll()` at drill entry -- mirrors `attempts` above, never
-     * re-fetched mid-session (Story 1.8). */
+     * re-fetched mid-session. */
     tallies: Tally[];
     inkSurface: InkSurface;
     attemptRepository: AttemptRepository;
     tallyRepository: TallyRepository;
     sessionRepository: SessionRepository;
     /** Loaded once at drill entry, same as `widthPreset`/`tallies` -- no
-     * live-reload mid-drill (Story 1.9's Boundaries & Constraints). */
+     * live-reload mid-drill. */
     idleTimeoutMs: number;
     /** Fires on every session closure (explicit, full-scope, or inactivity)
      * with the closed session's Summary view. */
@@ -98,18 +99,18 @@
   };
 
   // Index into `queue` of the card on screen. Advances only on "Next
-  // character", never on the grade itself (Story 1.8's deferred-advance
-  // pattern), so Undo needs no queue reinsertion (AD-13).
+  // character", never on the grade itself, so Undo needs no queue
+  // reinsertion.
   let queueIndex = $state(0);
   // 1-based, display-only; `$derived` so it can never desync.
   const position = $derived(queueIndex + 1);
   let card = $state<Card>(queue[0]!);
   let hasInk = $state(false);
-  // Reveal (Story 1.4): once true it unlocks Missed/Correct even from a
+  // Reveal: once true it unlocks Missed/Correct even from a
   // blank cell -- revealing nothing is itself an honest "I don't know".
   let revealed = $state(false);
 
-  // Story 1.8's deferred-advance toast: set by `handleGrade`, cleared by
+  // The post-grade toast: set by `handleGrade`, cleared by
   // `handleUndo`/`handleNext`. While set, Missed/Correct/Reveal stay disabled
   // and prompt/ink/strokes stay frozen, so Undo needs no restore mechanism.
   let graded = $state<{ cardId: string; grade: SelfGrade; tallyCount: number | null } | null>(
@@ -121,7 +122,7 @@
   // Set synchronously around the awaited `session.undoLastGrade()`.
   let undoing = $state(false);
 
-  // Story 1.5's per-prompt ink bookkeeping: plain `let`, nothing renders
+  // Per-prompt ink bookkeeping: plain `let`, nothing renders
   // from it. Every stroke since the last Clear/advance, persisted verbatim.
   let strokes: Stroke[] = [];
   // `performance.now()` when the current prompt appeared (and again after
@@ -133,7 +134,7 @@
   // `undefined` through a reveal-from-blank grade.
   let firstStrokeStartedAt: number | undefined;
 
-  // Sampled without replacement (AD-10): always reaches exactly 100%, never
+  // Sampled without replacement: always reaches exactly 100%, never
   // overshoots. Always shown alongside the text counter, never alone.
   const progress = $derived(position / queue.length);
 
@@ -144,7 +145,7 @@
   // stops being the focused element, and most browsers drop focus to
   // `<body>` rather than leaving it on the control the user just pressed.
   // `$state`: this binds inside the `{#if graded}...{:else}...{/if}` grades
-  // block (A4's action row swap), so it's rebound/unbound on every toast
+  // block (the post-grade action row swap), so it's rebound/unbound on every toast
   // show/hide, not just once at mount.
   let missedButton: HTMLButtonElement | undefined = $state();
   // Focus target once the toast appears (Missed/Correct just went
@@ -230,7 +231,7 @@
 
   function handleNext(): void {
     if (!session.recordInteraction()) return;
-    // Full-scope closure (Story 1.9) rides this existing tap rather than a
+    // Full-scope closure rides this existing tap rather than a
     // new control: the queue-completing grade still shows the normal
     // toast/Undo, and only tapping past it closes the session.
     if (session.isLastCard(queueIndex)) {
@@ -295,8 +296,8 @@
        canvas element there on mount. Svelte renders nothing inside it. The
        `.cell` div itself is never inside a conditional block -- only its
        enclosing `.panel`'s CSS box changes (a second `.panel` sibling
-       appears beside it on reveal), so Svelte never remounts it and AD-2's
-       "mount() exactly once per instance" holds across a reveal. Each
+       appears beside it on reveal), so Svelte never remounts it and the ink
+       port's "mount() exactly once per instance" holds across a reveal. Each
        `.panel` is its own container-query context so the cell can size
        itself to whatever room is actually left after the header/prompt/
        footer/grades claim theirs, rather than guessing a fraction of the
@@ -337,7 +338,7 @@
 
   <div class="grades">
     {#if graded}
-      <!-- Mirrors UX spec screen A4: the action row collapses to a dimmed
+      <!-- The action row collapses to a dimmed
            Reveal (its own state is frozen either way -- Missed/Correct never
            came back once reveal fired) plus a wide "Next character". -->
       <button type="button" class="btn btn--neutral btn--dimmed" disabled>
@@ -385,7 +386,7 @@
   </div>
 
   {#if graded}
-    <!-- UX spec screen A4 "self-grade landed": a peach (missed-tint) card
+    <!-- "Self-grade landed": a peach (missed-tint) card
          floating above the action row, not a dark full-width bar -- message
          plus a single outlined Undo pill; "Next character" lives in the
          action row above, not in this card. -->
@@ -520,7 +521,7 @@
        scroll. `min-height: 0` lets it shrink below its content's natural
        minimum instead of the (larger) automatic default. One `.panel` child
        normally (the ink cell, centered); Reveal adds a second, equal-width
-       "Reference" panel beside it (Story 1.4). */
+       "Reference" panel beside it. */
     flex: 1;
     min-height: 0;
     min-width: 0;
@@ -580,7 +581,7 @@
 
   .reference-cell {
     /* Mirrors `.cell`'s box exactly, so Yours/Reference read as one
-       comparison pair -- but tinted `--color-missed-bg` per DESIGN.md
+       comparison pair -- but tinted `--color-missed-bg` per docs/design.md
        ("the reference-glyph panel on the Reveal screen" uses the missed
        tint, not the canvas ground: this is attention, not the writing
        surface). */
@@ -596,7 +597,7 @@
 
   .glyph {
     /* The brush face renders ONLY an actual grapheme, never UI text
-       (DESIGN.md) -- romaji/labels stay in `--font-heading`/`--font-body`
+       (docs/design.md) -- romaji/labels stay in `--font-heading`/`--font-body`
        throughout this component. */
     font-family: var(--font-glyph-ink);
     font-size: min(60cqw, 60cqh);
@@ -680,7 +681,7 @@
     cursor: default;
   }
 
-  /* Story 1.8's post-grade toast (UX spec screen A4): the missed-tint card
+  /* The post-grade toast: the missed-tint card
      floats above the action row -- an overlay, not a flex-column sibling,
      so it can appear/disappear on every grade without reflowing `.drill`
      (fixed to `100dvh` with nothing to scroll; see `.drill` above). */
@@ -689,7 +690,7 @@
     left: var(--spacing-6);
     right: var(--spacing-6);
     /* Clears the action row (`.btn`'s 88px plus `.drill`'s bottom padding)
-       so it floats above the buttons, never over them (A4). */
+       so it floats above the buttons, never over them. */
     bottom: calc(88px + var(--spacing-4) + var(--spacing-3));
     /* Only fixed-position element on this screen today, but pinned above
        anything that could later share that positioning (e.g. a future
@@ -740,21 +741,21 @@
     cursor: pointer;
   }
 
-  /* Dimmed *and* `disabled` while a reversal is in flight (Boundaries &
-     Constraints) -- mirrors `.btn--dimmed`'s reasoning above. */
+  /* Dimmed *and* `disabled` while a reversal is in flight -- mirrors
+     `.btn--dimmed`'s reasoning above. */
   .toast-undo:disabled {
     opacity: 0.5;
     cursor: default;
   }
 
-  /* Prompt and cell fade back (A4) once a grade lands -- signals the drill
+  /* Prompt and cell fade back once a grade lands -- signals the drill
      is mid-transition without hiding what was just written; ink/strokes
      stay exactly as graded until "Next character" (see `handleNext`). */
   .dimmed {
     opacity: 0.35;
   }
 
-  /* A4's action row: Reveal keeps its `flex: 1` share, "Next character"
+  /* Post-grade action row: Reveal keeps its `flex: 1` share, "Next character"
      takes the two grade buttons' combined share instead of a third slot. */
   .next-btn {
     flex: 2;

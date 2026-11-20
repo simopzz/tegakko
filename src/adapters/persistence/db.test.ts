@@ -22,25 +22,13 @@ describe('openTegakkoDb() blocked/blocking guard', () => {
   });
 
   it('closes this connection in `blocking` so a newer cross-tab open is not blocked forever', async () => {
-    // NOTE ON DEVIATION FROM SPEC'S LITERAL VERIFICATION TEXT:
-    // The spec (spec-dw-2-20-indexeddb-blocked-versionchange-guard.md) asks this
-    // test to additionally assert that the *second* connection's own `blocked`
-    // callback fires. Empirically (and per the IndexedDB spec's own closing
-    // steps, mirrored by fake-indexeddb's `closeConnection`), a connection that
-    // closes itself *synchronously* inside its `versionchange`/`blocking`
-    // handler sets its close-pending flag before the "is anything still open"
-    // check that would fire `blocked` on the newer request ever runs -- so
-    // `blocked` deterministically never fires in this scenario, in both
-    // fake-indexeddb and real browsers. That is the entire point of the
-    // `blocking` pattern: it prevents `blocked` from being needed. Requiring
-    // `blocked` to fire here would only pass for a *broken* (delayed-close)
-    // implementation, which would contradict this spec's own "Always" bullet
-    // that `blocking` must close the connection so the other tab's upgrade can
-    // proceed. Instead, this test proves the scenario is real (not vacuous) by
-    // asserting `firstConnection` was actually closed by `blocking` (a
-    // transaction against it throws) and that our `blocking` diagnostic logged,
-    // while still asserting the core acceptance criterion: the newer open
-    // resolves rather than hanging.
+    // Deliberately doesn't assert the second connection's `blocked` fires: per
+    // the IndexedDB spec (mirrored by fake-indexeddb), a connection that closes
+    // itself synchronously in `blocking` never lets `blocked` fire -- that is
+    // the point of the pattern. Instead this proves the scenario is real:
+    // `firstConnection` was actually closed (a transaction against it throws),
+    // the `blocking` diagnostic logged, and the newer open resolves rather than
+    // hanging.
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     let firstConnection: Awaited<ReturnType<typeof openTegakkoDb>> | undefined;

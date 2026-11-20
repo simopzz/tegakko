@@ -1,6 +1,7 @@
 <script lang="ts">
-  // First Run / pen-check screen (Story 1.1). Own lightweight pointermove
-  // listener per AD-2's exemption -- this is a diagnostic surface, not the
+  // First Run / pen-check screen. Own lightweight pointermove listener
+  // (docs/adr/0002-ink-adapter-owns-its-canvas.md allows it) -- this is a
+  // diagnostic surface, not the
   // drill's ink-rendering hot path, so it does not go through InkSurface.
   // Lightweight normalizedPressure/pointer handling, simplified: no stroke
   // rendering, just a live pressure readout.
@@ -15,7 +16,8 @@
   const { settingsRepository, onDismiss }: Props = $props();
 
   // `beforeinstallprompt` isn't in lib.dom's WindowEventMap -- declared here
-  // instead of reaching for `any` (Chromium-only; see Design Notes).
+  // instead of reaching for `any` (Chromium-only, so the install button only
+  // appears there).
   interface BeforeInstallPromptEvent extends Event {
     prompt(): Promise<void>;
     readonly userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
@@ -95,8 +97,8 @@
     const current = await settingsRepository.get();
     if (!current.ok) {
       // Don't silently fall back to defaults on a read failure -- that
-      // would overwrite any real settings (Story 1.3+'s widthPreset,
-      // etc.) the same way a save failure would. Surface it identically.
+      // would overwrite any real settings (widthPreset, etc.) the same way a
+      // save failure would. Surface it identically.
       console.error('Failed to read settings before persisting penCheckShown:', current.error);
       dismissError = "Couldn't save that -- tap again to continue anyway.";
       persistenceFailed = true;

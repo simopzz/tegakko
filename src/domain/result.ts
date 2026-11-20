@@ -1,8 +1,8 @@
-// Pure domain type -- no DOM/IndexedDB/Svelte import ever appears here (AD-1).
+// Pure domain type -- no DOM/IndexedDB/Svelte import ever appears here
+// (docs/adr/0001-hexagonal-boundary.md).
 //
 // Adapters resolve failures into this typed shape instead of letting a raw
-// `DOMException` (or any other thrown value) cross the port boundary, per
-// the architecture spine's Consistency Conventions.
+// `DOMException` (or any other thrown value) cross the port boundary.
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: Error };
 

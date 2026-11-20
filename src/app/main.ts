@@ -1,5 +1,5 @@
 // Composition root: the only place allowed to import concrete adapter
-// implementations across the board, per AD-1.
+// implementations across the board (docs/adr/0001-hexagonal-boundary.md).
 import { mount } from 'svelte';
 import App from './App.svelte';
 import './theme.css';

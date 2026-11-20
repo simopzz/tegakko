@@ -8,7 +8,7 @@ import type { Tally } from '../../domain/tally';
 import type { Result } from '../../domain/result';
 
 // A `ui` adapter must never import a sibling adapter's implementation module
-// (AD-1's boundary rule, enforced by eslint-plugin-import-x here) -- so this
+// (docs/adr/0001-hexagonal-boundary.md, enforced by eslint) -- so this
 // fakes `CardRepository` directly over the real static catalog, the same way
 // FirstRun.test.ts fakes `SettingsRepository` rather than importing
 // `adapters/persistence`.
@@ -91,8 +91,8 @@ describe('ScopePicker', () => {
     expect(within(group).getByText('Katakana')).toBeTruthy();
     expect(within(group).getByText('Base')).toBeTruthy();
     expect(within(group).getByText('Yoon')).toBeTruthy();
-    // Every script/set chip is positive-variant -- the shaky chip (Story
-    // 1.7) is a separate `chip--missed` sibling, not one of these.
+    // Every script/set chip is positive-variant -- the shaky chip is a
+    // separate `chip--missed` sibling, not one of these.
     const scriptSetChips = [...group.children].filter(
       (chip) => !chip.className.includes('chip--missed'),
     );
@@ -315,7 +315,7 @@ describe('ScopePicker', () => {
     expect(within(group).queryByText('Yoon')).toBeNull();
   });
 
-  // Story 1.7: the "N shaky" badge.
+  // The "N shaky" badge.
   describe('shaky badge', () => {
     it('shows "0 shaky" when no tallies exist', async () => {
       render(ScopePicker, {
@@ -415,7 +415,7 @@ describe('ScopePicker', () => {
     });
   });
 
-  // Story 1.2's amended AC: the independent session-size pill group.
+  // The independent session-size pill group.
   describe('session size', () => {
     it('defaults to "All" active with the effective size equal to the live scoped count', () => {
       render(ScopePicker, {

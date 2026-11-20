@@ -10,8 +10,8 @@ import { ImportError } from '../../domain/import';
 import type { Result } from '../../domain/result';
 import { formatDate } from './format-date';
 
-// Faked against the port, never `adapters/persistence` (AD-1's boundary
-// rule) -- same approach as FirstRun.test.ts.
+// Faked against the port, never `adapters/persistence`
+// (docs/adr/0001-hexagonal-boundary.md) -- same approach as FirstRun.test.ts.
 function repository(
   record: Result<SettingsRecord>,
   saveResult: Result<void> = ok(undefined),

@@ -1,8 +1,9 @@
 <script lang="ts">
-  // Composition root (AD-1): the only place concrete adapters are
+  // Composition root (docs/adr/0001-hexagonal-boundary.md): the only place
+  // concrete adapters are
   // constructed and wired. Reads settings once on boot -- `penCheckShown`
   // decides whether First Run shows, `widthPreset` is held here and pushed
-  // into the ink adapter (AD-12's single screen variable drives the rest).
+  // into the ink adapter (a single screen variable drives the rest).
   import { onMount } from 'svelte';
   import type { Screen } from '../adapters/ui/screens';
   import FirstRun from '../adapters/ui/FirstRun.svelte';
@@ -41,14 +42,14 @@
   const tallyRepository = new IdbTallyRepository();
   const sessionRepository: SessionRepository = new IdbSessionRepository();
   const cardRepository = new InMemoryCardRepository();
-  // Story 2.1: the io adapter reads through the same repo instances as the
-  // rest of the app -- it never imports `adapters/persistence` itself (AD-1).
+  // The io adapter reads through the same repo instances as the rest of the
+  // app -- it never imports `adapters/persistence` itself.
   const progressExporter = new JsonProgressExporter({
     attempts: attemptRepository,
     tallies: tallyRepository,
     sessions: sessionRepository,
   });
-  // Story 2.2: persistence's atomic replace is handed to io through the
+  // Persistence's atomic replace is handed to io through the
   // `ProgressReplacer` port. ScopePicker and History re-read on mount, so no
   // cache needs invalidating after an import.
   const progressImporter = new JsonProgressImporter({
@@ -74,24 +75,25 @@
   // the selection intact rather than reset to the full scope.
   let scope = $state<Scope>(FULL_SCOPE);
   // Sibling to `scope` above, wired the same way, purely for Back-navigation
-  // persistence -- Story 1.2's amended AC. `handleStart` resolves this into
-  // an exact card count (`resolveSessionSize`) and passes it to `<Drill
-  // sessionSize={...}>`, which samples it exactly once at mount (AD-10).
+  // persistence. `handleStart` resolves this into an exact card count
+  // (`resolveSessionSize`) and passes it to `<Drill sessionSize={...}>`,
+  // which samples it exactly once at mount.
   let sessionSize = $state<SessionSizeChoice>('all');
   // The exact resolved count for the drill entry currently open -- set once
   // per `handleStart` call, alongside `drillAttempts`/`drillTallies` below.
   let resolvedSessionSize = $state(0);
-  // Loaded once via `listAll()` at drill entry (Story 1.7) -- `Drill` reads
-  // this directly to sample its session queue (AD-10) and never asks this
+  // Loaded once via `listAll()` at drill entry -- `Drill` reads this directly
+  // to sample its session queue
+  // (docs/adr/0004-session-sampled-once-by-weakness.md) and never asks this
   // composition root to re-fetch mid-session.
   let drillAttempts = $state<Attempt[]>([]);
-  // Loaded once via `getAll()` at drill entry (Story 1.8) -- mirrors
+  // Loaded once via `getAll()` at drill entry -- mirrors
   // `drillAttempts` above, never re-fetched mid-session.
   let drillTallies = $state<Tally[]>([]);
   let widthPreset = $state<WidthPreset>(DEFAULT_SETTINGS.widthPreset);
   // Loaded once on boot, same as `widthPreset` -- Settings is unreachable
   // while Drill is mounted (no nav path exists), so this never needs a
-  // live-reload mid-drill (Story 1.9's Boundaries & Constraints).
+  // live-reload mid-drill.
   let idleTimeoutMs = $state<number>(DEFAULT_SETTINGS.idleTimeoutMs);
   // Set by `handleDrillClose` when a Drill session closes (any reason);
   // drives the `summary` screen below and is cleared on "Another round".
@@ -137,8 +139,8 @@
       // computes, so the drill entry's actual sampled size can never drift
       // from what the learner saw before tapping "Start writing".
       resolvedSessionSize = resolveSessionSize(sessionSize, cardsInScope(CARDS, chosenScope).length);
-      // Loaded once per drill entry, never re-fetched mid-session (Story
-      // 1.7). Fails open to `[]` on either failure path this codebase's
+      // Loaded once per drill entry, never re-fetched mid-session. Fails
+      // open to `[]` on either failure path this codebase's
       // adapters can take -- a resolved `{ok: false}` Result or an outright
       // rejected promise -- the same as `Drill.svelte`'s
       // `attemptRepository.add()`/`tallyRepository.increment()` calls. An
@@ -191,7 +193,7 @@
   }
 
   // History's own "Back" always returns to the Scope picker, even when
-  // opened from the Session summary -- Design Notes: avoids adding
+  // opened from the Session summary: avoids adding
   // "previous screen" state for a single-portrait, no-router app.
   function handleHistoryBack(): void {
     screen = 'scope-picker';

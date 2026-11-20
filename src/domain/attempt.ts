@@ -1,6 +1,7 @@
-// Pure domain type -- no DOM/IndexedDB/Svelte import ever appears here (AD-1).
+// Pure domain type -- no DOM/IndexedDB/Svelte import ever appears here
+// (docs/adr/0001-hexagonal-boundary.md).
 //
-// The `attempts` IndexedDB store's record shape (AD-4/AD-11, Story 1.5).
+// The `attempts` IndexedDB store's record shape.
 // Self-grading is sacred: nothing here is computed by judging the ink --
 // `selfGrade` is always the learner's own explicit Missed/Correct tap.
 

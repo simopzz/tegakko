@@ -1,8 +1,5 @@
-/* DESIGN.md token set as CSS custom properties, per the architecture spine's
-   Consistency Conventions naming (--color-*, --font-*, --radius-*). Only the
-   subset used by Story 1.1's First Run screen and app shell is exercised
-   today; the rest of the palette/type scale is defined now so later stories
-   don't reinvent it. */
+/* The design tokens (docs/design.md) as CSS custom properties, named
+   --color-*, --font-*, --radius-*. */
 
 :root {
   /* colors */

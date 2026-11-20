@@ -18,12 +18,10 @@ import eslintConfig, {
 // the zones' `./src/...` targets resolve from.
 const abs = (relativePath: string): string => path.resolve(import.meta.dirname, relativePath);
 
-// DW-11: prove the AD-1 boundary rule (existing adapter-to-adapter zones,
-// plus the domain/ports purity zones added for DW-1) actually rejects a
-// disallowed cross-boundary import. This imports the *real* zone arrays from
-// eslint.config.js rather than a hand-copied duplicate, so a regression in
-// the real config (e.g. a dropped trailing `/**` on a `from` glob, silently
-// turning a zone into a no-op) fails this test.
+// Proves the boundary rule (docs/adr/0001-hexagonal-boundary.md) actually
+// rejects a disallowed import. It uses the *real* zone arrays, so a
+// regression in the config (e.g. a dropped trailing `/**` silently turning a
+// zone into a no-op) fails this test.
 const zones = [...adapterZones, ...domainPurityZones];
 
 // eslint-plugin-import-x's `no-restricted-paths` rule is typed against its
@@ -31,7 +29,7 @@ const zones = [...adapterZones, ...domainPurityZones];
 // `RuleDefinition` type `RuleTester.run`'s second parameter expects in this
 // installed `eslint` version. `Rule.RuleModule` (eslint's classic rule type)
 // itself extends `RuleDefinition`, so routing through it via a double cast
-// resolves the mismatch with no `any` in project code (AD-6).
+// resolves the mismatch with no `any` in project code.
 const noRestrictedPaths = importPlugin.rules[
   'no-restricted-paths'
 ] as unknown as Rule.RuleModule;
@@ -46,7 +44,7 @@ const ruleTester = new RuleTester({
   },
 });
 
-describe('eslint.config.js AD-1 boundary zones', () => {
+describe('eslint.config.js hexagonal boundary zones', () => {
   it('accepts allowed shapes and rejects disallowed cross-boundary imports', () => {
     ruleTester.run('import-x/no-restricted-paths', noRestrictedPaths, {
       valid: [
@@ -58,15 +56,14 @@ describe('eslint.config.js AD-1 boundary zones', () => {
           options: [{ zones }],
         },
         {
-          // domain/ -> ports/ stays allowed (AD-1: domain depends on port
-          // types).
+          // domain/ -> ports/ stays allowed: domain depends on port types.
           filename: abs('src/domain/drill.ts'),
           code: "import '../ports/tally-repository';",
           options: [{ zones }],
         },
         {
-          // ports/ -> domain/ stays allowed too -- AD-1 never restricts this
-          // direction, only domain/ -> ports/ was asserted above.
+          // ports/ -> domain/ stays allowed too: the boundary never
+          // restricts this direction.
           filename: abs('src/ports/card-repository.ts'),
           code: "import '../domain/drill';",
           options: [{ zones }],
@@ -140,7 +137,7 @@ describe('eslint.config.js AD-1 boundary zones', () => {
     // assignable to eslint's own `Linter.Config[]` -- their `languageOptions`
     // types disagree on an index signature -- despite being the same object
     // shape at runtime. Same double-cast rationale as `noRestrictedPaths`
-    // above: no `any` in project code (AD-6).
+    // above: no `any` in project code.
     const flatConfig = eslintConfig as unknown as Linter.Config[];
     const violations = (filename: string, code: string) =>
       linter
@@ -172,8 +169,8 @@ describe('eslint.config.js AD-1 boundary zones', () => {
         "<script>\n  import '../persistence/db';\n</script>\n",
       ),
     ).toHaveLength(1);
-    // No .svelte file exists under domain/ or ports/ today (architecturally
-    // none should, per AD-1/AD-12) -- a minimal synthetic SFC is enough to
+    // No .svelte file exists under domain/ or ports/ (none should: they hold
+    // no UI) -- a minimal synthetic SFC is enough to
     // prove the `.svelte` files-glob entries still route through the rule.
     expect(
       violations(

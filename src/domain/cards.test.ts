@@ -44,8 +44,8 @@ describe('cards', () => {
     // not just spot-checked on a single row, since the yoon cardId
     // construction is shared code and a row-specific bug could hide behind
     // one example. All 11 rows now have a standalone base card: the 7 seion
-    // rows (き, し, ち, に, ひ, み, り) always did, and Story 1.11 added base
-    // cards for the remaining 4 voiced/semi-voiced rows (ぎ, じ, び, ぴ).
+    // rows (き, し, ち, に, ひ, み, り) and the 4 voiced/semi-voiced rows
+    // (ぎ, じ, び, ぴ).
     const yoonRows: Array<{ script: 'hiragana' | 'katakana'; base: string; suffixes: string[] }> = [
       { script: 'hiragana', base: 'き', suffixes: ['きゃ', 'きゅ', 'きょ'] },
       { script: 'hiragana', base: 'し', suffixes: ['しゃ', 'しゅ', 'しょ'] },
@@ -73,8 +73,8 @@ describe('cards', () => {
 
     for (const { script, base, suffixes } of yoonRows) {
       const baseCard = CARDS.find((c) => c.grapheme === base && c.script === script);
-      // Unconditional since Story 1.11: all 11 rows now have a base card, so
-      // an undefined lookup here must fail loudly, not silently skip.
+      // All 11 rows have a base card, so an undefined lookup here must fail
+      // loudly, not silently skip.
       expect(baseCard).toBeDefined();
       expect(baseCard?.kind).toBe('base');
 
@@ -101,10 +101,7 @@ describe('cards', () => {
     }
   });
 
-  // Story 1.2 deliberately shipped without `romaji` and asserted its absence,
-  // deferring it to "a future prompt screen". Story 1.3 is that screen: the
-  // drill prompt is romaji + script name, so the field now exists and the
-  // absence assertion is replaced by these.
+  // The drill prompt is romaji + script name, so every card needs a reading.
   it('gives every card a non-empty romaji reading', () => {
     for (const card of CARDS) {
       expect(card.romaji.length).toBeGreaterThan(0);
@@ -176,7 +173,7 @@ describe('cards', () => {
   it('maps every dakuten/handakuten base grapheme to its correct Hepburn reading and `base` kind', () => {
     // Hand-typed independently of cards.ts's declaration order, mirroring the
     // seion gojuon fixture above. ぢ and づ deliberately duplicate じ/ず's
-    // readings (`ji`/`zu`) -- standard Hepburn, not a bug (Story 1.11).
+    // readings (`ji`/`zu`) -- standard Hepburn, not a bug.
     const dakuten: Array<[hiragana: string, katakana: string, romaji: string]> = [
       ['が', 'ガ', 'ga'], ['ぎ', 'ギ', 'gi'], ['ぐ', 'グ', 'gu'], ['げ', 'ゲ', 'ge'], ['ご', 'ゴ', 'go'],
       ['ざ', 'ザ', 'za'], ['じ', 'ジ', 'ji'], ['ず', 'ズ', 'zu'], ['ぜ', 'ゼ', 'ze'], ['ぞ', 'ゾ', 'zo'],
@@ -196,7 +193,7 @@ describe('cards', () => {
   });
 
   it('sets writtenRomaji only on the 4 cards whose romaji collapses onto another card\'s', () => {
-    // Story 1.12: ぢ/づ (and ヂ/ヅ) share じ/ず's Hepburn romaji ("ji"/"zu"),
+    // ぢ/づ (and ヂ/ヅ) share じ/ず's Hepburn romaji ("ji"/"zu"),
     // so the prompt needs a written-form qualifier to tell them apart.
     const disambiguated: Array<
       [grapheme: string, script: 'hiragana' | 'katakana', writtenRomaji: string]

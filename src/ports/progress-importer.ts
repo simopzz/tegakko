@@ -1,4 +1,4 @@
-// Port types reference only `domain/` types (AD-1).
+// Port types reference only `domain/` types (docs/adr/0001-hexagonal-boundary.md).
 import type { ImportData } from '../domain/import';
 import type { Result } from '../domain/result';
 
@@ -13,8 +13,8 @@ export interface PendingImport {
 }
 
 /**
- * FR-13's import capability (Story 2.2, AD-5). The UI reaches the `io`
- * adapter only through this port, mirroring `ProgressExporter`.
+ * Import (docs/adr/0003-import-replaces-never-merges.md). The UI reaches the
+ * `io` adapter only through this port, mirroring `ProgressExporter`.
  *
  * `prepare()` parses and validates the file's JSON and reads the current
  * local data's date -- it never writes. Its error is a domain `ImportError`:

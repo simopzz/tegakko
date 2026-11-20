@@ -21,7 +21,7 @@ class StubSettingsRepository {
 
 // App.svelte is the composition root: it constructs its own
 // IdbSettingsRepository rather than taking one as a prop, so exercising its
-// screen-gating logic (AD-1, AD-12) means stubbing the module it imports.
+// screen-gating logic means stubbing the module it imports.
 vi.mock('../adapters/persistence/settings-repository', () => ({
   IdbSettingsRepository: StubSettingsRepository,
 }));
@@ -77,12 +77,13 @@ describe('App', () => {
     // The counter's N *is* the scoped card list's length -- the whole
     // catalog here.
     expect(await screen.findByText('1 / 208')).toBeTruthy();
-    // AD-2 / the black-canvas compositing bug: exactly one canvas, ever.
+    // Exactly one canvas, ever: two hit the black-canvas compositing bug
+    // (docs/adr/0002-ink-adapter-owns-its-canvas.md).
     expect(document.querySelectorAll('canvas')).toHaveLength(1);
   });
 
   it('falls back to an empty attempt history and still starts the drill when listAll() fails', async () => {
-    // Story 1.7: `handleStart` awaits `attemptRepository.listAll()` before
+    // `handleStart` awaits `attemptRepository.listAll()` before
     // entering the drill. A real `IdbAttemptRepository` already fails closed
     // in this happy-dom environment (no `indexedDB` global), but that's
     // incidental -- this spy makes the fallback path deliberate and asserted,
@@ -165,10 +166,9 @@ describe('App', () => {
   });
 
   it('resolves the chosen session size into the sampled drill queue', async () => {
-    // Story 1.2's session-size pill group was fully wired in the UI but
-    // never consumed until this rework -- `handleStart` now resolves it via
-    // `resolveSessionSize` and threads it into `<Drill sessionSize={...}>`,
-    // which samples exactly that many distinct cards (AD-10). 25% of the
+    // `handleStart` resolves the session-size pill via `resolveSessionSize`
+    // and threads it into `<Drill sessionSize={...}>`, which samples exactly
+    // that many distinct cards. 25% of the
     // full 208-card scope resolves to 52.
     getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
 
@@ -203,7 +203,7 @@ describe('App', () => {
     await fireEvent.click(screen.getByRole('radio', { name: 'Katakana' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
     await screen.findByText('1 / 104');
-    // "I'm done" closes the session -- Story 1.9 -- and lands on the Session
+    // "I'm done" closes the session and lands on the Session
     // summary, not directly back on the Scope picker.
     await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
 
@@ -301,8 +301,8 @@ describe('App', () => {
 
   it('leaves exactly one canvas behind when the drill is re-entered', async () => {
     // A leaked adapter would append a second canvas -- two stacked canvases
-    // are exactly the black-canvas compositing bug AD-2's one-canvas rule
-    // exists to prevent.
+    // are exactly the black-canvas compositing bug the one-canvas rule
+    // (docs/adr/0002-ink-adapter-owns-its-canvas.md) exists to prevent.
     getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
 
     render(App);

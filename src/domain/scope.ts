@@ -1,18 +1,17 @@
 // Pure domain type + function -- no DOM/IndexedDB/Svelte import ever appears
-// here (AD-1). Filtering the static catalog (`domain/cards.ts`) by scope is a
-// pure function, not something the UI or an adapter computes itself
-// (capability map: FR-2 -> domain scope filter).
+// here (docs/adr/0001-hexagonal-boundary.md). Filtering the static catalog
+// (`domain/cards.ts`) by scope is a pure function, not something the UI or an
+// adapter computes itself.
 import type { Card, Script, CardKind } from './cards';
 
-/** AD-4's structured `Scope` shape: `Session.scope`'s persisted type, also
- * what the Scope picker (Story 1.2) hands forward and what weak-spot
- * selection (Story 1.7) filters candidates by. */
+/** `Session.scope`'s persisted type, also what the Scope picker hands
+ * forward and what weak-spot selection filters candidates by. */
 export interface Scope {
   scripts: Script[];
   units: CardKind[];
 }
 
-/** The full catalog, unnarrowed -- the Scope picker's default (FR-2).
+/** The full catalog, unnarrowed -- the Scope picker's default.
  *
  * Frozen, including its arrays: shared module state that no caller may
  * corrupt by mutating what they were handed back. */
@@ -30,7 +29,7 @@ export function cardsInScope(cards: Card[], scope: Scope): Card[] {
   );
 }
 
-/** The Scope picker's percent-of-scope presets (2026-09-09 decision): a
+/** The Scope picker's percent-of-scope presets: a
  * discrete union, not a cached number, so the effective count is always
  * recomputed from the *current* scoped count rather than drifting when the
  * scope changes underneath an already-made choice. */

@@ -1,6 +1,7 @@
-// FR-13 export adapter (Story 2.1, AD-5). Reads only through repository
-// ports -- never `adapters/persistence` directly (AD-1: adapters don't import
-// siblings); the composition root hands in the concrete repos.
+// Export adapter (docs/adr/0003-import-replaces-never-merges.md). Reads only
+// through repository ports -- never `adapters/persistence` directly
+// (docs/adr/0001-hexagonal-boundary.md); the composition root hands in the
+// concrete repos.
 
 import { buildExportEnvelope, exportFileName } from '../../domain/export';
 import { err, ok, type Result } from '../../domain/result';

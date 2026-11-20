@@ -1,13 +1,11 @@
-// Port types reference only `domain/` types (AD-1).
+// Port types reference only `domain/` types (docs/adr/0001-hexagonal-boundary.md).
 import type { Tally } from '../domain/tally';
 import type { Result } from '../domain/result';
 
 /**
- * AD-9's `TallyRepository` signature, adapted for an IndexedDB-backed
- * implementation the same way `ports/attempt-repository.ts` adapts
- * `AttemptRepository`: async and `Result`-wrapped, since `idb` is
- * Promise-based and a raw `DOMException` must never cross this boundary
- * (Consistency Conventions). `increment`/`decrement` run atomically -- one
+ * Async and `Result`-wrapped, like `AttemptRepository`: `idb` is
+ * Promise-based and a raw `DOMException` must never cross this boundary.
+ * `increment`/`decrement` run atomically -- one
  * transaction, no separate get-then-put race -- and `decrement` clamps at
  * zero rather than ever going negative or fabricating a record.
  */
@@ -19,6 +17,6 @@ export interface TallyRepository {
    * otherwise increments its existing `missCount` by one. */
   increment(cardId: string): Promise<Result<void>>;
   /** No-op when no tally exists for `cardId`; otherwise clamps at zero
-   * (Story 1.8's undo). */
+   * (backs undo). */
   decrement(cardId: string): Promise<Result<void>>;
 }

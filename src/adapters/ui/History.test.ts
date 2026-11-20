@@ -9,8 +9,8 @@ import type { Result } from '../../domain/result';
 import { rampColorForAccuracy } from '../../domain/history';
 
 // A `ui` adapter must never import a sibling adapter's implementation module
-// (AD-1's boundary rule) -- mirrors `ScopePicker.test.ts`'s fake-repository
-// pattern rather than importing `adapters/persistence`.
+// (docs/adr/0001-hexagonal-boundary.md) -- mirrors `ScopePicker.test.ts`'s
+// fake-repository pattern rather than importing `adapters/persistence`.
 function fakeSessionRepository(listResult: Result<Session[]>): SessionRepository {
   return {
     add: () => Promise.resolve({ ok: true, value: undefined }),

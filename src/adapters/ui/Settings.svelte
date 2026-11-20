@@ -1,7 +1,7 @@
 <script lang="ts">
-  // Settings screen (Story 1.3): the ink-width pill toggle. Story 1.9 adds
-  // the idle-close threshold toggle below it; Story 2.1 adds Backup/Export;
-  // Story 2.2 adds Import and its confirm-before-replace warning toast.
+  // Settings screen: the ink-width pill toggle, the idle-close threshold
+  // toggle, Backup/Export, and Import with its confirm-before-replace warning
+  // toast.
   //
   // Reuses ScopePicker.svelte's `.pill`/`.pill--active` markup and its
   // radiogroup semantics: exactly one active segment, commits immediately,
@@ -61,7 +61,7 @@
   // exactly one file downloads.
   let exporting = false;
 
-  // Import (Story 2.2). `pending` holds a validated file between the warning
+  // Import. `pending` holds a validated file between the warning
   // toast and Replace/Cancel -- nothing is written until `confirmImport()`.
   // `$state.raw`, not `$state`: deep `$state` wraps the records in Proxies,
   // which IndexedDB's structured clone rejects ("could not be cloned"), so
@@ -361,7 +361,7 @@
 </main>
 
 {#if pending}
-  <!-- The only modal in v1 (UX: import warning): a full-screen scrim blocks
+  <!-- The app's only modal, the import warning: a full-screen scrim blocks
        the screen, `main` above goes `inert`, and the peach toast holds the
        two text-only actions. -->
   <div class="scrim">
@@ -540,7 +540,7 @@
     background: rgba(32, 30, 29, 0.32);
   }
 
-  /* Copied from Drill.svelte's post-grade `.toast` (UX spec A4 styling):
+  /* Copied from Drill.svelte's post-grade `.toast`:
      peach missed-tint card, xl radius, the single card shadow. */
   .toast {
     width: 100%;
