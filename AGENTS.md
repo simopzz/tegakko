@@ -1,6 +1,6 @@
 ## tegakko
 
-Japanese kana handwriting-practice PWA: prompt → write on a pressure-sensitive canvas → self-grade, with weak-spot-biased card selection. Single-user, local-only, no accounts. TypeScript (strict) + Svelte + Vite + idb, Ports & Adapters (Hexagonal), hosted on Cloudflare. Planning docs from the retired BMAD workflow live in `docs/bmad/` as transitional reference; they will be removed once superseded.
+Japanese kana handwriting-practice PWA: prompt → write on a pressure-sensitive canvas → self-grade, with weak-spot-biased card selection. Single-user, local-only, no accounts. TypeScript (strict) + Svelte + Vite + idb, Ports & Adapters (Hexagonal), hosted on Cloudflare.
 
 ## Working on an issue
 
@@ -14,12 +14,12 @@ Cloudflare Workers Builds deploys every push on its own; there is no manual depl
 
 ## Where things are
 
-- Before writing application code, read `docs/bmad/SPEC.md` and `docs/bmad/ARCHITECTURE-SPINE.md`: the canonical contract, not background reading.
-- Visual/interaction design: `docs/bmad/DESIGN.md` and `EXPERIENCE.md`.
+- Vocabulary: `GLOSSARY.md`. Decisions that would surprise a reader: `docs/adr/`. Behaviour itself is specified by the code and its tests.
+- Visual and interaction design: `docs/design.md`. Update it in the same PR as a change to what it describes.
 
 ## Conventions that differ from defaults
 
-- Hexagonal boundary (AD-1, enforced by `eslint.config.js`): `domain/` and `ports/` never import from `adapters/` or `app/`; adapters never import sibling adapters. Wire concrete adapters only in `src/app/`.
+- Hexagonal boundary ([ADR-0001](docs/adr/0001-hexagonal-boundary.md), enforced by `eslint.config.js`): `domain/` and `ports/` never import from `adapters/` or `app/`; adapters never import sibling adapters. Wire concrete adapters only in `src/app/`.
 
 ## Agent skills
 

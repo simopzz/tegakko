@@ -17,7 +17,7 @@ It launches `/usr/bin/chromium` on its first tool call (`new_page`, `navigate_pa
 
 Which tool answers which question:
 
-- **A style that doesn't apply**: `get_css_styles` on the element's `uid` (from `take_snapshot`). It returns the cascade: every matching rule, which declaration wins, and what's inherited. Check it against `docs/bmad/DESIGN.md` before changing CSS.
+- **A style that doesn't apply**: `get_css_styles` on the element's `uid` (from `take_snapshot`). It returns the cascade: every matching rule, which declaration wins, and what's inherited. Check it against `docs/design.md` and the tokens in `src/app/theme.css` before changing CSS.
 - **Accessibility, best practices, PWA**: `lighthouse_audit`, either in `navigation` mode (it reloads the page) or in `snapshot` mode, which audits the page as it is now.
 - **Speed**: `performance_start_trace` with `reload` for a page load, or start it, do the interaction (a stroke on the canvas), then `performance_stop_trace`. Drill into an insight (`LCPBreakdown`, `INPBreakdown`) with `performance_analyze_insight`. To see what a slow tablet gets, set `emulate` with `cpuThrottlingRate: 4` first. `emulate` replaces every earlier setting, so pass all of them in one call.
 - **A request or console error**: `list_network_requests` / `get_network_request` and `list_console_messages` with `includeStackTraces`.
