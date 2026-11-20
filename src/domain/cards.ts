@@ -8,13 +8,13 @@
 // yoon card can never collide with its base-row counterpart's id.
 
 export type Script = 'hiragana' | 'katakana';
-export type CardKind = 'base' | 'yoon';
+export type CardSet = 'base' | 'yoon';
 
 export interface Card {
   cardId: string;
   grapheme: string;
   script: Script;
-  kind: CardKind;
+  set: CardSet;
   /** Hepburn reading, shared across scripts (あ and ア are both "a"). The
    * drill prompt shows this plus the script name -- never a
    * mnemonic or example word. */
@@ -145,7 +145,7 @@ function baseCards(graphemes: readonly string[], script: Script): Card[] {
       cardId: cardId(grapheme, script),
       grapheme,
       script,
-      kind: 'base',
+      set: 'base',
       romaji,
       ...(writtenRomaji === undefined ? {} : { writtenRomaji }),
     };
@@ -169,7 +169,7 @@ function yoonCards(
         cardId: cardId(grapheme, script),
         grapheme,
         script,
-        kind: 'yoon' as const,
+        set: 'yoon' as const,
         romaji: `${stem}${vowel}`,
       };
     }),

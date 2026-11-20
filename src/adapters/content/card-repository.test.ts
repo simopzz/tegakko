@@ -23,7 +23,7 @@ describe('InMemoryCardRepository', () => {
       cardId: 'あ:hiragana',
       grapheme: 'あ',
       script: 'hiragana',
-      kind: 'base',
+      set: 'base',
       romaji: 'a',
     });
   });
@@ -32,7 +32,7 @@ describe('InMemoryCardRepository', () => {
     const repository = new InMemoryCardRepository();
     const card = repository.getById('きゃ:hiragana');
     expect(card.grapheme).toBe('きゃ');
-    expect(card.kind).toBe('yoon');
+    expect(card.set).toBe('yoon');
   });
 
   it('getById throws for an unknown id, never returning undefined silently', () => {

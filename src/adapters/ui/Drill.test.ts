@@ -17,14 +17,14 @@ import type { SessionRepository } from '../../ports/session-repository';
 import type { Session, SessionSummaryView } from '../../domain/session';
 
 // `sampleSessionCards` draws from the real `CARDS` catalog filtered
-// by `scope` -- a `Scope` can only narrow to a full script+kind combination
+// by `scope` -- a `Scope` can only narrow to a full script+set combination
 // (minimum 33 cards), never to an arbitrary short list, so this file can no
 // longer force a specific first prompt via a hand-picked `cards` array. Two
 // fixed scopes stand in for the old ad hoc single/two-card fixtures; tests
 // that used to assert an exact prompt now read whichever card actually
 // rendered instead.
-const HIRAGANA_BASE_SCOPE: Scope = { scripts: ['hiragana'], units: ['base'] }; // 71 cards
-const HIRAGANA_YOON_SCOPE: Scope = { scripts: ['hiragana'], units: ['yoon'] }; // 33 cards
+const HIRAGANA_BASE_SCOPE: Scope = { scripts: ['hiragana'], sets: ['base'] }; // 71 cards
+const HIRAGANA_YOON_SCOPE: Scope = { scripts: ['hiragana'], sets: ['yoon'] }; // 33 cards
 
 // A `ui` adapter must never import a sibling adapter's implementation
 // (docs/adr/0001-hexagonal-boundary.md),
@@ -274,12 +274,12 @@ describe('Drill', () => {
   it('appends the written-form romaji for the 4 cards whose romaji collides with another card\'s', async () => {
     // ぢ reads "ji (di)"; づ reads "zu (du)" -- disambiguates
     // from じ/ず, which keep rendering plain "ji"/"zu".
-    const dakutenScope: Scope = { scripts: ['hiragana'], units: ['base'] };
+    const dakutenScope: Scope = { scripts: ['hiragana'], sets: ['base'] };
     const cards = cardsInScope([...CARDS], dakutenScope);
     const disambiguated = cards.filter((c) => c.writtenRomaji !== undefined);
     expect(disambiguated.map((c) => c.grapheme).sort()).toEqual(['づ', 'ぢ'].sort());
 
-    // Walk the full-scope queue until each disambiguated card is prompted,
+    // Walk the complete queue until each disambiguated card is prompted,
     // asserting its exact rendered text along the way.
     renderDrill({ scope: dakutenScope, sessionSize: cards.length });
     const seen = new Set<string>();
@@ -486,7 +486,7 @@ describe('Drill', () => {
     const cards = cardsInScope([...CARDS], HIRAGANA_YOON_SCOPE);
     renderDrill({ scope: HIRAGANA_YOON_SCOPE });
     const target = currentCard(cards);
-    expect(target.kind).toBe('yoon');
+    expect(target.set).toBe('yoon');
 
     await fireEvent.click(reveal());
 
@@ -1122,8 +1122,8 @@ describe('Drill', () => {
     });
   });
 
-  // A session closes explicitly ("I'm done"), on full-scope
-  // completion (via the existing "Next character" tap), or retroactively on
+  // A session closes explicitly ("I'm done"), on complete
+  // closure (via the existing "Next character" tap), or retroactively on
   // detected inactivity -- every closure persists a `Session` record and
   // hands the composition root a `SessionSummaryView`.
   describe('session closure', () => {
@@ -1218,7 +1218,7 @@ describe('Drill', () => {
       expect(sessionRepository.adds[0]?.cardsAttempted).toBe(1);
     });
 
-    it('closes with "full-scope" (no explicit control) once every in-scope card has been graded', async () => {
+    it('closes with "complete" (no explicit control) once every in-scope card has been graded', async () => {
       // With `sessionSize` at its default (the full scope), the sampled
       // queue structurally holds every in-scope card exactly once,
       // regardless of weighting or RNG -- so grading `cards.length`
@@ -1239,16 +1239,16 @@ describe('Drill', () => {
       }
 
       expect(onClose).toHaveBeenCalledTimes(1);
-      expect(onClose).toHaveBeenCalledWith(expect.objectContaining({ closureReason: 'full-scope' }));
+      expect(onClose).toHaveBeenCalledWith(expect.objectContaining({ closureReason: 'complete' }));
       expect(sessionRepository.adds).toHaveLength(1);
-      expect(sessionRepository.adds[0]?.closureReason).toBe('full-scope');
+      expect(sessionRepository.adds[0]?.closureReason).toBe('complete');
       expect(sessionRepository.adds[0]?.cardsAttempted).toBe(cards.length);
       // No next prompt was drawn on the closing tap -- the same card that
       // was just graded is still what's on screen.
       expect(currentCard(cards)).toBe(lastCard);
     });
 
-    it('closes with "full-scope" after exactly the resolved session size, smaller than the full scope', async () => {
+    it('closes with "complete" after exactly the resolved session size, smaller than the full scope', async () => {
       // Session size can be smaller than the scope -- the queue, counter, and closure
       // must all track `sessionSize` (`queue.length`), never the larger
       // `cardsInScope(...).length`.
@@ -1271,7 +1271,7 @@ describe('Drill', () => {
       }
 
       expect(onClose).toHaveBeenCalledTimes(1);
-      expect(onClose).toHaveBeenCalledWith(expect.objectContaining({ closureReason: 'full-scope' }));
+      expect(onClose).toHaveBeenCalledWith(expect.objectContaining({ closureReason: 'complete' }));
       expect(sessionRepository.adds[0]?.cardsAttempted).toBe(sessionSize);
     });
 

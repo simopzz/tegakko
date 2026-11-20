@@ -3,47 +3,47 @@ import { CARDS } from './cards';
 import { cardsInScope, FULL_SCOPE, resolveSessionSize, type Scope } from './scope';
 
 describe('cardsInScope', () => {
-  it('returns the full 208-card catalog for the full-scope default', () => {
+  it('returns the full 208-card catalog for the complete default', () => {
     expect(cardsInScope(CARDS, FULL_SCOPE)).toHaveLength(208);
   });
 
   it('narrows to hiragana + base only (71 cards)', () => {
-    const scope: Scope = { scripts: ['hiragana'], units: ['base'] };
+    const scope: Scope = { scripts: ['hiragana'], sets: ['base'] };
     const result = cardsInScope(CARDS, scope);
     expect(result).toHaveLength(71);
-    expect(result.every((c) => c.script === 'hiragana' && c.kind === 'base')).toBe(true);
+    expect(result.every((c) => c.script === 'hiragana' && c.set === 'base')).toBe(true);
   });
 
   it('narrows to katakana + yoon only (33 cards)', () => {
-    const scope: Scope = { scripts: ['katakana'], units: ['yoon'] };
+    const scope: Scope = { scripts: ['katakana'], sets: ['yoon'] };
     const result = cardsInScope(CARDS, scope);
     expect(result).toHaveLength(33);
-    expect(result.every((c) => c.script === 'katakana' && c.kind === 'yoon')).toBe(true);
+    expect(result.every((c) => c.script === 'katakana' && c.set === 'yoon')).toBe(true);
   });
 
   it('narrows to both scripts but base only (142 cards)', () => {
-    const scope: Scope = { scripts: ['hiragana', 'katakana'], units: ['base'] };
+    const scope: Scope = { scripts: ['hiragana', 'katakana'], sets: ['base'] };
     expect(cardsInScope(CARDS, scope)).toHaveLength(142);
   });
 
-  it('narrows to hiragana only, both units (104 cards)', () => {
-    const scope: Scope = { scripts: ['hiragana'], units: ['base', 'yoon'] };
+  it('narrows to hiragana only, both sets (104 cards)', () => {
+    const scope: Scope = { scripts: ['hiragana'], sets: ['base', 'yoon'] };
     expect(cardsInScope(CARDS, scope)).toHaveLength(104);
   });
 
   it('returns no cards for an empty scripts array, never treating it as unrestricted', () => {
-    const scope: Scope = { scripts: [], units: ['base', 'yoon'] };
+    const scope: Scope = { scripts: [], sets: ['base', 'yoon'] };
     expect(cardsInScope(CARDS, scope)).toHaveLength(0);
   });
 
-  it('returns no cards for an empty units array, never treating it as unrestricted', () => {
-    const scope: Scope = { scripts: ['hiragana', 'katakana'], units: [] };
+  it('returns no cards for an empty sets array, never treating it as unrestricted', () => {
+    const scope: Scope = { scripts: ['hiragana', 'katakana'], sets: [] };
     expect(cardsInScope(CARDS, scope)).toHaveLength(0);
   });
 
   it('does not mutate the input cards array', () => {
     const before = [...CARDS];
-    cardsInScope(CARDS, { scripts: ['hiragana'], units: ['base'] });
+    cardsInScope(CARDS, { scripts: ['hiragana'], sets: ['base'] });
     expect(CARDS).toEqual(before);
   });
 });

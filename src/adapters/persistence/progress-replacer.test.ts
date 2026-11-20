@@ -31,7 +31,7 @@ function session(id: string): Session {
   return {
     id,
     date: '2026-09-20T10:05:00.000Z',
-    scope: { scripts: ['hiragana'], units: ['base'] },
+    scope: { scripts: ['hiragana'], sets: ['base'] },
     cardsAttempted: 1,
     accuracy: 0,
     closureReason: 'explicit',

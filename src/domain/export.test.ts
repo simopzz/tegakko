@@ -111,7 +111,7 @@ describe('buildExportEnvelope', () => {
     {
       id: 's1',
       date: '2026-09-23T10:05:00.000Z',
-      scope: { scripts: ['hiragana'], units: ['base'] },
+      scope: { scripts: ['hiragana'], sets: ['base'] },
       cardsAttempted: 1,
       accuracy: 1,
       closureReason: 'explicit',
@@ -123,7 +123,7 @@ describe('buildExportEnvelope', () => {
     const envelope = buildExportEnvelope(tallies, [attempt()], sessions, now);
 
     expect(envelope.version).toBe(EXPORT_VERSION);
-    expect(EXPORT_VERSION).toBe(1);
+    expect(EXPORT_VERSION).toBe(2);
     expect(envelope.exportedAt).toBe('2026-09-23T12:34:56.789Z');
     expect(Object.keys(envelope).sort()).toEqual(
       ['version', 'exportedAt', 'tallies', 'attempts', 'sessions'].sort(),

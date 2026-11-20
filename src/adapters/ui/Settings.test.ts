@@ -606,7 +606,7 @@ describe('Settings', () => {
       expect(dialog.getAttribute('aria-modal')).toBe('true');
       expect(progressImporter.prepare).toHaveBeenCalledWith('{"file":true}');
       expect(
-        screen.getByText('Importing replaces everything here — tallies, attempts, history.'),
+        screen.getByText('Importing replaces everything here — miss counts, attempts, history.'),
       ).toBeTruthy();
       expect(
         screen.getByText(`On this device: last practiced ${formatDate(PENDING.localDate!)}`),

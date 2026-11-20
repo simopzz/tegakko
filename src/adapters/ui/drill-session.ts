@@ -77,7 +77,7 @@ export class DrillSession {
   // Sampled exactly once, at construction, from `attempts` as loaded --
   // weighted-without-replacement, then uniform-shuffled. Fixed for
   // the lifetime of this drill entry: never re-sampled, appended to, or
-  // reordered mid-session. Sampling is without replacement, so full-scope
+  // reordered mid-session. Sampling is without replacement, so a complete
   // closure is exact once the queue is exhausted, never "probably done".
   readonly queue: readonly Card[];
 
@@ -181,15 +181,15 @@ export class DrillSession {
   }
 
   /** `true` when `index` is the queue's final entry -- tapping past it closes
-   * the session as full-scope. */
+   * the session as complete. */
   isLastCard(index: number): boolean {
     return index + 1 >= this.queue.length;
   }
 
-  /** Full-scope closure -- rides "Next character" past the last
+  /** Complete closure -- rides "Next character" past the last
    * queue entry rather than a control of its own. */
-  closeFullScope(): void {
-    this.close('full-scope');
+  closeComplete(): void {
+    this.close('complete');
   }
 
   /** Persists one attempt (always -- ink or not, reveal or not) and, on a
@@ -232,9 +232,9 @@ export class DrillSession {
     }
     this.pendingTallyWrite = this.tallyRepository.increment(card.cardId);
     logOnFailure(this.pendingTallyWrite, 'Failed to increment tally:');
-    const tallyCount = (this.cardTallies.get(card.cardId) ?? 0) + 1;
-    this.cardTallies.set(card.cardId, tallyCount);
-    return tallyCount;
+    const missCount = (this.cardTallies.get(card.cardId) ?? 0) + 1;
+    this.cardTallies.set(card.cardId, missCount);
+    return missCount;
   }
 
   /** Forgets the last grade and its pending writes, so it can no longer be

@@ -1,13 +1,13 @@
 <script lang="ts">
   // Session Summary screen: the climax of every session closure
-  // (explicit "I'm done", full-scope completion, retroactively-detected
+  // (explicit "I'm done", complete closure, retroactively-detected
   // inactivity). Follows Settings.svelte's structural pattern: a single
   // `.card` centered in `main`, no local routing -- the only way out is
   // "Another round", back to the Scope picker.
   //
-  // Idle and full-scope closures render identically here: only an explicit
+  // Idle and complete closures render identically here: only an explicit
   // close ever carries the positive "You ended it" chip -- the
-  // idle/full-scope distinction is History's concern.
+  // idle/complete distinction is History's concern.
   import { onMount } from 'svelte';
   import type { SessionSummaryView } from '../../domain/session';
 
@@ -80,7 +80,7 @@
             <li class="chip chip--missed">
               <span class="chip-glyph">{chip.grapheme}</span>
               <span class="chip-count">
-                {scriptLabel[chip.script] ?? chip.script} · missed {chip.tallyCount}
+                {scriptLabel[chip.script] ?? chip.script} · missed {chip.missCount}
               </span>
             </li>
           {/each}

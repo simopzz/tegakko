@@ -10,7 +10,7 @@ import type { SessionRepository } from '../../ports/session-repository';
 import type { Session } from '../../domain/session';
 import * as drill from '../../domain/drill';
 
-const SCOPE: Scope = { scripts: ['hiragana'], units: ['yoon'] }; // 33 cards
+const SCOPE: Scope = { scripts: ['hiragana'], sets: ['yoon'] }; // 33 cards
 const OK: Result<void> = { ok: true, value: undefined };
 const START = new Date('2026-01-01T00:00:00.000Z').getTime();
 const IDLE_MS = 300_000;
@@ -263,7 +263,7 @@ describe('DrillSession', () => {
       session.closeExplicit();
       expect(onClose).toHaveBeenCalledWith(
         expect.objectContaining({
-          missed: [expect.objectContaining({ cardId: card.cardId, tallyCount: 3 })],
+          missed: [expect.objectContaining({ cardId: card.cardId, missCount: 3 })],
         }),
       );
     });
@@ -349,8 +349,8 @@ describe('DrillSession', () => {
     });
   });
 
-  describe('full-scope close', () => {
-    it('closes once with full-scope, counting only this session\'s attempts', async () => {
+  describe('complete close', () => {
+    it('closes once with complete, counting only this session\'s attempts', async () => {
       const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
       const lifetime: Attempt[] = [
         {
@@ -373,12 +373,12 @@ describe('DrillSession', () => {
       session.clearUndoable();
       session.recordGrade(gradeInput(session.queue[1]!, 'incorrect'));
       expect(session.isLastCard(1)).toBe(true);
-      session.closeFullScope();
-      session.closeFullScope();
+      session.closeComplete();
+      session.closeComplete();
 
       expect(onClose).toHaveBeenCalledTimes(1);
       expect(onClose).toHaveBeenCalledWith(
-        expect.objectContaining({ closureReason: 'full-scope', accuracy: 0.5, revealCount: 0 }),
+        expect.objectContaining({ closureReason: 'complete', accuracy: 0.5, revealCount: 0 }),
       );
       expect(sessionRepository.adds).toHaveLength(1);
       expect(sessionRepository.adds[0]).toMatchObject({
@@ -386,7 +386,7 @@ describe('DrillSession', () => {
         scope: SCOPE,
         cardsAttempted: 2,
         accuracy: 0.5,
-        closureReason: 'full-scope',
+        closureReason: 'complete',
       });
       await Promise.resolve();
       expect(consoleError).toHaveBeenCalledWith('Failed to persist session:', expect.any(Error));

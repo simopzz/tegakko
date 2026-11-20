@@ -5,7 +5,7 @@ import type { Card } from './cards';
 import type { Tally } from './tally';
 
 function scoped(count: number): Card[] {
-  return CARDS.filter((c) => c.script === 'hiragana' && c.kind === 'base').slice(0, count);
+  return CARDS.filter((c) => c.script === 'hiragana' && c.set === 'base').slice(0, count);
 }
 
 describe('countShaky', () => {

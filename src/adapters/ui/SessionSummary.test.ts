@@ -48,8 +48,8 @@ describe('SessionSummary', () => {
     expect(screen.getByText('You ended it')).toBeTruthy();
   });
 
-  it('shows no chip for a full-scope closure', () => {
-    render(SessionSummary, { summary: fixture({ closureReason: 'full-scope' }), onAgain: vi.fn(), onHistory: vi.fn() });
+  it('shows no chip for a complete closure', () => {
+    render(SessionSummary, { summary: fixture({ closureReason: 'complete' }), onAgain: vi.fn(), onHistory: vi.fn() });
 
     expect(screen.queryByText('You ended it')).toBeNull();
   });
@@ -60,14 +60,14 @@ describe('SessionSummary', () => {
     expect(screen.queryByText('You ended it')).toBeNull();
   });
 
-  it('renders one missed chip per entry, with its tallyCount', () => {
+  it('renders one missed chip per entry, with its missCount', () => {
     render(
       SessionSummary,
       {
         summary: fixture({
           missed: [
-            { cardId: 'a:hiragana', grapheme: 'あ', script: 'hiragana', tallyCount: 3 },
-            { cardId: 'i:hiragana', grapheme: 'い', script: 'hiragana', tallyCount: 1 },
+            { cardId: 'a:hiragana', grapheme: 'あ', script: 'hiragana', missCount: 3 },
+            { cardId: 'i:hiragana', grapheme: 'い', script: 'hiragana', missCount: 1 },
           ],
         }),
         onAgain: vi.fn(),
@@ -123,8 +123,8 @@ describe('SessionSummary', () => {
       {
         summary: fixture({
           missed: [
-            { cardId: 'a:hiragana', grapheme: 'あ', script: 'hiragana', tallyCount: 3 },
-            { cardId: 'i:hiragana', grapheme: 'い', script: 'hiragana', tallyCount: 1 },
+            { cardId: 'a:hiragana', grapheme: 'あ', script: 'hiragana', missCount: 3 },
+            { cardId: 'i:hiragana', grapheme: 'い', script: 'hiragana', missCount: 1 },
           ],
         }),
         onAgain: vi.fn(),

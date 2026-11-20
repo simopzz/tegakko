@@ -27,7 +27,7 @@ const SESSIONS: Session[] = [
   {
     id: 's1',
     date: '2026-09-23T10:05:00.000Z',
-    scope: { scripts: ['hiragana'], units: ['base'] },
+    scope: { scripts: ['hiragana'], sets: ['base'] },
     cardsAttempted: 1,
     accuracy: 0,
     closureReason: 'explicit',
@@ -85,7 +85,7 @@ describe('JsonProgressExporter', () => {
 
     expect((await subject.export()).ok).toBe(true);
     const envelope = JSON.parse(download.mock.calls[0]?.[1] as string);
-    expect(envelope).toMatchObject({ version: 1, tallies: [], attempts: [], sessions: [] });
+    expect(envelope).toMatchObject({ version: 2, tallies: [], attempts: [], sessions: [] });
   });
 
   const failure = (): Promise<Result<never>> => Promise.resolve(err(new Error('blocked')));

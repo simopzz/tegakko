@@ -5,7 +5,7 @@ import { cardsInScope } from './scope';
 import type { Scope } from './scope';
 import type { Attempt } from './attempt';
 
-const HIRAGANA_BASE_SCOPE: Scope = { scripts: ['hiragana'], units: ['base'] }; // 71 cards
+const HIRAGANA_BASE_SCOPE: Scope = { scripts: ['hiragana'], sets: ['base'] }; // 71 cards
 const cardsInHiraganaBase = cardsInScope(CARDS, HIRAGANA_BASE_SCOPE);
 
 function attempt(overrides: Partial<Attempt> = {}): Attempt {
@@ -74,7 +74,7 @@ describe('computeAccuracy', () => {
 });
 
 describe('buildSummary', () => {
-  it('dedupes repeated misses on the same card into one chip with the final tally', () => {
+  it('dedupes repeated misses on the same card into one chip with the final miss count', () => {
     const card = cardsInHiraganaBase[0]!;
     const attempts = [
       attempt({ cardId: card.cardId, selfGrade: 'incorrect' }),
@@ -85,7 +85,7 @@ describe('buildSummary', () => {
     const summary = buildSummary(attempts, tallies, 'explicit', 60_000);
 
     expect(summary.missed).toEqual([
-      { cardId: card.cardId, grapheme: card.grapheme, script: card.script, tallyCount: 5 },
+      { cardId: card.cardId, grapheme: card.grapheme, script: card.script, missCount: 5 },
     ]);
   });
 
@@ -132,7 +132,7 @@ describe('buildSessionRecord', () => {
       attempt({ cardId: card.cardId, selfGrade: 'incorrect' }),
     ];
 
-    const record = buildSessionRecord('session-1', HIRAGANA_BASE_SCOPE, attempts, 'full-scope', '2026-09-08T00:00:00.000Z');
+    const record = buildSessionRecord('session-1', HIRAGANA_BASE_SCOPE, attempts, 'complete', '2026-09-08T00:00:00.000Z');
 
     expect(record).toEqual({
       id: 'session-1',
@@ -140,7 +140,7 @@ describe('buildSessionRecord', () => {
       scope: HIRAGANA_BASE_SCOPE,
       cardsAttempted: 2,
       accuracy: 0.5,
-      closureReason: 'full-scope',
+      closureReason: 'complete',
     });
   });
 

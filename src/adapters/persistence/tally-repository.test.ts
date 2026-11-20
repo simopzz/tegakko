@@ -95,10 +95,10 @@ describe('IdbTallyRepository', () => {
     expect(all).toEqual({ ok: true, value: [{ cardId: 'あ:hiragana', missCount: 1 }] });
   });
 
-  it('migrates a pre-existing v2 (settings+attempts) database so increment() succeeds against tallies', async () => {
+  it('wipes every store when upgrading a pre-existing v2 database', async () => {
     // Simulate a device that already has the previously-shipped v2 schema --
-    // `settings`+`attempts`, no `tallies` store -- created and closed before
-    // `tallies` (and DB_VERSION 3) existed.
+    // `settings`+`attempts`, no `tallies` store. The v5 upgrade deletes every
+    // store and recreates them, so old data is gone and First Run shows again.
     const legacyDb = await openDB(DB_NAME, 2, {
       upgrade(db) {
         db.createObjectStore('settings');
@@ -123,15 +123,13 @@ describe('IdbTallyRepository', () => {
     const repo = new IdbTallyRepository();
     const result = await repo.increment('あ:hiragana');
 
-    // The v2->v3 upgrade must have fired and created `tallies`, or this
-    // rejects/fails instead of succeeding.
     expect(result).toEqual({ ok: true, value: undefined });
 
-    // The upgrade must not have disturbed the pre-existing stores' rows.
+    // The upgrade wiped all pre-existing stores, including settings.
     const db = await openTegakkoDb();
     try {
-      expect(await db.get(SETTINGS_STORE, 'singleton')).toMatchObject({ penCheckShown: true });
-      expect((await db.get(ATTEMPTS_STORE, 'seed-attempt-1'))?.cardId).toBe('あ:hiragana');
+      expect(await db.get(SETTINGS_STORE, 'singleton')).toBeUndefined();
+      expect(await db.get(ATTEMPTS_STORE, 'seed-attempt-1')).toBeUndefined();
     } finally {
       db.close();
     }

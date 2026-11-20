@@ -13,7 +13,7 @@ import type { WidthPreset } from './settings';
 import type { Tally } from './tally';
 
 /** The envelope's schema version. Import rejects any other value. */
-export const EXPORT_VERSION = 1;
+export const EXPORT_VERSION = 2;
 
 /** A stroke in compact form: each point is an `[x, y, pressure]` triple,
  * every number rounded to 4 decimals (~0.04px on a 400px cell, below visible

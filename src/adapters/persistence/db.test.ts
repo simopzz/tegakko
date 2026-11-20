@@ -1,7 +1,15 @@
 import 'fake-indexeddb/auto';
 import { openDB } from 'idb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DB_NAME, DB_VERSION, openTegakkoDb, SETTINGS_STORE } from './db';
+import {
+  DB_NAME,
+  DB_VERSION,
+  openTegakkoDb,
+  SETTINGS_STORE,
+  ATTEMPTS_STORE,
+  TALLIES_STORE,
+  SESSIONS_STORE,
+} from './db';
 
 function resetDb(): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -11,6 +19,43 @@ function resetDb(): Promise<void> {
     req.onblocked = () => resolve();
   });
 }
+
+describe('openTegakkoDb() upgrade wipe', () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it('deletes every existing store when upgrading from a previous version', async () => {
+    // Seed a v4-shaped database with data in every store, then open at v5.
+    const legacyDb = await openDB(DB_NAME, 4, {
+      upgrade(db) {
+        db.createObjectStore(SETTINGS_STORE);
+        db.createObjectStore(ATTEMPTS_STORE, { keyPath: 'id' });
+        db.createObjectStore(TALLIES_STORE, { keyPath: 'cardId' });
+        db.createObjectStore(SESSIONS_STORE, { keyPath: 'id' });
+      },
+    });
+    await legacyDb.put(SETTINGS_STORE, { penCheckShown: true }, 'singleton');
+    await legacyDb.put(ATTEMPTS_STORE, { id: 'a1', cardId: 'あ:hiragana' });
+    await legacyDb.put(TALLIES_STORE, { cardId: 'あ:hiragana', missCount: 1 });
+    await legacyDb.put(SESSIONS_STORE, { id: 's1' });
+    legacyDb.close();
+
+    const db = await openTegakkoDb();
+    try {
+      expect(await db.get(SETTINGS_STORE, 'singleton')).toBeUndefined();
+      expect(await db.get(ATTEMPTS_STORE, 'a1')).toBeUndefined();
+      expect(await db.get(TALLIES_STORE, 'あ:hiragana')).toBeUndefined();
+      expect(await db.get(SESSIONS_STORE, 's1')).toBeUndefined();
+      // All four stores still exist for the new schema.
+      for (const storeName of [SETTINGS_STORE, ATTEMPTS_STORE, TALLIES_STORE, SESSIONS_STORE] as const) {
+        expect(db.objectStoreNames.contains(storeName)).toBe(true);
+      }
+    } finally {
+      db.close();
+    }
+  });
+});
 
 describe('openTegakkoDb() blocked/blocking guard', () => {
   beforeEach(async () => {
