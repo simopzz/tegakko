@@ -1,4 +1,4 @@
-// Shared IndexedDB opener for every persistence adapter (Story 1.5).
+// Shared IndexedDB opener for every persistence adapter.
 //
 // `settings`, `attempts`, and `tallies` are one `tegakko` database at one shared version
 // -- separately-versioned `openDB` calls against the same DB name
@@ -14,7 +14,7 @@ import type { Tally } from '../../domain/tally';
 import type { Session } from '../../domain/session';
 
 export const DB_NAME = 'tegakko';
-// v4: adds the `sessions` store (Story 1.9). `upgrade()` only re-runs when
+// v4: adds the `sessions` store. `upgrade()` only re-runs when
 // the requested version exceeds a database's *stored* version -- a
 // pre-existing v3 database (settings+attempts+tallies only) would otherwise
 // open at v3==3 forever and never grow `sessions`, so this bump is required,
@@ -94,8 +94,7 @@ export async function openTegakkoDb(): Promise<IDBPDatabase<TegakkoDb>> {
 }
 
 /** Never let a raw `DOMException` (or any other thrown value) cross the
- * adapter boundary -- callers resolve failures as a typed `Result` instead
- * (Consistency Conventions). */
+ * adapter boundary -- callers resolve failures as a typed `Result` instead. */
 export function toError(cause: unknown, message: string): Error {
   return cause instanceof Error ? new Error(`${message}: ${cause.message}`) : new Error(message);
 }

@@ -1,6 +1,7 @@
-// FR-13 import adapter (Story 2.2, AD-5). Reads and replaces only through
-// ports -- never `adapters/persistence` directly (AD-1: adapters don't import
-// siblings); the composition root hands in the concrete repos and replacer.
+// Import adapter (docs/adr/0003-import-replaces-never-merges.md). Reads and
+// replaces only through ports -- never `adapters/persistence` directly
+// (docs/adr/0001-hexagonal-boundary.md); the composition root hands in the
+// concrete repos and replacer.
 
 import { ImportError, latestActivity, validateImport } from '../../domain/import';
 import { err, ok, type Result } from '../../domain/result';

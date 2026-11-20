@@ -1,12 +1,12 @@
 <script lang="ts">
-  // History screen (Story 1.10): reverse-chronological session rows plus an
+  // History screen: reverse-chronological session rows plus an
   // up-to-10-session accuracy sparkline. Follows Settings.svelte's structural
   // pattern exactly -- a single `.card` centered in `main`, header outside
   // the `{#if loaded}` gate, one-shot `onMount` read, no live re-fetch/poll
   // while mounted.
   //
   // Reads only via `sessionRepository.list()` -- no writes, no
-  // editing/deleting rows (Boundaries & Constraints). `list()`'s own order is
+  // editing/deleting rows. `list()`'s own order is
   // unspecified per its port docstring, so `sortSessionsDescending` always
   // imposes History's own order before anything renders.
   import { onMount } from 'svelte';

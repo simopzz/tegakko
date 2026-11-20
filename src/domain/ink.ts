@@ -1,16 +1,17 @@
 // Pure domain types + functions -- no DOM/IndexedDB/Svelte import ever
-// appears here (AD-1). The canvas adapter (`adapters/ink`) owns every DOM
-// concern; this file owns only the shape of a recorded stroke and the
-// pressure->width mapping, so both the live adapter and a future replay path
-// compute width identically.
+// appears here (docs/adr/0001-hexagonal-boundary.md). The canvas adapter
+// (`adapters/ink`) owns every DOM concern; this file owns only the shape of a
+// recorded stroke and the pressure->width mapping, so both the live adapter
+// and a future replay path compute width identically.
 
 import type { WidthPreset } from './settings';
 
 /** One sampled point of a stroke.
  *
  * `x`/`y` are **grid-relative**: 0..1 within the genkouyoushi cell, not CSS
- * pixels (AD-11 -- Story 1.5 persists strokes and must replay them at any
- * viewport size). `pressure` is already normalized (see the adapter: a
+ * pixels -- strokes are persisted and must replay at any viewport size
+ * (docs/adr/0002-ink-adapter-owns-its-canvas.md). `pressure` is already
+ * normalized (see the adapter: a
  * non-pen pointer, or a pen reporting exactly 0, becomes 0.5). */
 export interface StrokePoint {
   x: number;
@@ -19,7 +20,7 @@ export interface StrokePoint {
 }
 
 /** One completed stroke: pointerdown through pointerup/cancel. This is the
- * persisted shape (Story 1.5, AD-4) -- `widthPreset` travels with the stroke
+ * persisted shape -- `widthPreset` travels with the stroke
  * itself (not a sibling field) so a later `setWidthPreset` can never
  * retroactively change how an already-drawn stroke replays. */
 export interface Stroke {
@@ -27,7 +28,7 @@ export interface Stroke {
   widthPreset: WidthPreset;
 }
 
-/** Pointer-accurate stroke timing, in `performance.now()` ms (AD-2). Only the
+/** Pointer-accurate stroke timing, in `performance.now()` ms. Only the
  * ink adapter sees the raw `pointerdown`/`pointerup` events these come from --
  * `onStrokeComplete`'s callback-invocation time lags `endedAt` by however
  * long Delegated Ink Trails' async rendering takes, so `Drill.svelte` can't

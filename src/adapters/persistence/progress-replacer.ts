@@ -12,7 +12,7 @@ import {
 } from './db';
 
 /**
- * `idb`-backed `ProgressReplacer` (Story 2.2): one `readwrite` transaction
+ * `idb`-backed `ProgressReplacer`: one `readwrite` transaction
  * over `tallies`, `attempts`, and `sessions` -- clear all three, then put
  * every record. Any failure explicitly calls `tx.abort()`: a synchronous
  * throw from `put()` (`DataError`/`DataCloneError`) only rejects this

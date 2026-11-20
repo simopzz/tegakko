@@ -1,8 +1,9 @@
 // Pure domain types + functions -- no DOM/IndexedDB/Svelte import ever
-// appears here (AD-1).
+// appears here (docs/adr/0001-hexagonal-boundary.md).
 //
-// AD-5's export envelope (Story 2.1). Defined once here so Story 2.2's import
-// validates -- and restores -- exactly what export produces. Settings are
+// The export envelope (docs/adr/0003-import-replaces-never-merges.md).
+// Defined once here so import validates -- and restores -- exactly what
+// export produces. Settings are
 // deliberately out of scope: only tallies, attempts, and sessions travel.
 
 import type { Attempt } from './attempt';
@@ -11,7 +12,7 @@ import type { Session } from './session';
 import type { WidthPreset } from './settings';
 import type { Tally } from './tally';
 
-/** The envelope's schema version. Story 2.2 rejects any other value. */
+/** The envelope's schema version. Import rejects any other value. */
 export const EXPORT_VERSION = 1;
 
 /** A stroke in compact form: each point is an `[x, y, pressure]` triple,
@@ -46,7 +47,7 @@ export const ATTEMPT_EXPORT_KEYS = {
 
 export interface ExportEnvelope {
   version: typeof EXPORT_VERSION;
-  /** ISO-8601. Story 2.2 shows this as the incoming file's date. */
+  /** ISO-8601. Import shows this as the incoming file's date. */
   exportedAt: string;
   tallies: Tally[];
   attempts: AttemptExport[];

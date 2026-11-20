@@ -1,12 +1,11 @@
 // Pure domain type + functions -- no DOM/IndexedDB/Svelte import ever appears
-// here (AD-1).
+// here (docs/adr/0001-hexagonal-boundary.md).
 //
-// The `sessions` IndexedDB store's record shape (Story 1.9): a session closes
+// The `sessions` IndexedDB store's record shape: a session closes
 // three ways (explicit "I'm done", full-scope completion, retroactively
 // -detected inactivity), and every closure persists exactly one `Session`
 // record plus computes an in-memory `SessionSummaryView` for the Summary
-// screen. `time` is deliberately never persisted -- see the spec's Design
-// Notes ("Why `sessions` has no `duration` field").
+// screen. `time` is deliberately never persisted (see `Session`).
 
 import type { Card, Script } from './cards';
 import { CARDS } from './cards';
@@ -15,8 +14,9 @@ import type { Attempt } from './attempt';
 
 export type ClosureReason = 'explicit' | 'full-scope' | 'inactivity';
 
-/** The `sessions` IndexedDB store's record shape -- epic-fixed schema, no
- * `duration` field (Design Notes). */
+/** The `sessions` IndexedDB store's record shape. No `duration` field: time
+ * is shown only on the Summary screen as the session closes, and History
+ * never displays it. */
 export interface Session {
   id: string;
   date: string;
@@ -46,7 +46,7 @@ export interface SessionSummaryView {
   missed: MissedChip[];
 }
 
-/** Retroactive idle check (Boundaries & Constraints): idle detection is never
+/** Retroactive idle check: idle detection is never
  * a live timer, only ever this comparison, evaluated at the next resume or
  * interaction. Boundary is inclusive (`>=`) -- exactly `idleTimeoutMs`
  * elapsed already counts as idle. */

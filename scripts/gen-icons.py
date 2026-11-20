@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Generate placeholder solid-color PWA icon PNGs (no external deps).
 
-Story 1.1 only needs a manifest that satisfies installability criteria;
-final brand icon art is out of scope here. Produces flat terracotta
+The manifest only needs icons that satisfy installability criteria;
+these are placeholders for final brand art. Produces flat terracotta
 squares at the sizes referenced by public/manifest.webmanifest.
 """
 import os

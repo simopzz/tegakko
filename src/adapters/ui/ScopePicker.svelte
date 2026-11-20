@@ -1,9 +1,8 @@
 <script lang="ts">
-  // Scope picker screen (Story 1.2). Follows FirstRun.svelte's pattern: its
-  // own scoped style block using existing theme tokens, callback props, no
-  // local routing. Pill-toggle groups commit immediately (no confirm step)
-  // and drive a live card-count recompute -- see EXPERIENCE.md's Component
-  // Patterns and this story's frozen Intent.
+  // Scope picker screen. Follows FirstRun.svelte's pattern: its own scoped
+  // style block using existing theme tokens, callback props, no local
+  // routing. Pill-toggle groups commit immediately (no confirm step) and
+  // drive a live card-count recompute (see docs/design.md).
   import { onMount, untrack } from 'svelte';
   import type { CardRepository } from '../../ports/card-repository';
   import type { TallyRepository } from '../../ports/tally-repository';
@@ -36,12 +35,12 @@
      * (`onScopeChange` feeds it, this prop restores it). */
     initialScope?: Scope;
     onScopeChange?: (scope: Scope) => void;
-    /** Story 1.2's amended AC: a second, independent pill group for the
+    /** A second, independent pill group for the
      * session-size choice. Mirrors `initialScope`/`onScopeChange` exactly --
      * seeds the pill on mount, reports every change so Back (via Settings)
      * restores it. Deliberately not threaded into `onStart` itself (that
-     * signature stays `(scope: Scope) => ...`, per Boundaries &
-     * Constraints) -- the composition root resolves this into an exact card
+     * signature stays `(scope: Scope) => ...`) -- the composition root
+     * resolves this into an exact card
      * count via `domain/scope.ts`'s `resolveSessionSize` inside its own
      * `handleStart`, from the `sessionSize` state reported through
      * `onSessionSizeChange`. */
@@ -62,8 +61,8 @@
   }: Props = $props();
 
   // Fetched once on mount, fails open to `[]` -- mirrors `App.svelte`'s
-  // settings-read fallback (Story 1.7's I/O matrix: a tally-fetch failure
-  // still shows "0 shaky" rather than blocking the Scope picker).
+  // settings-read fallback: a tally-fetch failure still shows "0 shaky"
+  // rather than blocking the Scope picker.
   let tallies = $state<Tally[]>([]);
   onMount(() => {
     void tallyRepository
@@ -79,7 +78,7 @@
   // `$derived`, not a plain top-level read, so Svelte doesn't warn about
   // capturing only `cardRepository`'s initial value (state_referenced_locally)
   // -- in practice this recomputes once, since the catalog is static bundled
-  // data (AD-3) and `cardRepository` itself never changes over this
+  // data and `cardRepository` itself never changes over this
   // component's lifetime.
   const allCards = $derived(cardRepository.getAll());
 
@@ -119,7 +118,7 @@
 
   const scopedCount = $derived(cardsInScope(allCards, scope).length);
 
-  // Live recompute, not a cached number (Design Notes): a percentage of a
+  // Live recompute, not a cached number: a percentage of a
   // changed scope is already a valid value for that scope, so there is no
   // separate "clamp" step when the scope narrows or widens underneath an
   // already-made choice. `resolveSessionSize` is the one shared formula
@@ -128,7 +127,7 @@
   // samples.
   const effectiveSessionSize = $derived(resolveSessionSize(sizeChoice, scopedCount));
 
-  // Informational only (Story 1.7's Boundaries & Constraints): recomputed
+  // Informational only: recomputed
   // live on every script/set toggle, but never fed back into
   // `sampleSessionCards`' weighting.
   const shakyCount = $derived(countShaky(cardsInScope(allCards, scope), tallies));

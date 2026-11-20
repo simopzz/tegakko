@@ -125,7 +125,7 @@ describe('buildSummary', () => {
 });
 
 describe('buildSessionRecord', () => {
-  it('builds the epic-fixed schema, with cardsAttempted as attempt count (not distinct cards)', () => {
+  it('builds the persisted schema, with cardsAttempted as attempt count (not distinct cards)', () => {
     const card = cardsInHiraganaBase[0]!;
     const attempts = [
       attempt({ cardId: card.cardId, selfGrade: 'correct' }),

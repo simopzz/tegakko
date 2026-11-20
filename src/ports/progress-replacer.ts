@@ -1,11 +1,11 @@
-// Port types reference only `domain/` types (AD-1).
+// Port types reference only `domain/` types (docs/adr/0001-hexagonal-boundary.md).
 import type { ImportData } from '../domain/import';
 import type { Result } from '../domain/result';
 
 /**
- * Story 2.2's wholesale-replace capability (AD-5). The existing repository
- * ports deliberately have no bulk delete/replace, so this is the one place
- * persistence exposes it.
+ * Import's wholesale replace (docs/adr/0003-import-replaces-never-merges.md).
+ * The repository ports deliberately have no bulk delete/replace, so this is
+ * the one place persistence exposes it.
  *
  * `replaceAll()` is all-or-nothing across `tallies`, `attempts`, and
  * `sessions`: every current record in all three is removed and exactly

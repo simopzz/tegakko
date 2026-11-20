@@ -1,5 +1,6 @@
 // `InkSurface` adapter: a single <canvas> carrying the genkouyoushi cell
-// guide, the center dot, and the ink itself (AD-2).
+// guide, the center dot, and the ink itself
+// (docs/adr/0002-ink-adapter-owns-its-canvas.md).
 //
 // The mechanics below were validated against a web PoC (since removed)
 // because ink feel is judged by human comparison, not by a numeric
@@ -21,9 +22,9 @@
 //
 // One deliberate design point: pointer coordinates go through
 // the canvas's `getBoundingClientRect()` before use (raw `clientX/clientY`
-// only works for a fullscreen canvas; this one is an inset cell). Points are then stored grid-relative (0..1
-// within the cell) so Story 1.5 can persist and replay them at any viewport
-// size (AD-11).
+// only works for a fullscreen canvas; this one is an inset cell). Points are
+// then stored grid-relative (0..1 within the cell) so they can be persisted
+// and replayed at any viewport size.
 
 import type { InkSurface } from '../../ports/ink-surface';
 import type { Stroke, StrokePoint, StrokeTiming } from '../../domain/ink';
@@ -54,7 +55,7 @@ const defaultContextFactory: ContextFactory = (canvas) =>
   canvas.getContext('2d', { desynchronized: true });
 
 // Delegated Ink Trails is Chromium-only and absent from lib.dom, so it is
-// typed here rather than reached for with `any` (AD-6: no `any`, anywhere).
+// typed here rather than reached for with `any`.
 interface InkTrailStyle {
   color: string;
   diameter: number;
@@ -90,7 +91,7 @@ export class CanvasInkSurface implements InkSurface {
 
   // Completed strokes, kept in memory so a resize (which blows away the
   // backing store) can redraw them -- and so `Stroke` itself is the exact
-  // persisted shape Story 1.5's callers embed in an `Attempt` (each stroke
+  // persisted shape callers embed in an `Attempt` (each stroke
   // already carries the preset it was drawn with, so `replay()` below never
   // has to consult `this.widthPreset` and a later `setWidthPreset` can't
   // retroactively repaint old ink).
@@ -100,7 +101,7 @@ export class CanvasInkSurface implements InkSurface {
   // so a mid-stroke Settings change can never split one stroke's width range.
   private currentPreset: WidthPreset;
   // `performance.now()` at the in-progress stroke's `pointerdown` -- the
-  // timing authority Story 1.5's `timeToFirstStrokeMs` needs, since only this
+  // timing authority `timeToFirstStrokeMs` needs, since only this
   // adapter sees the raw pointer event.
   private currentStrokeStartedAt = 0;
 
@@ -361,7 +362,7 @@ export class CanvasInkSurface implements InkSurface {
     return event.pressure;
   }
 
-  /** CSS-px offset within the cell -> grid-relative 0..1 (AD-11). A
+  /** CSS-px offset within the cell -> grid-relative 0..1. A
    * zero-sized cell (a canvas measured before layout, or happy-dom, which
    * reports every box as 0) collapses to 0 rather than producing NaN. */
   private toGridRelative(x: number, y: number, pressure: number): StrokePoint {

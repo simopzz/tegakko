@@ -395,7 +395,7 @@ describe('CanvasInkSurface', () => {
   });
 
   it('draws one segment per coalesced sub-event, all at the raw event width', () => {
-    // Frozen PoC-parity rule: width is computed ONCE per move event and
+    // PoC-parity rule: width is computed ONCE per move event and
     // reused for every coalesced sub-segment -- recomputing per sub-event
     // would step the width inside a single frame.
     const { surface, canvas } = mounted('calligraphy');

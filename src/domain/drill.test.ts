@@ -49,7 +49,7 @@ describe('sampleSessionCards', () => {
     vi.useRealTimers();
   });
 
-  // Weighting behavior (AD-10's decay/floor shape): each of these pins
+  // Weighting behavior (decay and floor shape): each of these pins
   // `sessionSize: 1` so a single weighted draw's outcome is directly
   // observable -- a 1-element array's `shuffle` pass is a structural no-op,
   // isolating the underlying cumulative-weight walk's behavior.
@@ -224,8 +224,7 @@ describe('sampleSessionCards', () => {
     // Same elements...
     expect(new Set(result.map((c) => c.cardId))).toEqual(new Set(cards.map((c) => c.cardId)));
     // ...but not in that unshuffled order -- proving the shuffle step
-    // actually ran (AD-10: "sampling procedure's natural pick order is not
-    // the session's presentation order").
+    // actually ran: weight must not leak into presentation order.
     expect(result).not.toEqual(cards);
   });
 });

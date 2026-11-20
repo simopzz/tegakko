@@ -1,4 +1,4 @@
-// Drill session bookkeeping (Epic 1 retro action item 2): everything the
+// Drill session bookkeeping: everything the
 // drill screen does that never renders -- the sampled queue, retroactive
 // idle detection, closure, grade/undo persistence and the in-memory mirrors
 // those feed. Framework-free on purpose: no Svelte import, no runes, so it is
@@ -6,9 +6,8 @@
 // `Drill.svelte`, which owns one instance per drill entry.
 //
 // Lives in `adapters/ui`, not `domain`: it owns `crypto.randomUUID()`,
-// fire-and-forget `console.error` logging and repository orchestration --
-// the spine's "UI-adapter-owned timer calling domain's closure logic"
-// (Deferred). The pure pieces it calls already live in `domain/`.
+// fire-and-forget `console.error` logging and repository orchestration.
+// The pure pieces it calls already live in `domain/`.
 import type { Card } from '../../domain/cards';
 import type { Scope } from '../../domain/scope';
 import type { Stroke } from '../../domain/ink';
@@ -29,9 +28,9 @@ export interface DrillSessionOptions {
   scope: Scope;
   sessionSize: number;
   /** Lifetime attempt history, loaded once at drill entry -- feeds sampling
-   * only (AD-10). */
+   * only (docs/adr/0004-session-sampled-once-by-weakness.md). */
   attempts: Attempt[];
-  /** Session-start tally snapshot, loaded once at drill entry (Story 1.8). */
+  /** Session-start tally snapshot, loaded once at drill entry. */
   tallies: Tally[];
   idleTimeoutMs: number;
   attemptRepository: AttemptRepository;
@@ -76,7 +75,7 @@ function logOnFailure(write: Promise<Result<void>>, message: string): void {
 
 export class DrillSession {
   // Sampled exactly once, at construction, from `attempts` as loaded --
-  // weighted-without-replacement, then uniform-shuffled (AD-10). Fixed for
+  // weighted-without-replacement, then uniform-shuffled. Fixed for
   // the lifetime of this drill entry: never re-sampled, appended to, or
   // reordered mid-session. Sampling is without replacement, so full-scope
   // closure is exact once the queue is exhausted, never "probably done".
@@ -88,7 +87,7 @@ export class DrillSession {
   // persisted `Session.id` so it stays correlated with `Attempt.sessionId`.
   readonly sessionId = crypto.randomUUID();
 
-  // Story 1.9's closure bookkeeping. `sessionStartedAt` is the origin
+  // Closure bookkeeping. `sessionStartedAt` is the origin
   // `close`'s `timeMs` measures from; `lastInteractionAt` is updated by every
   // interaction (`recordInteraction`) and read-only otherwise -- idle
   // detection is retroactive, never a live timer. `closed` guards every
@@ -108,14 +107,13 @@ export class DrillSession {
   // attempts array `buildSummary`/`buildSessionRecord` ever read from.
   // Routing those through the learner's entire *lifetime* `attempts` instead
   // would auto-close a returning learner's session after a single grade and
-  // report lifetime totals on the Summary screen (Story 1.9 Spec Change Log,
-  // review pass 1's `bad_spec` finding). Sampling reads `attempts` directly,
-  // once (AD-10), so there is no sampling-side mirror to keep in sync.
+  // report lifetime totals on the Summary screen. Sampling reads `attempts`
+  // directly, once, so there is no sampling-side mirror to keep in sync.
   private readonly thisSessionAttempts: Attempt[] = [];
 
   // Plain per-card miss-count map, seeded once from the session-start
   // `tallies` and updated in memory alongside `thisSessionAttempts` by
-  // grades/undos, never re-fetched (Story 1.8). Read by `recordGrade`'s
+  // grades/undos, never re-fetched. Read by `recordGrade`'s
   // toast count and the Summary.
   private readonly cardTallies: Map<string, number>;
 
@@ -188,7 +186,7 @@ export class DrillSession {
     return index + 1 >= this.queue.length;
   }
 
-  /** Full-scope closure (Story 1.9) -- rides "Next character" past the last
+  /** Full-scope closure -- rides "Next character" past the last
    * queue entry rather than a control of its own. */
   closeFullScope(): void {
     this.close('full-scope');
@@ -241,9 +239,8 @@ export class DrillSession {
 
   /** Forgets the last grade and its pending writes, so it can no longer be
    * undone -- called by the component on "Next character" and after an undo
-   * completes. (Story 1.8's deferred-advance pattern: the queue pointer never
-   * passes a card while its Undo is offered, so undo needs no queue
-   * reinsertion, AD-13.) */
+   * completes. (The queue pointer never passes a card while its Undo is
+   * offered, so undo needs no queue reinsertion.) */
   clearUndoable(): void {
     this.lastGrade = null;
     this.pendingAttemptWrite = undefined;

@@ -1,8 +1,8 @@
 // Pure domain types + functions -- no DOM/IndexedDB/Svelte import ever
-// appears here (AD-1).
+// appears here (docs/adr/0001-hexagonal-boundary.md).
 //
-// Story 2.2's import schema: validates exactly what Story 2.1's
-// `buildExportEnvelope` produces (`domain/export.ts`) and expands it back
+// The import schema: validates exactly what `buildExportEnvelope`
+// produces (`domain/export.ts`) and expands it back
 // into the persisted record shapes. Input is `unknown` and is only ever
 // narrowed here, field by field -- every record is rebuilt fresh, so any
 // unknown extra field is dropped rather than spread through into storage.

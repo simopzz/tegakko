@@ -4,7 +4,7 @@ import { DEFAULT_SETTINGS, type Settings } from '../../domain/settings';
 import { err, ok, type Result } from '../../domain/result';
 import { openTegakkoDb, toError, SETTINGS_STORE, type TegakkoDb } from './db';
 
-// AD-11: `settings` is a singleton record -- one fixed key, not a list.
+// `settings` is a singleton record -- one fixed key, not a list.
 const SETTINGS_KEY = 'singleton';
 
 /**

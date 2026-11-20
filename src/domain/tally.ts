@@ -1,10 +1,9 @@
 // Pure domain type + function -- no DOM/IndexedDB/Svelte import ever appears
-// here (AD-1).
+// here (docs/adr/0001-hexagonal-boundary.md).
 //
-// The `tallies` IndexedDB store's record shape (AD-4/AD-11, Story 1.6).
-// Exactly two fields, ever -- no per-card metadata beyond the running miss
-// count. Story 1.7 reads this for weak-spot weighting; Story 1.8 decrements
-// it on undo.
+// The `tallies` IndexedDB store's record shape. Exactly two fields, ever --
+// no per-card metadata beyond the running miss count
+// (docs/adr/0004-session-sampled-once-by-weakness.md). Undo decrements it.
 
 import type { Card } from './cards';
 
@@ -15,8 +14,8 @@ export interface Tally {
 }
 
 /** Count of in-scope cards whose miss tally exceeds the in-scope running
- * average -- the Scope picker's "N shaky" badge (Story 1.7). Informational
- * only: `Tally` never feeds `sampleSessionCards`' weighting (AD-10) -- that
+ * average -- the Scope picker's "N shaky" badge. Informational
+ * only: `Tally` never feeds `sampleSessionCards`' weighting -- that
  * reads `Attempt` history directly, since the count of incorrect attempts
  * for a card already equals `Tally.missCount` by construction.
  *

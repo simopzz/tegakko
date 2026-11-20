@@ -7,7 +7,8 @@ import type { Attempt } from '../../domain/attempt';
 import type { Session } from '../../domain/session';
 import type { Tally } from '../../domain/tally';
 
-// Faked against the ports, never `adapters/persistence` (AD-1).
+// Faked against the ports, never `adapters/persistence`
+// (docs/adr/0001-hexagonal-boundary.md).
 const TALLIES: Tally[] = [{ cardId: 'あ:hiragana', missCount: 3 }];
 const ATTEMPTS: Attempt[] = [
   {

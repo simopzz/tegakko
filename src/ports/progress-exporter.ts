@@ -1,10 +1,10 @@
-// Port types reference only `domain/` types (AD-1).
+// Port types reference only `domain/` types (docs/adr/0001-hexagonal-boundary.md).
 import type { Result } from '../domain/result';
 
 /**
- * FR-13's export capability (Story 2.1, AD-5). The UI reaches the `io`
- * adapter only through this port -- adapters never import siblings, exactly
- * like `ui` -> `ink` via `InkSurface`.
+ * Export (docs/adr/0003-import-replaces-never-merges.md). The UI reaches the
+ * `io` adapter only through this port -- adapters never import siblings,
+ * exactly like `ui` -> `ink` via `InkSurface`.
  *
  * `export()` reads every persisted tally, attempt, and session, serializes
  * them into the domain's `ExportEnvelope`, and hands the JSON to the
