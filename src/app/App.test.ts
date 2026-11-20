@@ -77,7 +77,7 @@ describe('App', () => {
     // The counter's N *is* the scoped card list's length -- the whole
     // catalog here.
     expect(await screen.findByText('1 / 208')).toBeTruthy();
-    // Exactly one canvas, ever: two hit the black-canvas compositing bug
+    // Exactly one canvas, ever: two canvases trigger the black-canvas bug
     // (docs/adr/0002-ink-adapter-owns-its-canvas.md).
     expect(document.querySelectorAll('canvas')).toHaveLength(1);
   });

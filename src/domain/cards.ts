@@ -104,7 +104,7 @@ const HIRAGANA_ROMAJI = [
 ] as const;
 
 // Standard yoon rows -- 11 consonant rows (7 seion + 4 voiced/semi-voiced:
-// ぎ/じ/び/ぴ), each combining with small ゃ/ゅ/ょ. 11 * 3 = 33 per script,
+// ぎ/じ/び/ぴ), each combining with small ゃ/ゅ/ょ. 11 * 3 = 33 per script.
 // No extended/loanword yoon rows (e.g. ふぁ, ゔぁ).
 const HIRAGANA_YOON_ROWS = ['き', 'し', 'ち', 'に', 'ひ', 'み', 'り', 'ぎ', 'じ', 'び', 'ぴ'] as const;
 const KATAKANA_YOON_ROWS = ['キ', 'シ', 'チ', 'ニ', 'ヒ', 'ミ', 'リ', 'ギ', 'ジ', 'ビ', 'ピ'] as const;

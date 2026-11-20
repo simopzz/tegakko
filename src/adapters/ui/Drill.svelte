@@ -581,10 +581,9 @@
 
   .reference-cell {
     /* Mirrors `.cell`'s box exactly, so Yours/Reference read as one
-       comparison pair -- but tinted `--color-missed-bg` per docs/design.md
-       ("the reference-glyph panel on the Reveal screen" uses the missed
-       tint, not the canvas ground: this is attention, not the writing
-       surface). */
+       comparison pair -- but tinted `--color-missed-bg` (docs/design.md: the
+       Reveal reference panel uses the missed tint, not the canvas ground --
+       this is attention, not the writing surface). */
     width: min(100cqw, 100cqh);
     height: min(100cqw, 100cqh);
     border-radius: var(--radius-lg);
