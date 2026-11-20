@@ -1,6 +1,6 @@
 # Browser tools
 
-Two MCP servers drive a browser, both installed at user scope rather than in this repo. Pick by the question you're asking:
+Two MCP servers drive a browser, both installed at user scope rather than in this repo (`~/.config/opencode/opencode.json`, and `~/.claude.json` for Claude Code). Pick by the question you're asking:
 
 | You want to | Use |
 |---|---|
@@ -9,7 +9,7 @@ Two MCP servers drive a browser, both installed at user scope rather than in thi
 
 Run the app with `mise run dev` (Vite prints the URL). The app's state lives in the browser's IndexedDB, per browser profile: what one browser shows says nothing about the other's data.
 
-In Claude Code, `chrome-devtools`'s tools are `mcp__chrome-devtools__*`, deferred: load the ones you need with ToolSearch (`select:mcp__chrome-devtools__get_css_styles,...`). If they're missing, ask the user to check `/mcp`.
+Tools are named `<server>_<tool>`, so `chrome-devtools_get_css_styles`, or `tools.chrome_devtools.get_css_styles(...)` inside Code Mode's `execute`. In Claude Code they are `mcp__chrome-devtools__*`, deferred behind ToolSearch. If they're missing, ask the user to check `/mcps` (OpenCode) or `/mcp` (Claude Code).
 
 ## chrome-devtools
 
