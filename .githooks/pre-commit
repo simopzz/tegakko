@@ -1,0 +1,3 @@
+#!/bin/sh
+# Every check CI runs but build, before every commit: they take seconds.
+exec mise run check
