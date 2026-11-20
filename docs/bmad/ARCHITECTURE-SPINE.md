@@ -10,12 +10,12 @@ created: '2026-09-02'
 updated: '2026-09-03T15'
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14]
 sources:
-  - '_bmad-output/specs/spec-tegakko/SPEC.md'
+  - 'docs/bmad/SPEC.md'
   - '_bmad-output/planning-artifacts/prds/prd-tegakko-2026-09-02/prd.md'
   - '_bmad-output/planning-artifacts/briefs/brief-tegakko-2026-09-01/brief.md'
   - '_bmad-output/planning-artifacts/briefs/brief-tegakko-2026-09-01/addendum.md'
-  - '_bmad-output/planning-artifacts/ux-designs/ux-tegakko-2026-09-02/DESIGN.md'
-  - '_bmad-output/planning-artifacts/ux-designs/ux-tegakko-2026-09-02/EXPERIENCE.md'
+  - 'docs/bmad/DESIGN.md'
+  - 'docs/bmad/EXPERIENCE.md'
 companions: []
 ---
 

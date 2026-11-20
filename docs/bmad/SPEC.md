@@ -2,9 +2,9 @@
 id: SPEC-tegakko
 companions:
   - ../../planning-artifacts/prds/prd-tegakko-2026-09-02/prd.md
-  - ../../planning-artifacts/ux-designs/ux-tegakko-2026-09-02/DESIGN.md
-  - ../../planning-artifacts/ux-designs/ux-tegakko-2026-09-02/EXPERIENCE.md
-  - ../../planning-artifacts/architecture/architecture-tegakko-2026-09-02/ARCHITECTURE-SPINE.md
+  - ./DESIGN.md
+  - ./EXPERIENCE.md
+  - ./ARCHITECTURE-SPINE.md
 sources:
   - ../../planning-artifacts/briefs/brief-tegakko-2026-09-01/brief.md
   - ../../planning-artifacts/briefs/brief-tegakko-2026-09-01/addendum.md
