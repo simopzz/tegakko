@@ -8,8 +8,6 @@ import { IdbSettingsRepository } from '../adapters/persistence/settings-reposito
 import { resetDb } from '../adapters/persistence/test-reset-db';
 import { DEFAULT_SETTINGS } from '../domain/settings';
 import type { Result } from '../domain/result';
-import type { InkSurface } from '../ports/ink-surface';
-import type { Stroke, StrokeTiming } from '../domain/ink';
 import type { Scope } from '../domain/scope';
 import type { Attempt } from '../domain/attempt';
 import type { Tally } from '../domain/tally';
@@ -17,36 +15,12 @@ import type { Session } from '../domain/session';
 import type { AttemptRepository } from '../ports/attempt-repository';
 import type { TallyRepository } from '../ports/tally-repository';
 import type { SessionRepository } from '../ports/session-repository';
+import type { InkSurface } from '../ports/ink-surface';
+import { fakeInkSurface } from '../test-utils/fake-ink-surface';
 
 const SCOPE: Scope = { scripts: ['hiragana'], sets: ['yoon'] };
 const IDLE_MS = 300_000;
 const OK_RESULT: Result<void> = { ok: true, value: undefined };
-
-function fakeInkSurface(): InkSurface & {
-  strokesCompleted: number;
-  landStroke: () => void;
-} {
-  let cb: ((stroke: Stroke, timing: StrokeTiming) => void) | null = null;
-  const surface = {
-    strokesCompleted: 0,
-    mount() {},
-    destroy() {},
-    clear() {},
-    onStrokeComplete(next: (stroke: Stroke, timing: StrokeTiming) => void) {
-      cb = next;
-    },
-    setWidthPreset() {},
-    landStroke() {
-      const startedAt = performance.now();
-      cb?.({ points: [{ x: 0.5, y: 0.5, pressure: 0.7 }], widthPreset: 'expressive' }, {
-        startedAt,
-        endedAt: performance.now(),
-      });
-      surface.strokesCompleted += 1;
-    },
-  };
-  return surface;
-}
 
 function fakeAttemptRepository(
   listAllResult: Result<Attempt[]> = { ok: true, value: [] },

@@ -7,32 +7,7 @@ import { IdbSettingsRepository } from '../adapters/persistence/settings-reposito
 import { IdbSessionRepository } from '../adapters/persistence/session-repository';
 import { resetDb } from '../adapters/persistence/test-reset-db';
 import { DEFAULT_SETTINGS } from '../domain/settings';
-import type { InkSurface } from '../ports/ink-surface';
-import type { Stroke, StrokeTiming } from '../domain/ink';
-
-/** Fake ink surface for whole-app tests: records its subscriber and exposes
- * a helper to complete a stroke, exactly like the real canvas adapter does. */
-function fakeInkSurface(): InkSurface & { landStroke: () => Promise<void> } {
-  let cb: ((stroke: Stroke, timing: StrokeTiming) => void) | null = null;
-  const surface = {
-    mount() {},
-    destroy() {},
-    clear() {},
-    onStrokeComplete(next: (stroke: Stroke, timing: StrokeTiming) => void) {
-      cb = next;
-    },
-    setWidthPreset() {},
-    async landStroke() {
-      const startedAt = performance.now();
-      cb?.({ points: [{ x: 0.5, y: 0.5, pressure: 0.7 }], widthPreset: 'expressive' }, {
-        startedAt,
-        endedAt: performance.now(),
-      });
-      await tick();
-    },
-  };
-  return surface;
-}
+import { fakeInkSurface } from '../test-utils/fake-ink-surface';
 
 describe('App integration', () => {
   beforeEach(async () => {
