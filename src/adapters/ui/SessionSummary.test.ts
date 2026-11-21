@@ -8,6 +8,8 @@ function fixture(overrides: Partial<SessionSummaryView> = {}): SessionSummaryVie
     accuracy: 0.75,
     timeMs: 125_000, // 2:05
     revealCount: 3,
+    cardsAttempted: 12,
+    scope: { hiragana: ['base'] },
     closureReason: 'explicit',
     missed: [],
     ...overrides,

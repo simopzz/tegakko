@@ -76,7 +76,7 @@ One screen at a time, single column, no tab bar or drawer, no router: one top-le
 | First run | First open only | Check the stylus and pressure range; offer install. |
 | Scope picker | App open; bar Back and "Another round" on Summary | Choose scripts and their Sets, a session size; one live line sums the scope; start. |
 | Drill | Scope picker → "Start writing" | The prompt → write → (reveal) → self-grade loop. |
-| Summary | Any closure | Accuracy, time, reveal count, this session's misses. |
+| Summary | Any closure | Accuracy over the session's scope and card count, time, reveal count, this session's misses. |
 | History | Bar links on Scope picker and Summary | Past sessions, newest first, accuracy trend. |
 | Settings | Bar links on Scope picker and Summary | Ink width, idle-close threshold, export/import. |
 
@@ -98,9 +98,9 @@ Script is a multi-select of pill toggles — Hiragana and Katakana today, a thir
 | Progress bar | 6px, hairline track, accent fill, `-full` | Always beside an "N / total" counter, total = the session's sampled size. Advances on every grade, reaches exactly 100%. |
 | Grade toast | Peach, `-xl`, shadow, floats above the action row | Shows the graded card and, on Missed, its new miss count, plus Undo as text-only accent-strong (no fill, no border). Rides over the next prompt (one tap per card: the grade itself advances) until the learner commits to what's under it — the new prompt's first stroke, or a Reveal — or taps Undo. Undo reverts the attempt and miss count and brings the graded card back exactly as it was written: strokes, reveal panel and all. On the last card the toast stays over the frozen card until Undo or Finish. |
 | Import warning | Toast, modal weight | Says the replace is destructive, shows the current data's date and the file's date, needs an explicit confirm. Cancel leaves current data untouched. The only two-step action in the app. |
-| Stat tile | Secondary surface, `-lg`, label over value | Exactly two on Summary: time, reveal count. |
-| History row | Hairline divider (none on the last row) | Newest first. Complete sessions get a positive "Session complete" chip, inactivity closures a neutral "Closed on idle" chip, explicit ones none. Accuracy in accent-deep, dimmed to ink-muted on inactivity rows. |
-| History sparkline | Vertical `-full` bars | Last 10 sessions; height = accuracy, colour on a five-step ramp from grid-guide through positive-accent; the newest bar is always accent. Inactivity sessions are included and not marked. |
+| Stat tile | Secondary surface, `-lg`, label over value | Exactly three on Summary: cards, time, reveal count. |
+| History row | Hairline divider (none on the last row) | Newest first. Date with a muted second line under it: "N cards · scope" (e.g. "10 cards · Hiragana Base+Yoon"), so a quick check reads differently from a full session. Complete sessions get a positive "Session complete" chip, inactivity closures a neutral "Closed on idle" chip, explicit ones none. Accuracy in accent-deep, dimmed to ink-muted on inactivity rows. |
+| History sparkline | Vertical `-full` bars | Hidden until 3 sessions exist — one or two would read as a flat, meaningless line. Then the last 10 sessions; height = accuracy, colour on a five-step ramp from grid-guide through positive-accent; the newest bar is always accent. Inactivity sessions are included and not marked. |
 
 ## Drill states
 

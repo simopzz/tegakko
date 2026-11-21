@@ -9,6 +9,7 @@
   // close ever carries the positive "You ended it" chip -- the
   // idle/complete distinction is History's concern.
   import type { SessionSummaryView } from '../../domain/session';
+  import { describeScope } from '../../domain/scope';
   import ScreenShell from './ScreenShell.svelte';
 
   interface Props {
@@ -37,6 +38,7 @@
   <div class="hero">
       <p class="accuracy">{Math.round(summary.accuracy * 100)}%</p>
       <p class="accuracy-label">Accuracy</p>
+      <p class="scope-line">{describeScope(summary.scope)}</p>
     </div>
 
     {#if summary.closureReason === 'explicit'}
@@ -46,6 +48,10 @@
     {/if}
 
     <div class="stats">
+      <div class="stat-tile">
+        <p class="stat-label">Cards</p>
+        <p class="stat-value">{summary.cardsAttempted}</p>
+      </div>
       <div class="stat-tile">
         <p class="stat-label">Time</p>
         <p class="stat-value">{formatTime(summary.timeMs)}</p>
@@ -101,6 +107,12 @@
     letter-spacing: 0.1em;
     text-transform: uppercase;
     font-size: 0.75rem;
+    color: var(--color-ink-muted);
+  }
+
+  .scope-line {
+    margin: 0;
+    font-family: var(--font-body);
     color: var(--color-ink-muted);
   }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CARDS } from './cards';
-import { cardsInScope, FULL_SCOPE, resolveSessionSize, type Scope } from './scope';
+import { cardsInScope, describeScope, FULL_SCOPE, resolveSessionSize, type Scope } from './scope';
 
 describe('cardsInScope', () => {
   it('returns the full 208-card catalog for the complete default', () => {
@@ -75,5 +75,18 @@ describe('resolveSessionSize', () => {
     expect(resolveSessionSize(50, 33)).toBe(33);
     expect(resolveSessionSize(10, 8)).toBe(8);
     expect(resolveSessionSize(20, 1)).toBe(1);
+  });
+});
+
+describe('describeScope', () => {
+  it('reads each script as its name then its Sets joined with "+"', () => {
+    expect(describeScope({ hiragana: ['base', 'yoon'], katakana: ['base'] })).toBe(
+      'Hiragana Base+Yoon · Katakana Base',
+    );
+  });
+
+  it('reads a single-Set script without a joiner and an empty scope as empty', () => {
+    expect(describeScope({ katakana: ['yoon'] })).toBe('Katakana Yoon');
+    expect(describeScope({})).toBe('');
   });
 });
