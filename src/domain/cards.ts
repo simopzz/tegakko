@@ -1,20 +1,22 @@
 // Pure domain data -- no DOM/IndexedDB/Svelte import ever appears here
 // (docs/adr/0001-hexagonal-boundary.md).
 //
-// The static 208-card kana catalog: compiled into the bundle, never an
-// IndexedDB store. `cardId` is the natural key `"<grapheme>:<script>"` -- a
-// yoon card's grapheme is always the full two-character combination (e.g.
-// "きゃ"), never decomposed into its base kana + small-ya/yu/yo parts, so a
-// yoon card can never collide with its base-row counterpart's id.
+// The static catalog: the 208-card kana catalog below plus the generated
+// 79-card JLPT N5 kanji catalog (`domain/kanji.ts`), all compiled into the
+// bundle, never an IndexedDB store. `cardId` is the natural key
+// `"<grapheme>:<script>"` -- a yoon card's grapheme is always the full
+// two-character combination (e.g. "きゃ"), never decomposed into its
+// base kana + small-ya/yu/yo parts, so a yoon card can never collide with
+// its base-row counterpart's id.
 
-export type Script = 'hiragana' | 'katakana';
-export type CardSet = 'base' | 'yoon';
+import { KANJI_CARDS } from './kanji';
 
-export interface Card {
+/** A kana card: identity is grapheme plus script, prompted by its romaji. */
+export interface KanaCard {
   cardId: string;
   grapheme: string;
-  script: Script;
-  set: CardSet;
+  script: 'hiragana' | 'katakana';
+  set: 'base' | 'yoon';
   /** Hepburn reading, shared across scripts (あ and ア are both "a"). The
    * drill prompt shows this plus the script name -- never a
    * mnemonic or example word. */
@@ -26,6 +28,28 @@ export interface Card {
    * data intrinsic to the card, not a mnemonic. */
   writtenRomaji?: string;
 }
+
+/** A kanji card: Set is one JLPT level, and the prompt is meanings plus
+ * readings rather than romaji -- two kanji sharing a meaning are both
+ * accepted answers, so no written-form disambiguator exists. Field values
+ * come from KANJIDIC2; see `domain/kanji.ts` for the licences. */
+export interface KanjiCard {
+  cardId: string;
+  grapheme: string;
+  script: 'kanji';
+  /** One JLPT level today; a future level is a new Set value. */
+  set: 'n5';
+  /** The card's first 3 English meanings, in KANJIDIC2's order. */
+  meanings: readonly string[];
+  /** On'yomi in katakana; kun'yomi in hiragana with the okurigana dot
+   * removed (まな.ぶ -> まなぶ). A few kanji (電, 校) have no kun'yomi. */
+  onyomi: readonly string[];
+  kunyomi: readonly string[];
+}
+
+export type Card = KanaCard | KanjiCard;
+export type Script = KanaCard['script'] | KanjiCard['script'];
+export type CardSet = KanaCard['set'] | KanjiCard['set'];
 
 // NFC-normalized so a `cardId` built here always matches one built from any
 // externally-sourced grapheme/lookup key (persisted `Attempt.cardId`, an
@@ -139,7 +163,7 @@ const WRITTEN_ROMAJI_BY_GRAPHEME: Readonly<Record<string, string>> = {
   ヅ: 'du',
 };
 
-function baseCards(graphemes: readonly string[], script: Script): Card[] {
+function baseCards(graphemes: readonly string[], script: KanaCard['script']): Card[] {
   return graphemes.map((grapheme, index) => {
     const romaji = HIRAGANA_ROMAJI[index];
     // Parallel-array indexing under `noUncheckedIndexedAccess`: a missing
@@ -163,7 +187,7 @@ function baseCards(graphemes: readonly string[], script: Script): Card[] {
 function yoonCards(
   rows: readonly string[],
   suffixes: readonly string[],
-  script: Script,
+  script: KanaCard['script'],
 ): Card[] {
   return rows.flatMap((row, rowIndex) =>
     suffixes.map((suffix, suffixIndex) => {
@@ -184,9 +208,9 @@ function yoonCards(
   );
 }
 
-/** The full 208-card static catalog: 71 base hiragana (46 seion + 25
+/** The full static catalog: 71 base hiragana (46 seion + 25
  * dakuten/handakuten) + 71 base katakana + 33 hiragana yoon + 33 katakana
- * yoon.
+ * yoon + the 79 generated JLPT N5 kanji cards.
  *
  * Every card and the array itself are frozen -- `CARDS` is shared module
  * state, so a caller that got a reference to it (or to one of its cards, e.g.
@@ -197,5 +221,6 @@ export const CARDS: Card[] = Object.freeze(
     ...baseCards(KATAKANA_BASE, 'katakana'),
     ...yoonCards(HIRAGANA_YOON_ROWS, YOON_SMALL_SUFFIXES, 'hiragana'),
     ...yoonCards(KATAKANA_YOON_ROWS, YOON_SMALL_SUFFIXES_KATAKANA, 'katakana'),
+    ...KANJI_CARDS,
   ].map((card) => Object.freeze(card)),
 ) as Card[];

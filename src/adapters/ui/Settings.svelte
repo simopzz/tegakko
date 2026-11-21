@@ -440,6 +440,8 @@
     {#if importNote}
       <p class="note" role="status" aria-live="polite">{importNote}</p>
     {/if}
+
+    <p class="body">Kanji data: EDRDG KANJIDIC2 (CC BY-SA), JLPT lists by J. Waller (CC BY)</p>
 </ScreenShell>
 
 {#if pending}

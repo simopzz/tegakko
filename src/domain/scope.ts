@@ -18,7 +18,9 @@ function capitalize(value: string): string {
  * keeps every entry non-empty. */
 export type Scope = Readonly<Partial<Record<Script, readonly CardSet[]>>>;
 
-/** The full catalog, unnarrowed -- the Scope picker's default.
+/** The Scope picker's default: both kana scripts, all Sets -- kanji is
+ * deliberately absent, an opt-in pill rather than part of every fresh
+ * load's default selection.
  *
  * Frozen, including its arrays: shared module state that no caller may
  * corrupt by mutating what they were handed back. */

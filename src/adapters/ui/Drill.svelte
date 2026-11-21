@@ -15,7 +15,7 @@
   // All non-rendering bookkeeping (queue, idle, closure, grade/undo
   // persistence) lives in `DrillSession`; this keeps render state only.
   import { onMount, tick } from 'svelte';
-  import { SMALL_KANA, type Script } from '../../domain/cards';
+  import { SMALL_KANA, type KanjiCard, type Script } from '../../domain/cards';
   import type { InkSurface } from '../../ports/ink-surface';
   import type { Stroke } from '../../domain/ink';
   import type { SelfGrade } from '../../domain/attempt';
@@ -34,7 +34,18 @@
   const scriptLabel: Record<Script, string> = {
     hiragana: 'Hiragana',
     katakana: 'Katakana',
+    kanji: 'Kanji',
   };
+
+  /** The kanji prompt's readings line: the on'yomi and kun'yomi groups
+   * split by a middle dot -- katakana vs hiragana already tells the two
+   * apart, so no labels. A kanji missing a group (電 has no kun'yomi)
+   * renders just the one it has. */
+  function readingsLine(card: KanjiCard): string {
+    return [card.onyomi.join(' '), card.kunyomi.join(' ')]
+      .filter((part) => part.length > 0)
+      .join(' · ');
+  }
 
   // Index into `queue` of the card on screen. Advances on the grade itself;
   // Undo is the only thing that moves it back.
@@ -275,7 +286,14 @@
 <main class="drill">
   <section class="prompt" class:dimmed={frozen}>
     <p class="label">Write from memory</p>
-    <p class="romaji">{card.writtenRomaji ? `${card.romaji} (${card.writtenRomaji})` : card.romaji}</p>
+    {#if card.script === 'kanji'}
+      <p class="romaji">{card.meanings.join(', ')}</p>
+      <p class="readings">{readingsLine(card)}</p>
+    {:else if card.writtenRomaji}
+      <p class="romaji">{card.romaji} ({card.writtenRomaji})</p>
+    {:else}
+      <p class="romaji">{card.romaji}</p>
+    {/if}
     <p class="script">{scriptLabel[card.script]}</p>
   </section>
 
@@ -466,6 +484,18 @@
     font-size: 3rem;
     letter-spacing: -0.02em;
     color: var(--color-ink);
+  }
+
+  .readings {
+    /* The kanji prompt's second line: meanings big above, the readings
+     * (kana, not the answer) in the heading serif but muted and smaller.
+     * romaji/labels stay in `--font-heading`/`--font-body` (docs/design.md)
+     * -- these are kana text, not the grapheme, so the brush face stays
+     * reserved for the reference glyph. */
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: 1.25rem;
+    color: var(--color-ink-muted);
   }
 
   .script {

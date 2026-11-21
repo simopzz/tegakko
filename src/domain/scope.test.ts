@@ -56,6 +56,28 @@ describe('cardsInScope', () => {
     cardsInScope(CARDS, { hiragana: ['base'] });
     expect(CARDS).toEqual(before);
   });
+
+  it('narrows to kanji N5 (79 cards) on the kanji script\'s own terms', () => {
+    const scope: Scope = { kanji: ['n5'] };
+    const result = cardsInScope(CARDS, scope);
+    expect(result).toHaveLength(79);
+    expect(result.every((c) => c.script === 'kanji' && c.set === 'n5')).toBe(true);
+  });
+
+  it('mixes kanji into a kana scope without either widening the other', () => {
+    // A kanji JLPT level never widens a kana scope: hiragana base only (71)
+    // beside all 79 kanji, and no katakana card can slip in.
+    const scope: Scope = { hiragana: ['base'], kanji: ['n5'] };
+    const result = cardsInScope(CARDS, scope);
+    expect(result).toHaveLength(71 + 79);
+    expect(result.filter((c) => c.script === 'katakana')).toHaveLength(0);
+  });
+
+  it('keeps FULL_SCOPE the kana-only default: kanji is a picker opt-in', () => {
+    // The default selection on a fresh app load never surprises a kana
+    // learner with kanji; the Kanji pill turns them on.
+    expect(cardsInScope(CARDS, FULL_SCOPE).every((c) => c.script !== 'kanji')).toBe(true);
+  });
 });
 
 describe('resolveSessionSize', () => {
@@ -88,5 +110,12 @@ describe('describeScope', () => {
   it('reads a single-Set script without a joiner and an empty scope as empty', () => {
     expect(describeScope({ katakana: ['yoon'] })).toBe('Katakana Yoon');
     expect(describeScope({})).toBe('');
+  });
+
+  it('reads a kanji scope as its JLPT level', () => {
+    expect(describeScope({ kanji: ['n5'] })).toBe('Kanji N5');
+    expect(describeScope({ hiragana: ['base'], kanji: ['n5'] })).toBe(
+      'Hiragana Base · Kanji N5',
+    );
   });
 });

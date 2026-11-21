@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import Drill from './Drill.svelte';
 import DrillScopeHarness from './DrillScopeHarness.svelte';
-import { CARDS, type Card } from '../../domain/cards';
+import { CARDS, type Card, type KanaCard } from '../../domain/cards';
 import { cardsInScope, type Scope } from '../../domain/scope';
 import type { InkSurface } from '../../ports/ink-surface';
 import type { Stroke, StrokeTiming } from '../../domain/ink';
@@ -26,6 +26,7 @@ import { DrillSession } from './drill-session';
 // rendered instead.
 const HIRAGANA_BASE_SCOPE: Scope = { hiragana: ['base'] }; // 71 cards
 const HIRAGANA_YOON_SCOPE: Scope = { hiragana: ['yoon'] }; // 33 cards
+const KANJI_N5_SCOPE: Scope = { kanji: ['n5'] }; // 79 cards
 
 // A `ui` adapter must never import a sibling adapter's implementation
 // (docs/adr/0001-hexagonal-boundary.md),
@@ -161,10 +162,15 @@ function fakeSessionRepository(
   };
 }
 
-/** The exact text the Drill prompt renders for a card -- `romaji` alone, or
- * `"<romaji> (<writtenRomaji>)"` on the 4 disambiguated cards. */
+/** The exact text the Drill prompt's big line renders for a card -- romaji
+ * alone, `"<romaji> (<writtenRomaji>)"` on the 4 disambiguated cards, the
+ * joined meanings for a kanji. */
 function promptText(card: Card): string {
-  return card.writtenRomaji ? `${card.romaji} (${card.writtenRomaji})` : card.romaji;
+  return card.script === 'kanji'
+    ? card.meanings.join(', ')
+    : card.writtenRomaji
+      ? `${card.romaji} (${card.writtenRomaji})`
+      : card.romaji;
 }
 
 function escapeRegExp(value: string): string {
@@ -284,12 +290,47 @@ describe('Drill', () => {
     expect(screen.queryByText(target.grapheme)).toBeNull();
   });
 
+  it('prompts a kanji with its meanings and readings, one writing cell', () => {
+    // A kanji card has no romaji: the prompt's big line is its meanings and
+    // a muted line under it carries the readings (on'yomi and kun'yomi
+    // split by a middle dot). The grapheme is still Reveal's alone.
+    const cards = cardsInScope([...CARDS], KANJI_N5_SCOPE);
+    const inkSurface = fakeInkSurface();
+    renderDrill({ scope: KANJI_N5_SCOPE, inkSurface });
+    const target = currentCard(cards);
+    if (target.script !== 'kanji') throw new Error('expected a kanji card');
+
+    expect(screen.getByText(promptText(target))).toBeTruthy();
+    expect(screen.getByText('Kanji')).toBeTruthy();
+    const readings = document.querySelector('.readings')?.textContent ?? '';
+    expect(readings).toContain('·');
+    expect(readings).toContain(target.onyomi[0]!);
+    expect(screen.queryByText(target.grapheme)).toBeNull();
+    // One genkouyoushi cell, exactly like a single kana.
+    expect(inkSurface.cellCounts).toEqual([1]);
+  });
+
+  it('reveals a kanji in one reference cell, never small-sized', async () => {
+    const cards = cardsInScope([...CARDS], KANJI_N5_SCOPE);
+    renderDrill({ scope: KANJI_N5_SCOPE });
+    const target = currentCard(cards);
+
+    await fireEvent.click(reveal());
+
+    const cells = document.querySelectorAll('.reference-cell');
+    expect(cells).toHaveLength(1);
+    expect(cells[0]?.textContent).toBe(target.grapheme);
+    expect(cells[0]?.querySelector('.glyph')?.className).not.toContain('glyph--small');
+  });
+
   it('appends the written-form romaji for the 4 cards whose romaji collides with another card\'s', async () => {
     // ぢ reads "ji (di)"; づ reads "zu (du)" -- disambiguates
     // from じ/ず, which keep rendering plain "ji"/"zu".
     const dakutenScope: Scope = { hiragana: ['base'] };
     const cards = cardsInScope([...CARDS], dakutenScope);
-    const disambiguated = cards.filter((c) => c.writtenRomaji !== undefined);
+    const disambiguated = cards.filter(
+      (c): c is KanaCard => c.script !== 'kanji' && c.writtenRomaji !== undefined,
+    );
     expect(disambiguated.map((c) => c.grapheme).sort()).toEqual(['づ', 'ぢ'].sort());
 
     // Walk the complete queue until each disambiguated card is prompted,
@@ -300,7 +341,7 @@ describe('Drill', () => {
     const seen = new Set<string>();
     for (let i = 0; i < cards.length && seen.size < disambiguated.length; i++) {
       const target = currentCard(cards);
-      if (target.writtenRomaji !== undefined) {
+      if (target.script !== 'kanji' && target.writtenRomaji !== undefined) {
         expect(screen.getByText(`${target.romaji} (${target.writtenRomaji})`)).toBeTruthy();
         expect(screen.queryByText(target.romaji, { exact: true })).toBeNull();
         seen.add(target.cardId);
