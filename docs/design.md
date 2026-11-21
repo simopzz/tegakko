@@ -85,9 +85,9 @@ One screen at a time, single column, no tab bar or drawer, no router: one top-le
 | Component | Look | Behaviour |
 |---|---|---|
 | Card surface | `--color-surface-card`, `-xl`, shadow | One per screen; nested groups use the secondary surface, not a second card. Never interactive. |
-| Genkouyoushi cell | Canvas surface, grid-guide border and dashed cross, `-lg` | Centre dot only while empty. Once ink exists, Clear appears next to "Your call — nothing is checking the shape". Clearing never advances or grades; it dims Missed/Correct again (the cell is blank) while Reveal stays live. |
+| Genkouyoushi cell | Canvas surface, one cell per character of the grapheme in a row (two for a yoon like チョ, one for a single kana; a kanji later gets one), solid rule between cells, dashed cross inside each, `-lg` | Centre dot in each cell only while the row is empty. Once ink exists, Clear appears next to "Your call — nothing is checking the shape". Clearing never advances or grades; it dims Missed/Correct again (the row is blank) while Reveal stays live. |
 | Grade buttons | Correct: accent fill. Reveal, Missed: transparent with faint border. 88px min height, `-md`, equal widths in a row under the cell | Reveal is live from the moment the prompt shows. Missed and Correct are dimmed (40% opacity, not a different colour) until there is a stroke or Reveal was tapped. A blank revealed cell can be graded; a blank unrevealed one can't. |
-| Reveal | Your ink and the reference glyph side by side, reference on peach | Never overlaid, never replacing your strokes. Doesn't grade; Missed/Correct stay required. Whether Reveal was used is recorded on the attempt. |
+| Reveal | Your ink and the reference side by side, reference on peach, one reference cell per character in the same row shape the learner wrote in; a small kana (the ョ in チョ) renders about half size in its own cell | Never overlaid, never replacing your strokes. Doesn't grade; Missed/Correct stay required. Whether Reveal was used is recorded on the attempt. |
 | Pill toggle group | Secondary-surface track; active segment accent fill | Equal-width segments, exactly one active, commits on tap. On the Scope picker each tap recomputes the card count. |
 | Chip | `-sm`; positive, missed or neutral tint, always with text | Read-only. Positive for script/set/status, missed where a count is inherently negative (shaky, miss count). Card position ("12 / 46") is plain heading text, not a chip. |
 | Card count + shaky badge | Count in plain text; "N shaky" as a missed chip | "N shaky" counts shaky cards in the current scope. Informational; it doesn't feed selection. |
@@ -104,7 +104,7 @@ One screen at a time, single column, no tab bar or drawer, no router: one top-le
 |---|---|
 | Blank | Empty cell with centre dot. Reveal live; Missed/Correct dimmed. |
 | Written | Ink, no dot, all three buttons live, Clear available. |
-| Revealed from written | Side-by-side replaces the single cell; Reveal becomes a dimmed "Revealed" label; Missed/Correct live. |
+| Revealed from written | Side-by-side replaces the single row; the reference mirrors the writing row cell for cell. Reveal becomes a dimmed "Revealed" label; Missed/Correct live. |
 | Revealed from blank | Same layout, "yours" shows the empty cell. Revealing enabled grading; Correct isn't blocked. |
 | Post-grade (mid-queue) | No visible state change to the drill itself: the grade advances straight to the next prompt, and the grade toast floats above it. Writing or revealing on the new prompt dismisses the toast; until then its Undo brings the graded card back with its ink and reveal panel intact. |
 | Frozen closing card | Grading the last card freezes it: prompt and cell dim (not hidden), cell locked, Reveal becomes a dimmed "Revealed" label, and the wide control is "Finish". Undo or the toast's Undo reverses the grade; Finish closes the session as complete. |

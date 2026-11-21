@@ -28,7 +28,7 @@ function fakeContext(): FakeContext {
   const arcs: Array<{ x: number; y: number; r: number; color: string }> = [];
   const dashPatterns: number[][] = [];
 
-  let pending: { x0: number; y0: number; x1: number; y1: number } | null = null;
+  let pending: Array<{ x0: number; y0: number; x1: number; y1: number }> = [];
   let pendingArc: { x: number; y: number; r: number } | null = null;
 
   const state = {
@@ -81,16 +81,19 @@ function fakeContext(): FakeContext {
       if (previous) Object.assign(state, previous);
     },
     beginPath: () => {
-      pending = null;
+      pending = [];
       pendingArc = null;
     },
     moveTo: (x: number, y: number) => {
-      pending = { x0: x, y0: y, x1: x, y1: y };
+      // A real context keeps every subpath of a path until `stroke()` --
+      // record them all, not just the last (guide lines share one path).
+      pending.push({ x0: x, y0: y, x1: x, y1: y });
     },
     lineTo: (x: number, y: number) => {
-      if (pending) {
-        pending.x1 = x;
-        pending.y1 = y;
+      const last = pending[pending.length - 1];
+      if (last) {
+        last.x1 = x;
+        last.y1 = y;
       }
     },
     arc: (x: number, y: number, r: number) => {
@@ -100,13 +103,14 @@ function fakeContext(): FakeContext {
       if (pendingArc) arcs.push({ ...pendingArc, color: state.fillStyle });
     },
     stroke: () => {
-      if (pending) {
+      for (const segment of pending) {
         segments.push({
-          ...pending,
+          ...segment,
           width: state.lineWidth,
           color: state.strokeStyle,
         });
       }
+      pending = [];
     },
   };
 
@@ -234,6 +238,84 @@ describe('CanvasInkSurface', () => {
     expect(fake.dashPatterns.length).toBeGreaterThan(0);
     const dot = fake.arcs.at(-1);
     expect(dot).toEqual({ x: CELL / 2, y: CELL / 2, r: 5, color: COLORS.dot });
+  });
+
+  it('draws a solid divider and one cross/dot per cell for a two-cell row', () => {
+    // A yoon prompt writes across two genkouyoushi cells in one row.
+    const { surface } = mounted();
+    fake.segments.length = 0;
+    fake.arcs.length = 0;
+    fake.dashPatterns.length = 0;
+
+    surface.setCellCount(2);
+
+    const guide = fake.segments.filter((segment) => segment.color === COLORS.guide);
+    // The rule between the two cells is solid, drawn before the dashed
+    // cross, and sits at the row's midpoint.
+    expect(guide[0]).toMatchObject({ x0: 200.5, x1: 200.5, y0: 0, y1: CELL });
+    // A dashed vertical inside each cell (dash state set, then strokes).
+    expect(fake.dashPatterns.length).toBeGreaterThan(0);
+    expect(guide.some((s) => s.x0 === 100.5 && s.x1 === 100.5 && s.y0 === 0 && s.y1 === CELL)).toBe(true);
+    expect(guide.some((s) => s.x0 === 300.5 && s.x1 === 300.5 && s.y0 === 0 && s.y1 === CELL)).toBe(true);
+    // One centre dot per cell, while empty.
+    expect(fake.arcs).toEqual([
+      { x: 100, y: 200, r: 5, color: COLORS.dot },
+      { x: 300, y: 200, r: 5, color: COLORS.dot },
+    ]);
+  });
+
+  it('uses a cell count set before mount for the first guide draw', () => {
+    const surface = new CanvasInkSurface({ colors: COLORS, contextFactory: factory });
+    surface.setCellCount(2);
+    surface.mount(node);
+    sizeCanvas(node);
+    window.dispatchEvent(new Event('resize'));
+
+    // Two dots for the two empty cells (mount's own 0x0 draw leaves two
+    // arcs at the origin before this).
+    expect(fake.arcs.slice(-2)).toEqual([
+      { x: 100, y: 200, r: 5, color: COLORS.dot },
+      { x: 300, y: 200, r: 5, color: COLORS.dot },
+    ]);
+  });
+
+  it('records points grid-relative across the whole row, not per cell', () => {
+    const { surface, canvas } = mounted();
+    surface.setCellCount(2);
+    // A two-cell row is 2:1 -- 800x400, each cell 400x400.
+    canvas.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 800, height: 400, right: 800, bottom: 400, x: 0, y: 0 }) as DOMRect;
+    window.dispatchEvent(new Event('resize'));
+    const onStroke = vi.fn();
+    surface.onStrokeComplete(onStroke);
+
+    // A point 600px into the 800px-wide row: three quarters across.
+    writeStroke(canvas, [[600, 100]]);
+
+    const stroke = onStroke.mock.calls[0]?.[0] as Stroke;
+    expect(stroke.points[0]).toMatchObject({ x: 0.75, y: 0.25 });
+  });
+
+  it('replays stored strokes at a different canvas size, row-relative', () => {
+    // The persisted Stroke stays 0..1 across the row, so the same stroke
+    // drawn on an 800x400 two-cell canvas lands correctly on a 400x200 one.
+    const { surface, canvas } = mounted();
+    surface.setCellCount(2);
+    canvas.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 800, height: 400, right: 800, bottom: 400, x: 0, y: 0 }) as DOMRect;
+    window.dispatchEvent(new Event('resize'));
+    writeStroke(canvas, [
+      [600, 100],
+      [700, 300],
+    ]);
+
+    canvas.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 400, height: 200, right: 400, bottom: 200, x: 0, y: 0 }) as DOMRect;
+    fake.segments.length = 0;
+    window.dispatchEvent(new Event('resize'));
+
+    const ink = fake.segments.filter((segment) => segment.color === COLORS.ink);
+    expect(ink.at(-1)).toMatchObject({ x0: 300, y0: 50, x1: 350, y1: 150 });
   });
 
   it('fires onStrokeComplete exactly once per stroke, not per pointer event', () => {

@@ -15,7 +15,7 @@
   // All non-rendering bookkeeping (queue, idle, closure, grade/undo
   // persistence) lives in `DrillSession`; this keeps render state only.
   import { onMount, tick } from 'svelte';
-  import type { Script } from '../../domain/cards';
+  import { SMALL_KANA, type Script } from '../../domain/cards';
   import type { InkSurface } from '../../ports/ink-surface';
   import type { Stroke } from '../../domain/ink';
   import type { SelfGrade } from '../../domain/attempt';
@@ -41,6 +41,10 @@
   // 1-based, display-only; `$derived` so it can never desync.
   const position = $derived(queueIndex + 1);
   const card = $derived(queue[queueIndex]!);
+  // One genkouyoushi cell per character of the grapheme: two for a yoon
+  // (チョ -> チ | ョ), one for a single kana. Drives both the writing row's
+  // box and `setCellCount` below.
+  const cellCount = $derived(card.grapheme.length);
   let hasInk = $state(false);
   // Reveal: once true it unlocks Missed/Correct even from a
   // blank cell -- revealing nothing is itself an honest "I don't know".
@@ -134,6 +138,9 @@
       // `timeToFirstStrokeMs` measures to the *first* stroke, not the latest.
       firstStrokeStartedAt ??= timing.startedAt;
     });
+    // The grid the adapter draws must match the prompt from the very first
+    // frame, so the count is set before the canvas mounts.
+    inkSurface.setCellCount(cellCount);
     inkSurface.mount(cell);
     // Idle detection is retroactive, never a live timer: every resume
     // re-checks elapsed idle time instead of a running countdown.
@@ -201,6 +208,10 @@
     if (session.isLastCard(queueIndex)) return;
     queueIndex += 1;
     revealed = false;
+    // The writing row re-grids for the new prompt's grapheme; the box
+    // resize the inline style causes is picked up by the adapter's own
+    // ResizeObserver.
+    inkSurface.setCellCount(queue[queueIndex]!.grapheme.length);
     inkSurface.clear();
     hasInk = false;
     strokes = [];
@@ -233,6 +244,9 @@
       promptShownAt = snapshot.promptShownAt;
       firstStrokeStartedAt = snapshot.firstStrokeStartedAt;
       hasInk = snapshot.strokes.length > 0;
+      // The graded card's grid comes back with its ink: a yoon returns as
+      // two cells, a single kana as one.
+      inkSurface.setCellCount(queue[snapshot.index]!.grapheme.length);
       inkSurface.restore(snapshot.strokes);
     } finally {
       undoing = false;
@@ -289,6 +303,7 @@
       <div
         class="cell"
         class:cell--locked={revealed || frozen}
+        style="width: min(100cqw, {cellCount * 100}cqh); height: min({100 / cellCount}cqw, 100cqh)"
         bind:this={cell}
         role="group"
         aria-labelledby={revealed ? 'yours-label' : undefined}
@@ -297,8 +312,17 @@
     {#if revealed}
       <div class="panel">
         <p class="label" id="reference-label">Reference</p>
-        <div class="reference-cell" role="group" aria-labelledby="reference-label">
-          <span class="glyph" class:glyph--yoon={card.set === 'yoon'}>{card.grapheme}</span>
+        <div
+          class="reference-row"
+          role="group"
+          aria-labelledby="reference-label"
+          style="width: min(100cqw, {cellCount * 100}cqh); height: min({100 / cellCount}cqw, 100cqh)"
+        >
+          {#each [...card.grapheme] as char (char)}
+            <div class="reference-cell">
+              <span class="glyph" class:glyph--small={SMALL_KANA.has(char)}>{char}</span>
+            </div>
+          {/each}
         </div>
       </div>
     {/if}
@@ -534,14 +558,14 @@
   }
 
   .cell {
-    /* Square at every size: `toGridRelative` normalizes x and y
-       independently, so a non-square cell would replay stored strokes
-       distorted. `cqw`/`cqh` are relative to `.panel`'s actual box (from the
-       flex layout above), so the cell is always the largest square that
-       fits the room actually left -- never a guessed fraction of the
-       viewport that could be taller than what's really available. */
-    width: min(100cqw, 100cqh);
-    height: min(100cqw, 100cqh);
+    /* The inline style sizes the box: a row of N square cells (one per
+       character), so `toGridRelative` -- x and y normalized independently
+       -- never replays stored strokes distorted: the N:1 aspect is fixed
+       per card. `cqw`/`cqh` are relative to `.panel`'s actual box (from the
+       flex layout above), so the row is always the largest that fits the
+       room actually left -- never a guessed fraction of the viewport that
+       could be taller than what's really available. The adapter draws the
+       solid rules between cells on the canvas itself. */
     border: 1px solid var(--color-grid-guide);
     border-radius: var(--radius-lg);
     background: var(--color-surface-canvas);
@@ -561,19 +585,30 @@
     pointer-events: none;
   }
 
-  .reference-cell {
-    /* Mirrors `.cell`'s box exactly, so Yours/Reference read as one
-       comparison pair -- but tinted `--color-missed-bg` (docs/design.md: the
-       Reveal reference panel uses the missed tint, not the canvas ground --
-       this is attention, not the writing surface). */
-    width: min(100cqw, 100cqh);
-    height: min(100cqw, 100cqh);
+  .reference-row {
+    /* Mirrors `.cell`'s box exactly (same inline sizing against the same
+       panel box), so Yours/Reference read as one comparison pair -- one
+       reference cell per character, in the same row the learner wrote in.
+       Tinted `--color-missed-bg` (docs/design.md: the Reveal reference
+       panel uses the missed tint, not the canvas ground -- this is
+       attention, not the writing surface). */
+    display: flex;
     border-radius: var(--radius-lg);
     background: var(--color-missed-bg);
+    overflow: hidden;
+  }
+
+  .reference-cell {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    /* Its own container-query context, so the glyph inside sizes against
+       its cell (not the whole row) -- a small kana then renders small in
+       the cell genkouyoushi gives it. */
+    container-type: size;
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
   }
 
   .glyph {
@@ -588,12 +623,10 @@
     white-space: nowrap;
   }
 
-  .glyph--yoon {
-    /* A yoon grapheme is two characters (e.g. きゃ) -- `.glyph`'s width-based
-       cap is sized for one and would clip against `.reference-cell`'s
-       `overflow: hidden`. Capped by width alone (not height) since it's the
-       extra character, not extra vertical space, that needs room. */
-    font-size: min(34cqw, 60cqh);
+  .glyph--small {
+    /* A small kana (the ョ in チョ) renders at about half size in its own
+       cell, so the reference teaches the right proportions. */
+    font-size: min(34cqw, 34cqh);
   }
 
   .cell-footer {

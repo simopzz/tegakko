@@ -12,6 +12,8 @@ export interface FakeInkSurface extends InkSurface {
   strokesCompleted: number;
   /** Every `restore()` call, in order. */
   restores: Stroke[][];
+  /** Every `setCellCount()` call, in order. */
+  cellCounts: number[];
   /** Emit one completed stroke to the subscriber Drill registered. */
   landStroke(overrides?: {
     x?: number;
@@ -26,6 +28,7 @@ export function fakeInkSurface(): FakeInkSurface {
   const surface: FakeInkSurface = {
     strokesCompleted: 0,
     restores: [],
+    cellCounts: [],
     mount() {},
     destroy() {},
     clear() {},
@@ -36,6 +39,9 @@ export function fakeInkSurface(): FakeInkSurface {
       cb = next;
     },
     setWidthPreset() {},
+    setCellCount(count: number) {
+      surface.cellCounts.push(count);
+    },
     landStroke(overrides = {}) {
       const startedAt = performance.now();
       const stroke: Stroke = {

@@ -1,5 +1,6 @@
 // `InkSurface` adapter: a single <canvas> carrying the genkouyoushi cell
-// guide, the center dot, and the ink itself
+// row (one cell per character of the prompt's grapheme), the centre dots,
+// and the ink itself
 // (docs/adr/0002-ink-adapter-owns-its-canvas.md).
 //
 // The mechanics below were validated against a web PoC (since removed)
@@ -22,9 +23,9 @@
 //
 // One deliberate design point: pointer coordinates go through
 // the canvas's `getBoundingClientRect()` before use (raw `clientX/clientY`
-// only works for a fullscreen canvas; this one is an inset cell). Points are
-// then stored grid-relative (0..1 within the cell) so they can be persisted
-// and replayed at any viewport size.
+// only works for a fullscreen canvas; this one is an inset row). Points are
+// then stored grid-relative (0..1 across the whole row) so they can be
+// persisted and replayed at any viewport size.
 
 import type { InkSurface } from '../../ports/ink-surface';
 import type { Stroke, StrokePoint, StrokeTiming } from '../../domain/ink';
@@ -87,6 +88,10 @@ export class CanvasInkSurface implements InkSurface {
   private presenterWarned = false;
 
   private widthPreset: WidthPreset;
+  // One genkouyoushi cell per character of the prompt's grapheme, in a
+  // row; `setCellCount` (called by Drill on every prompt change) is the
+  // only writer.
+  private cellCount = 1;
   private strokeCompleteCb: ((stroke: Stroke, timing: StrokeTiming) => void) | null = null;
 
   // Completed strokes, kept in memory so a resize (which blows away the
@@ -115,6 +120,12 @@ export class CanvasInkSurface implements InkSurface {
   // event covered (a screen swap under the same window size) can't leave a
   // stroke drawing at an offset.
   private rect: { left: number; top: number; width: number; height: number } | null = null;
+
+  // The canvas element is observed directly: a card advance (one cell per
+  // character, so the row's aspect changes) or a reveal (the panel halves)
+  // changes the box with no window resize to announce it. The window
+  // listener stays for environments without ResizeObserver (happy-dom).
+  private resizeObserver: ResizeObserver | null = null;
 
   constructor(options: CanvasInkSurfaceOptions) {
     this.colors = options.colors;
@@ -157,6 +168,10 @@ export class CanvasInkSurface implements InkSurface {
     // genuine cancel) decide the stroke's fate.
     canvas.addEventListener('pointerleave', this.handlePointerCancel);
     window.addEventListener('resize', this.handleResize);
+    if (typeof ResizeObserver === 'function') {
+      this.resizeObserver = new ResizeObserver(() => this.resize());
+      this.resizeObserver.observe(canvas);
+    }
 
     this.resize();
     void this.initDelegatedInk(canvas);
@@ -165,6 +180,8 @@ export class CanvasInkSurface implements InkSurface {
   destroy(): void {
     const canvas = this.canvas;
     window.removeEventListener('resize', this.handleResize);
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
     if (canvas) {
       canvas.removeEventListener('pointerdown', this.handlePointerDown);
       canvas.removeEventListener('pointermove', this.handlePointerMove);
@@ -208,6 +225,11 @@ export class CanvasInkSurface implements InkSurface {
     // Read at stroke start, so a change lands on the next stroke and leaves
     // strokes already drawn exactly as they were.
     this.widthPreset = preset;
+  }
+
+  setCellCount(count: number): void {
+    this.cellCount = Math.max(1, count);
+    this.redraw();
   }
 
   // ---- geometry -------------------------------------------------------
@@ -254,44 +276,62 @@ export class CanvasInkSurface implements InkSurface {
     for (const stroke of this.strokes) this.replay(stroke);
   }
 
-  /** Repaint the cell ground and the dashed cross-guide. The center dot is
-   * drawn only when the cell is empty -- `showDot` lets `pointerdown`
-   * suppress it the instant ink starts, rather than leaving it showing
-   * underneath the learner's first stroke. */
+  /** Repaint the row's ground and guides: a solid rule between cells, a
+   * dashed cross inside each. The centre dots are drawn only while the row
+   * is empty -- `showDot` lets `pointerdown` suppress them the instant ink
+   * starts, rather than leaving them showing underneath the learner's
+   * first stroke. */
   private drawGuide(showDot: boolean = !this.hasInk): void {
     const ctx = this.ctx;
     if (!ctx) return;
     const { width: w, height: h } = this.geometry();
+    const cellWidth = w / this.cellCount;
 
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = this.colors.canvas;
     ctx.fillRect(0, 0, w, h);
 
-    // Genkouyoushi cross-guide: dashed, always visible.
     ctx.save();
     ctx.strokeStyle = this.colors.guide;
     ctx.lineWidth = 1;
+    if (this.cellCount > 1) {
+      // Genkouyoushi separates cells with a solid rule, unlike the dashed
+      // cross inside each.
+      ctx.beginPath();
+      for (let i = 1; i < this.cellCount; i++) {
+        const divider = Math.round(i * cellWidth) + 0.5;
+        ctx.moveTo(divider, 0);
+        ctx.lineTo(divider, h);
+      }
+      ctx.stroke();
+    }
     ctx.setLineDash([6, 6]);
     ctx.beginPath();
-    const midX = Math.round(w / 2) + 0.5;
+    for (let i = 0; i < this.cellCount; i++) {
+      const midX = Math.round((i + 0.5) * cellWidth) + 0.5;
+      ctx.moveTo(midX, 0);
+      ctx.lineTo(midX, h);
+    }
     const midY = Math.round(h / 2) + 0.5;
-    ctx.moveTo(midX, 0);
-    ctx.lineTo(midX, h);
     ctx.moveTo(0, midY);
     ctx.lineTo(w, midY);
     ctx.stroke();
     ctx.restore();
 
-    if (showDot) this.drawCenterDot(w, h);
+    if (showDot) {
+      for (let i = 0; i < this.cellCount; i++) {
+        this.drawCenterDot((i + 0.5) * cellWidth, h / 2);
+      }
+    }
   }
 
-  private drawCenterDot(w: number, h: number): void {
+  private drawCenterDot(x: number, y: number): void {
     const ctx = this.ctx;
     if (!ctx) return;
     ctx.save();
     ctx.fillStyle = this.colors.dot;
     ctx.beginPath();
-    ctx.arc(w / 2, h / 2, 5, 0, Math.PI * 2);
+    ctx.arc(x, y, 5, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
@@ -371,9 +411,9 @@ export class CanvasInkSurface implements InkSurface {
     return event.pressure;
   }
 
-  /** CSS-px offset within the cell -> grid-relative 0..1. A
-   * zero-sized cell (a canvas measured before layout, or happy-dom, which
-   * reports every box as 0) collapses to 0 rather than producing NaN. */
+  /** CSS-px offset within the row -> grid-relative 0..1. A zero-sized row
+   * (a canvas measured before layout, or happy-dom, which reports every
+   * box as 0) collapses to 0 rather than producing NaN. */
   private toGridRelative(x: number, y: number, pressure: number): StrokePoint {
     const { width, height } = this.geometry();
     return {

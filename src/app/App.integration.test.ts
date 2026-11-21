@@ -198,6 +198,24 @@ describe('App integration', () => {
     });
   });
 
+  it('writes a yoon across two genkouyoushi cells and reveals the reference cell by cell', async () => {
+    const surface = await startEightCardDrill();
+
+    // One writing cell per character: every card in this scope is a yoon,
+    // so the row the adapter draws (ADR-0002: its canvas, observed through
+    // the port) carries two cells.
+    expect(surface.cellCounts).toEqual([2]);
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Reveal' }));
+
+    // The reference is one cell per character beside the ink, never
+    // overlaid -- and the small kana renders small in its own cell.
+    const cells = document.querySelectorAll('.reference-cell');
+    expect(cells).toHaveLength(2);
+    expect(cells[0]?.querySelector('.glyph')?.className).not.toContain('glyph--small');
+    expect(cells[1]?.querySelector('.glyph')?.className).toContain('glyph--small');
+  });
+
   it('shows the scope\'s card and shaky counts live, from the stored miss counts', async () => {
     // One heavily-missed hiragana card: above the average on the full
     // scope, gone entirely once the scope narrows past it.
