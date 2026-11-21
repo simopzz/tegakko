@@ -120,8 +120,8 @@ function shuffle<T>(items: T[], random: () => number): T[] {
  * Throws on an empty-scope candidate list: an empty scope can't produce a
  * queue, and silently returning an empty/sentinel result would be worse than
  * failing loudly. The Scope picker is the guard -- it can only reach the
- * drill via its own pill groups, which always leave at least one script and
- * one unit selected. */
+ * drill with at least one script selected, each selected script keeping at
+ * least one Set. */
 export function sampleSessionCards(
   attempts: Attempt[],
   scope: Scope,

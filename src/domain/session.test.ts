@@ -5,7 +5,7 @@ import { cardsInScope } from './scope';
 import type { Scope } from './scope';
 import type { Attempt } from './attempt';
 
-const HIRAGANA_BASE_SCOPE: Scope = { scripts: ['hiragana'], sets: ['base'] }; // 71 cards
+const HIRAGANA_BASE_SCOPE: Scope = { hiragana: ['base'] }; // 71 cards
 const cardsInHiraganaBase = cardsInScope(CARDS, HIRAGANA_BASE_SCOPE);
 
 function attempt(overrides: Partial<Attempt> = {}): Attempt {

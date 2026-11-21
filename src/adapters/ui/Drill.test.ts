@@ -24,8 +24,8 @@ import { DrillSession } from './drill-session';
 // fixed scopes stand in for the old ad hoc single/two-card fixtures; tests
 // that used to assert an exact prompt now read whichever card actually
 // rendered instead.
-const HIRAGANA_BASE_SCOPE: Scope = { scripts: ['hiragana'], sets: ['base'] }; // 71 cards
-const HIRAGANA_YOON_SCOPE: Scope = { scripts: ['hiragana'], sets: ['yoon'] }; // 33 cards
+const HIRAGANA_BASE_SCOPE: Scope = { hiragana: ['base'] }; // 71 cards
+const HIRAGANA_YOON_SCOPE: Scope = { hiragana: ['yoon'] }; // 33 cards
 
 // A `ui` adapter must never import a sibling adapter's implementation
 // (docs/adr/0001-hexagonal-boundary.md),
@@ -287,7 +287,7 @@ describe('Drill', () => {
   it('appends the written-form romaji for the 4 cards whose romaji collides with another card\'s', async () => {
     // ぢ reads "ji (di)"; づ reads "zu (du)" -- disambiguates
     // from じ/ず, which keep rendering plain "ji"/"zu".
-    const dakutenScope: Scope = { scripts: ['hiragana'], sets: ['base'] };
+    const dakutenScope: Scope = { hiragana: ['base'] };
     const cards = cardsInScope([...CARDS], dakutenScope);
     const disambiguated = cards.filter((c) => c.writtenRomaji !== undefined);
     expect(disambiguated.map((c) => c.grapheme).sort()).toEqual(['づ', 'ぢ'].sort());
@@ -516,7 +516,7 @@ describe('Drill', () => {
     // Mixed sets so consecutive prompts genuinely differ in character
     // count -- the sampled order is random, so the walk asserts whatever
     // order actually came up.
-    const mixed: Scope = { scripts: ['hiragana'], sets: ['base', 'yoon'] };
+    const mixed: Scope = { hiragana: ['base', 'yoon'] };
     renderDrill({ scope: mixed, inkSurface });
     const cards = cardsInScope([...CARDS], mixed);
 

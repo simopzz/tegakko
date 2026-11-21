@@ -74,11 +74,15 @@ One screen at a time, single column, no tab bar or drawer, no router: one top-le
 | Screen | Reached from | Purpose |
 |---|---|---|
 | First run | First open only | Check the stylus and pressure range; offer install. |
-| Scope picker | App open; bar Back and "Another round" on Summary | Choose scope and session size, see the live card count, start. |
+| Scope picker | App open; bar Back and "Another round" on Summary | Choose scripts and their Sets, a session size; one live line sums the scope; start. |
 | Drill | Scope picker → "Start writing" | The prompt → write → (reveal) → self-grade loop. |
 | Summary | Any closure | Accuracy, time, reveal count, this session's misses. |
 | History | Bar links on Scope picker and Summary | Past sessions, newest first, accuracy trend. |
 | Settings | Bar links on Scope picker and Summary | Ink width, idle-close threshold, export/import. |
+
+### Scope picker
+
+Script is a multi-select of pill toggles — Hiragana and Katakana today, a third script slots into the same row when kanji lands. Each selected script gets its own Set row (Base/Yoon for each kana), narrowing that script alone. The guard rails are silent: the last selected script cannot be turned off, and a selected script's last Set cannot be deselected, so an empty scope is unreachable. Session size is one of 10, 20, 50 or All cards; a count larger than the scope clamps to the scope at Start. One line sums the scope up — "N cards · M shaky" — recomputed on every change. The selection survives trips to Drill, Settings and History: the composition root holds it while the picker is unmounted.
 
 ## Components
 
@@ -88,9 +92,9 @@ One screen at a time, single column, no tab bar or drawer, no router: one top-le
 | Genkouyoushi cell | Canvas surface, one cell per character of the grapheme in a row (two for a yoon like チョ, one for a single kana; a kanji later gets one), solid rule between cells, dashed cross inside each, `-lg` | Centre dot in each cell only while the row is empty. Once ink exists, Clear appears next to "Your call — nothing is checking the shape". Clearing never advances or grades; it dims Missed/Correct again (the row is blank) while Reveal stays live. |
 | Grade buttons | Correct: accent fill. Reveal, Missed: transparent with faint border. 88px min height, `-md`, equal widths in a row under the cell | Reveal is live from the moment the prompt shows. Missed and Correct are dimmed (40% opacity, not a different colour) until there is a stroke or Reveal was tapped. A blank revealed cell can be graded; a blank unrevealed one can't. |
 | Reveal | Yours above Reference, the ink taking the larger share (2:1), both at full width in portrait; reference on peach, one reference cell per character in the same row shape the learner wrote in, grid-guide rule between cells; a small kana (the ョ in チョ) renders about half size in its own cell | Never overlaid, never replacing your strokes, never side by side in portrait (that halves both cells and leaves empty bands). Doesn't grade; Missed/Correct stay required. Whether Reveal was used is recorded on the attempt. |
-| Pill toggle group | Secondary-surface track; active segment accent fill | Equal-width segments, exactly one active, commits on tap. On the Scope picker each tap recomputes the card count. |
-| Chip | `-sm`; positive, missed or neutral tint, always with text | Read-only. Positive for script/set/status, missed where a count is inherently negative (shaky, miss count). Card position ("12 / 46") is plain heading text, not a chip. |
-| Card count + shaky badge | Count in plain text; "N shaky" as a missed chip | "N shaky" counts shaky cards in the current scope. Informational; it doesn't feed selection. |
+| Pill toggle group | Secondary-surface track; active segments accent fill | Equal-width segments, commits on tap. Single-choice groups (Settings presets, session size) keep exactly one active segment with radio semantics; toggle groups (the picker's scripts and Sets) keep any number active. Each tap on the picker recomputes the scope summary. |
+| Chip | `-sm`; positive, missed or neutral tint, always with text | Read-only. Positive or neutral for status; missed where a count is inherently negative (miss count). The Scope picker uses no chips: its pills and one summary line already say what a chip would echo. |
+| Scope summary | One plain-text line under the controls: "N cards · M shaky" | Live on every selection change, announced politely (`aria-live`). "M shaky" counts shaky cards in the current scope; informational, it doesn't feed selection. |
 | Progress bar | 6px, hairline track, accent fill, `-full` | Always beside an "N / total" counter, total = the session's sampled size. Advances on every grade, reaches exactly 100%. |
 | Grade toast | Peach, `-xl`, shadow, floats above the action row | Shows the graded card and, on Missed, its new miss count, plus Undo as text-only accent-strong (no fill, no border). Rides over the next prompt (one tap per card: the grade itself advances) until the learner commits to what's under it — the new prompt's first stroke, or a Reveal — or taps Undo. Undo reverts the attempt and miss count and brings the graded card back exactly as it was written: strokes, reveal panel and all. On the last card the toast stays over the frozen card until Undo or Finish. |
 | Import warning | Toast, modal weight | Says the replace is destructive, shows the current data's date and the file's date, needs an explicit confirm. Cancel leaves current data untouched. The only two-step action in the app. |
@@ -132,7 +136,7 @@ One screen at a time, single column, no tab bar or drawer, no router: one top-le
 
 ## Weak spots
 
-The weak-spot bias ([ADR-0004](adr/0004-session-sampled-once-by-weakness.md)) has no screen or toggle and is never explained in the UI. It shows only at its edges: the Scope picker's "N shaky" badge before a session, and Summary's missed chips, whose counts are the card's lifetime miss count, not this session's. The learner can't edit a miss count beyond the immediate Undo.
+The weak-spot bias ([ADR-0004](adr/0004-session-sampled-once-by-weakness.md)) has no screen or toggle and is never explained in the UI. It shows only at its edges: the "M shaky" half of the Scope picker's summary line before a session, and Summary's missed chips, whose counts are the card's lifetime miss count, not this session's. The learner can't edit a miss count beyond the immediate Undo.
 
 ## Key flows
 

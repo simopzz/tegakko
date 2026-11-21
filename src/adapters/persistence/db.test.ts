@@ -18,8 +18,9 @@ describe('openTegakkoDb() upgrade wipe', () => {
   });
 
   it('deletes every existing store when upgrading from a previous version', async () => {
-    // Seed a v4-shaped database with data in every store, then open at v5.
-    const legacyDb = await openDB(DB_NAME, 4, {
+    // Seed a v(DB_VERSION-1)-shaped database with data in every store, then
+    // open at the current version.
+    const legacyDb = await openDB(DB_NAME, DB_VERSION - 1, {
       upgrade(db) {
         db.createObjectStore(SETTINGS_STORE);
         db.createObjectStore(ATTEMPTS_STORE, { keyPath: 'id' });

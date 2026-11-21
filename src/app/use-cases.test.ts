@@ -66,7 +66,7 @@ describe('SessionHistory', () => {
       {
         id: 's1',
         date: '2026-09-01T00:00:00.000Z',
-        scope: { scripts: ['hiragana'], sets: ['base'] },
+        scope: { hiragana: ['base'] },
         cardsAttempted: 10,
         accuracy: 0.5,
         closureReason: 'explicit',

@@ -12,7 +12,7 @@ function session(overrides: Partial<Session> = {}): Session {
   return {
     id: overrides.id ?? crypto.randomUUID(),
     date: overrides.date ?? '2026-09-01T00:00:00.000Z',
-    scope: overrides.scope ?? { scripts: ['hiragana'], sets: ['base'] },
+    scope: overrides.scope ?? { hiragana: ['base'] },
     cardsAttempted: overrides.cardsAttempted ?? 10,
     accuracy: overrides.accuracy ?? 0.5,
     closureReason: overrides.closureReason ?? 'explicit',

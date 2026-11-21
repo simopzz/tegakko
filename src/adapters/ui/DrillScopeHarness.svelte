@@ -44,7 +44,7 @@
   // fixture object. (Initialized inline, not from a prop, so no
   // `state_referenced_locally` capture is involved.)
   // eslint-disable-next-line prefer-const -- the `$state` rune requires `let`.
-  let scope = $state<Scope>({ scripts: ['hiragana'], sets: ['base'] });
+  let scope = $state<Scope>({ hiragana: ['base'] });
 
   // svelte-ignore state_referenced_locally
   const drillSession = new DrillSession({

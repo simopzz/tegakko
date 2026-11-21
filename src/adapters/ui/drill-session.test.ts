@@ -10,7 +10,7 @@ import type { SessionRepository } from '../../ports/session-repository';
 import type { Session } from '../../domain/session';
 import * as drill from '../../domain/drill';
 
-const SCOPE: Scope = { scripts: ['hiragana'], sets: ['yoon'] }; // 33 cards
+const SCOPE: Scope = { hiragana: ['yoon'] }; // 33 cards
 const OK: Result<void> = { ok: true, value: undefined };
 const START = new Date('2026-01-01T00:00:00.000Z').getTime();
 const IDLE_MS = 300_000;

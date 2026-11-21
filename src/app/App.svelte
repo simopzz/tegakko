@@ -158,10 +158,9 @@
     starting = true;
     try {
       scope = chosenScope;
-      // The one shared formula (`domain/scope.ts`'s `resolveSessionSize`) --
-      // identical to what `ScopePicker`'s own live hint independently
-      // computes, so the drill entry's actual sampled size can never drift
-      // from what the learner saw before tapping "Start writing".
+      // The one shared formula (`domain/scope.ts`'s `resolveSessionSize`):
+      // a count preset larger than the scope clamps down to the scope, so
+      // "50" on a 33-card scope just means all of them.
       resolvedSessionSize = resolveSessionSize(sessionSize, cardsInScope(CARDS, chosenScope).length);
       const handle = await practiceModule.start(
         chosenScope,

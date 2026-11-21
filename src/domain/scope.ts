@@ -5,48 +5,44 @@
 import type { Card, Script, CardSet } from './cards';
 
 /** `Session.scope`'s persisted type, also what the Scope picker hands
- * forward and what weak-spot selection filters candidates by. */
-export interface Scope {
-  scripts: Script[];
-  sets: CardSet[];
-}
+ * forward and what weak-spot selection filters candidates by: one entry
+ * per selected script, listing that script's Sets -- each script narrows
+ * on its own terms (a kanji JLPT level never widens a kana scope), which
+ * one flat `scripts`/`sets` pair could not express. A script absent from
+ * the map is unselected; a present-but-empty Sets array yields no cards
+ * (never treated as "unrestricted"). The Scope picker is the guard that
+ * keeps every entry non-empty. */
+export type Scope = Readonly<Partial<Record<Script, readonly CardSet[]>>>;
 
 /** The full catalog, unnarrowed -- the Scope picker's default.
  *
  * Frozen, including its arrays: shared module state that no caller may
  * corrupt by mutating what they were handed back. */
 export const FULL_SCOPE: Scope = Object.freeze({
-  scripts: Object.freeze(['hiragana', 'katakana']) as Script[],
-  sets: Object.freeze(['base', 'yoon']) as CardSet[],
+  hiragana: Object.freeze(['base', 'yoon'] as readonly CardSet[]),
+  katakana: Object.freeze(['base', 'yoon'] as readonly CardSet[]),
 });
 
-/** Pure filter: every card whose script is in `scope.scripts` AND whose set
- * is in `scope.sets`. An empty `scripts` or `sets` array yields no cards --
- * never treated as "unrestricted". */
+/** Pure filter: every card whose script is selected AND whose set is in
+ * that script's own Sets list. */
 export function cardsInScope(cards: Card[], scope: Scope): Card[] {
-  return cards.filter(
-    (card) => scope.scripts.includes(card.script) && scope.sets.includes(card.set),
-  );
+  return cards.filter((card) => scope[card.script]?.includes(card.set) === true);
 }
 
-/** The Scope picker's percent-of-scope presets: a
- * discrete union, not a cached number, so the effective count is always
- * recomputed from the *current* scoped count rather than drifting when the
- * scope changes underneath an already-made choice. */
-export type SessionSizeChoice = 'all' | 0.25 | 0.5 | 0.75;
+/** The Scope picker's fixed-count presets: a discrete union, not a cached
+ * number, so the effective count is always recomputed from the *current*
+ * scoped count rather than drifting when the scope changes underneath an
+ * already-made choice. */
+export type SessionSizeChoice = 10 | 20 | 50 | 'all';
 
 /** Resolves a `SessionSizeChoice` against a scope's live card count into the
  * exact number of cards a session should sample -- `domain/drill.ts`'s
  * `sampleSessionCards` reads this result as its `sessionSize` argument. The
- * one formula lives here so every caller (the Scope picker's live "N cards
- * this session" hint, `App.svelte`'s `handleStart`) produces identical
- * results and can never drift apart.
+ * one formula lives here so the composition root's `handleStart` is the only
+ * place a choice becomes a count.
  *
- * `'all'` returns `scopedCount` unchanged, matching prior default behavior
- * exactly. Every percent preset rounds to the nearest whole card, floored at
- * a minimum of 1 -- `scopedCount` is always > 0 here (the Scope picker
- * always keeps at least one script and one set active), so this only ever
- * needs a floor, never a guard against an empty scope. */
+ * `'all'` returns `scopedCount` unchanged. Every count preset clamps down to
+ * the scope -- "50" on a 33-card scope just means all of them. */
 export function resolveSessionSize(choice: SessionSizeChoice, scopedCount: number): number {
-  return choice === 'all' ? scopedCount : Math.max(1, Math.round(choice * scopedCount));
+  return choice === 'all' ? scopedCount : Math.min(choice, scopedCount);
 }
