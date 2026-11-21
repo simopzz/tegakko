@@ -45,6 +45,12 @@
   // (チョ -> チ | ョ), one for a single kana. Drives both the writing row's
   // box and `setCellCount` below.
   const cellCount = $derived(card.grapheme.length);
+  // The row's box: N square cells. The fixed N:1 aspect is what makes
+  // grid-relative strokes replay undistorted, so both the writing cell and
+  // the reference row size themselves with this one expression.
+  const cellBoxStyle = $derived(
+    `width: min(100cqw, ${cellCount * 100}cqh); height: min(${100 / cellCount}cqw, 100cqh)`,
+  );
   let hasInk = $state(false);
   // Reveal: once true it unlocks Missed/Correct even from a
   // blank cell -- revealing nothing is itself an honest "I don't know".
@@ -303,7 +309,7 @@
       <div
         class="cell"
         class:cell--locked={revealed || frozen}
-        style="width: min(100cqw, {cellCount * 100}cqh); height: min({100 / cellCount}cqw, 100cqh)"
+        style={cellBoxStyle}
         bind:this={cell}
         role="group"
         aria-labelledby={revealed ? 'yours-label' : undefined}
@@ -316,9 +322,9 @@
           class="reference-row"
           role="group"
           aria-labelledby="reference-label"
-          style="width: min(100cqw, {cellCount * 100}cqh); height: min({100 / cellCount}cqw, 100cqh)"
+          style={cellBoxStyle}
         >
-          {#each [...card.grapheme] as char (char)}
+          {#each [...card.grapheme] as char, index (index)}
             <div class="reference-cell">
               <span class="glyph" class:glyph--small={SMALL_KANA.has(char)}>{char}</span>
             </div>
@@ -609,6 +615,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  /* The same grid-guide rule the writing row draws between its cells, so
+     the reference mirrors it cell for cell -- a repeated kana would
+     otherwise read as one tinted slab. */
+  .reference-cell + .reference-cell {
+    border-left: 1px solid var(--color-grid-guide);
   }
 
   .glyph {
