@@ -111,6 +111,14 @@ const KATAKANA_YOON_ROWS = ['キ', 'シ', 'チ', 'ニ', 'ヒ', 'ミ', 'リ', '�
 const YOON_SMALL_SUFFIXES = ['ゃ', 'ゅ', 'ょ'] as const;
 const YOON_SMALL_SUFFIXES_KATAKANA = ['ャ', 'ュ', 'ョ'] as const;
 
+/** The characters that render small in a multi-character grapheme (the ョ
+ * in チョ) -- genkouyoushi gives each its own cell, and the reference shows
+ * it at about half size so it teaches the right proportions. */
+export const SMALL_KANA: ReadonlySet<string> = new Set([
+  ...YOON_SMALL_SUFFIXES,
+  ...YOON_SMALL_SUFFIXES_KATAKANA,
+]);
+
 // Hepburn stems, index-parallel to the yoon rows above and shared across
 // scripts, combined with the vowel parallel to the small-kana suffixes:
 // きゃ `kya`, しゃ `sha`, ちゃ `cha`, じゃ `ja`. `shi`/`chi`/`ji` collapse

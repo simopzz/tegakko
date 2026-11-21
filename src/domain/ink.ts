@@ -8,8 +8,10 @@ import type { WidthPreset } from './settings';
 
 /** One sampled point of a stroke.
  *
- * `x`/`y` are **grid-relative**: 0..1 within the genkouyoushi cell, not CSS
- * pixels -- strokes are persisted and must replay at any viewport size
+ * `x`/`y` are **grid-relative**: 0..1 across the whole writing row (the
+ * genkouyoushi cell per character), not CSS pixels -- strokes are persisted
+ * and must replay at any viewport size, which holds because the row's
+ * N:1 aspect is fixed per card
  * (docs/adr/0002-ink-adapter-owns-its-canvas.md). `pressure` is already
  * normalized (see the adapter: a
  * non-pen pointer, or a pen reporting exactly 0, becomes 0.5). */

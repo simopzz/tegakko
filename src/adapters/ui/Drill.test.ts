@@ -37,6 +37,7 @@ function fakeInkSurface(): InkSurface & {
   clears: number;
   destroys: number;
   restores: Stroke[][];
+  cellCounts: number[];
   landStroke: (overrides?: {
     x?: number;
     y?: number;
@@ -50,6 +51,7 @@ function fakeInkSurface(): InkSurface & {
     clears: 0,
     destroys: 0,
     restores: [] as Stroke[][],
+    cellCounts: [] as number[],
     mount(node: HTMLElement) {
       surface.mounts.push(node);
     },
@@ -61,6 +63,9 @@ function fakeInkSurface(): InkSurface & {
     },
     restore(strokes: Stroke[]) {
       surface.restores.push(strokes);
+    },
+    setCellCount(count: number) {
+      surface.cellCounts.push(count);
     },
     onStrokeComplete(next: (stroke: Stroke, timing: StrokeTiming) => void) {
       cb = next;
@@ -489,7 +494,40 @@ describe('Drill', () => {
     expect(screen.getByText(target.grapheme)).toBeTruthy();
   });
 
-  it('does not clip a two-character yoon reference glyph', async () => {
+  it('shows one writing cell per character: two for a yoon, one for a single kana', () => {
+    // The writing row is the canvas adapter's to draw (ADR-0002), so the
+    // port call is the observable: setCellCount is driven by the prompt's
+    // grapheme, one cell per character.
+    const yoonSurface = fakeInkSurface();
+    renderDrill({ scope: HIRAGANA_YOON_SCOPE, inkSurface: yoonSurface });
+    const yoon = cardsInScope([...CARDS], HIRAGANA_YOON_SCOPE);
+    expect(yoonSurface.cellCounts).toEqual([currentCard(yoon).grapheme.length]);
+    expect(currentCard(yoon).grapheme).toHaveLength(2);
+
+    const baseSurface = fakeInkSurface();
+    renderDrill({ inkSurface: baseSurface });
+    const base = cardsInScope([...CARDS], HIRAGANA_BASE_SCOPE);
+    expect(baseSurface.cellCounts).toEqual([currentCard(base).grapheme.length]);
+    expect(currentCard(base).grapheme).toHaveLength(1);
+  });
+
+  it('re-grids the writing row to each new prompt as the grade advances', async () => {
+    const inkSurface = fakeInkSurface();
+    // Mixed sets so consecutive prompts genuinely differ in character
+    // count -- the sampled order is random, so the walk asserts whatever
+    // order actually came up.
+    const mixed: Scope = { scripts: ['hiragana'], sets: ['base', 'yoon'] };
+    renderDrill({ scope: mixed, inkSurface });
+    const cards = cardsInScope([...CARDS], mixed);
+
+    for (let i = 0; i < 10; i++) {
+      expect(inkSurface.cellCounts.at(-1)).toBe(currentCard(cards).grapheme.length);
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Missed'));
+    }
+  });
+
+  it('shows the reference cell by cell, small kana rendered small in its own cell', async () => {
     const cards = cardsInScope([...CARDS], HIRAGANA_YOON_SCOPE);
     renderDrill({ scope: HIRAGANA_YOON_SCOPE });
     const target = currentCard(cards);
@@ -497,8 +535,14 @@ describe('Drill', () => {
 
     await fireEvent.click(reveal());
 
-    const glyph = screen.getByText(target.grapheme);
-    expect(glyph.className).toContain('glyph--yoon');
+    // One reference cell per character, in the row's order -- replaces the
+    // old shrunken-whole-glyph rendering (the former clipping concern).
+    const cells = document.querySelectorAll('.reference-cell');
+    expect([...cells].map((cell) => cell.textContent)).toEqual([...target.grapheme]);
+    const small = screen.getByText(target.grapheme[1]!);
+    expect(small.className).toContain('glyph--small');
+    const regular = screen.getByText(target.grapheme[0]!);
+    expect(regular.className).not.toContain('glyph--small');
   });
 
   it('ties the Yours/Reference captions to their panels for assistive tech', async () => {
@@ -996,6 +1040,8 @@ describe('Drill', () => {
       expect(inkSurface.restores).toHaveLength(1);
       expect(inkSurface.restores[0]).toHaveLength(1);
       expect(inkSurface.restores[0]![0]?.points[0]).toMatchObject({ x: 0.3, y: 0.7 });
+      // The writing row re-gridded to the restored card's character count.
+      expect(inkSurface.cellCounts.at(-1)).toBe(target.grapheme.length);
       expect(grade('Correct').disabled).toBe(false);
     });
 

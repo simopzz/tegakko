@@ -37,4 +37,8 @@ export interface InkSurface {
   /** Change the width range used from the *next* stroke onward; strokes
    * already drawn are unaffected. */
   setWidthPreset(preset: WidthPreset): void;
+  /** Set how many genkouyoushi cells the writing row shows -- one per
+   * character of the prompt's grapheme. The grid redraws; before `mount`
+   * this only stores the count, and the first draw uses it. */
+  setCellCount(count: number): void;
 }
