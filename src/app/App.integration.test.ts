@@ -142,6 +142,11 @@ describe('App integration', () => {
     expect(screen.queryByRole('button', { name: 'Next character' })).toBeNull();
     // The toast rides the new prompt rather than freezing the graded card.
     expect(screen.getByRole('button', { name: 'Undo' })).toBeTruthy();
+    // The toast's copy is the whole status announcement; Undo is an
+    // ordinary control, never read out as part of it.
+    const announcement = screen.getByRole('status');
+    expect(announcement.textContent).toContain('Marked missed');
+    expect(announcement.querySelector('button')).toBeNull();
 
     // Undo before the new prompt's first stroke reverts the attempt and its
     // miss count, and brings the graded card back with its ink intact.
@@ -240,7 +245,10 @@ describe('App integration', () => {
     render(App);
 
     await screen.findByText('What are we testing today?');
-    expect(await screen.findByText('208 cards · 1 shaky')).toBeTruthy();
+    const summary = await screen.findByText('208 cards · 1 shaky');
+    // The line is the announcement: every count change reaches a screen
+    // reader too.
+    expect(summary.getAttribute('aria-live')).toBe('polite');
 
     await fireEvent.click(screen.getByRole('button', { name: 'Hiragana' }));
     // The only miss record dropped out of scope -- nothing is above the
@@ -249,6 +257,35 @@ describe('App integration', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Hiragana' }));
     expect(await screen.findByText('208 cards · 1 shaky')).toBeTruthy();
+  });
+
+  it('moves the session-size selection with arrow keys, committing like a tap', async () => {
+    render(App);
+
+    await screen.findByText('What are we testing today?');
+
+    // Arrows select and commit, like a native radio group: Left wraps
+    // from All back around to 50, focus following the selection.
+    const all = screen.getByRole('radio', { name: 'All' });
+    all.focus();
+    await fireEvent.keyDown(all, { key: 'ArrowLeft' });
+    const fifty = screen.getByRole('radio', { name: '50' });
+    expect(fifty.getAttribute('aria-checked')).toBe('true');
+    expect(document.activeElement).toBe(fifty);
+
+    await fireEvent.keyDown(fifty, { key: 'ArrowLeft' });
+    expect(screen.getByRole('radio', { name: '20' }).getAttribute('aria-checked')).toBe('true');
+
+    // Home jumps to the first option; ArrowDown walks forward from there.
+    await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Home' });
+    expect(screen.getByRole('radio', { name: '10' }).getAttribute('aria-checked')).toBe('true');
+    await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'ArrowDown' });
+    expect(screen.getByRole('radio', { name: '20' }).getAttribute('aria-checked')).toBe('true');
+
+    // The arrow-moved selection is a real commit: the started session is
+    // sized 20.
+    await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
+    expect(await screen.findByText(/1 \/ 20/)).toBeTruthy();
   });
 
   it('lists stored sessions newest-first with closure chips and a sparkline', async () => {
@@ -362,6 +399,73 @@ describe('App integration', () => {
       const result = await settingsRepository.get();
       expect(result.ok && result.value).toEqual({
         widthPreset: 'calligraphy',
+        idleTimeoutMs: 600_000,
+        penCheckShown: true,
+      });
+    });
+  });
+
+  it('arrow-keys the Settings pill groups, commits both controls, and feeds the try pad', async () => {
+    const settingsRepository = new IdbSettingsRepository();
+    await settingsRepository.save({
+      widthPreset: 'subtle',
+      idleTimeoutMs: 300_000,
+      penCheckShown: true,
+    });
+
+    // The factory the composition root hands both the practice module and
+    // Settings: opening Settings calls it for the try pad's surface.
+    let pad = fakeInkSurface();
+    render(App, {
+      inkSurfaceFactory: () => {
+        pad = fakeInkSurface();
+        return pad;
+      },
+    });
+    await screen.findByText('What are we testing today?');
+    await fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+
+    // One page title (the bar's h1 "Settings") with the three sections
+    // as subheadings under it.
+    expect(await screen.findByRole('heading', { level: 1, name: 'Settings' })).toBeTruthy();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 2, name: 'Ink width' })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 2, name: 'Idle close' })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 2, name: 'Backup' })).toBeTruthy();
+
+    // Wait for the stored record to land in the pills before keying them.
+    await vi.waitFor(() =>
+      expect(screen.getByRole('radio', { name: 'Subtle' }).getAttribute('aria-checked')).toBe(
+        'true',
+      ),
+    );
+
+    // Arrows commit like taps and move focus.
+    const subtle = screen.getByRole('radio', { name: 'Subtle' });
+    subtle.focus();
+    await fireEvent.keyDown(subtle, { key: 'ArrowRight' });
+    const expressive = screen.getByRole('radio', { name: 'Expressive' });
+    expect(expressive.getAttribute('aria-checked')).toBe('true');
+    expect(document.activeElement).toBe(expressive);
+
+    // The try pad draws with the newly chosen preset -- no session needed.
+    await vi.waitFor(() => expect(pad.widthPresets).toContain('expressive'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(pad.clears).toBe(1);
+
+    // The idle group keys the same way, from its active segment.
+    const five = screen.getByRole('radio', { name: '5 min' });
+    five.focus();
+    await fireEvent.keyDown(five, { key: 'ArrowDown' });
+    const ten = screen.getByRole('radio', { name: '10 min' });
+    expect(ten.getAttribute('aria-checked')).toBe('true');
+    expect(document.activeElement).toBe(ten);
+
+    // Both arrow commits persisted, exactly like the taps above.
+    await vi.waitFor(async () => {
+      const result = await settingsRepository.get();
+      expect(result.ok && result.value).toEqual({
+        widthPreset: 'expressive',
         idleTimeoutMs: 600_000,
         penCheckShown: true,
       });

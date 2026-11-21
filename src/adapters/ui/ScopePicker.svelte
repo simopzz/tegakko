@@ -10,6 +10,7 @@
   import { countShaky, type Tally } from '../../domain/tally';
   import { CARDS, type CardSet, type Script } from '../../domain/cards';
   import ScreenShell from './ScreenShell.svelte';
+  import { handleRadioKeys } from './radio-keys';
 
   function capitalize(value: string): string {
     return value.charAt(0).toUpperCase() + value.slice(1);
@@ -174,7 +175,13 @@
 
   <div class="group">
     <p class="group-label">Session size</p>
-    <div class="pill-group" role="radiogroup" aria-label="Session size">
+    <div
+      class="pill-group"
+      role="radiogroup"
+      aria-label="Session size"
+      tabindex="-1"
+      onkeydown={(event) => handleRadioKeys(event, SIZE_CHOICES, (next) => (sizeChoice = next))}
+    >
       {#each SIZE_CHOICES as choice (choice)}
         <button
           type="button"

@@ -6,6 +6,7 @@ import { err, ok } from '../../domain/result';
 import type { PendingImport } from '../../ports/progress-importer';
 import { ImportError } from '../../domain/import';
 import type { Result } from '../../domain/result';
+import { fakeInkSurface } from '../../test-utils/fake-ink-surface';
 
 // Fakes of the composition root's use-case objects -- the screen's own
 // structural prop types, never repositories
@@ -85,6 +86,7 @@ function renderSettings(settings: FakeSettings, backup: FakeBackup = fakeBackup(
     settings,
     backup,
     onPresetChange: vi.fn(),
+    inkSurfaceFactory: () => fakeInkSurface(),
   });
 }
 
@@ -108,6 +110,7 @@ describe('Settings', () => {
       settings,
       backup: fakeBackup(),
       onPresetChange,
+      inkSurfaceFactory: () => fakeInkSurface(),
     });
 
     await screen.findByRole('radiogroup', { name: 'Ink width' });
@@ -130,6 +133,7 @@ describe('Settings', () => {
       settings,
       backup: fakeBackup(),
       onPresetChange,
+      inkSurfaceFactory: () => fakeInkSurface(),
     });
 
     await screen.findByRole('radiogroup', { name: 'Ink width' });

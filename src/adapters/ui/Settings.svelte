@@ -1,17 +1,20 @@
 <script lang="ts">
-  // Settings screen: the ink-width pill toggle, the idle-close threshold
-  // toggle, Backup/Export, and Import with its confirm-before-replace warning
-  // toast.
+  // Settings screen: one page title -- the shared top bar's h1
+  // "Settings" -- over three sections: the ink-width pill toggle with a
+  // try pad, the idle-close threshold toggle, and Backup/Export plus
+  // Import with its confirm-before-replace warning toast.
   //
   // Reuses ScopePicker.svelte's `.pill`/`.pill--active` markup and its
   // radiogroup semantics: exactly one active segment, commits immediately,
   // no confirm step.
-  import { onMount, tick } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import type { PendingImport } from '../../ports/progress-importer';
   import type { Result } from '../../domain/result';
   import { isInvalidImportError } from '../../domain/import';
   import { formatDate } from './format-date';
   import ScreenShell from './ScreenShell.svelte';
+  import { handleRadioKeys } from './radio-keys';
+  import type { InkSurface } from '../../ports/ink-surface';
   import { DEFAULT_SETTINGS, type Settings, type WidthPreset } from '../../domain/settings';
 
   interface Props {
@@ -30,13 +33,18 @@
       apply(pending: PendingImport): Promise<Result<void>>;
     };
     onPresetChange: (preset: WidthPreset) => void;
+    /** Fresh ink surface for the try pad, one per Settings mount -- the
+     * composition root injects the factory the same way it does for the
+     * drill, so this screen never imports the ink adapter
+     * (docs/adr/0001-hexagonal-boundary.md). */
+    inkSurfaceFactory: () => InkSurface;
     /** Reports the import warning's open state up to the composition
      * root, which inerts the shared top bar while it is open -- the bar
      * sits outside this screen's own inert main. */
     onModalChange?: (open: boolean) => void;
   }
 
-  const { settings, backup, onPresetChange, onModalChange }: Props = $props();
+  const { settings, backup, onPresetChange, onModalChange, inkSurfaceFactory }: Props = $props();
 
   const PRESETS: Array<{ value: WidthPreset; label: string; hint: string }> = [
     { value: 'subtle', label: 'Subtle', hint: 'Even line, slight taper' },
@@ -152,6 +160,37 @@
       }
       loaded = true;
     });
+  });
+
+  // The try pad: a fresh single-cell surface, so a preset can be felt on
+  // the real writing surface without starting a session. It mounts once
+  // `loaded` reveals its node -- by then the settings read has landed, so
+  // it starts with the stored preset. The adapter owns the pad's contents
+  // (docs/adr/0002-ink-adapter-owns-its-canvas.md); Svelte renders nothing
+  // inside it.
+  let padNode = $state<HTMLElement>();
+  let pad: InkSurface | null = null;
+
+  $effect(() => {
+    if (!padNode) return;
+    const surface = untrack(() => inkSurfaceFactory());
+    surface.setCellCount(1);
+    surface.mount(padNode);
+    surface.setWidthPreset(untrack(() => preset));
+    pad = surface;
+    return () => {
+      surface.destroy();
+      pad = null;
+    };
+  });
+
+  // Every later writer of `preset` reaches the pad: it always draws with
+  // what the pills show. `preset` must be read even while the pad is
+  // absent, or the optional call short-circuits and the effect tracks
+  // nothing.
+  $effect(() => {
+    const current = preset;
+    pad?.setWidthPreset(current);
   });
 
   async function choose(next: WidthPreset): Promise<void> {
@@ -280,11 +319,23 @@
 </script>
 
 <ScreenShell inert={pending !== null}>
-    <h1 class="heading">Ink width</h1>
+    <!-- No content h1: the top bar's h1 "Settings" is the page title
+         (History's pattern), and the three sections sit under it as
+         subheadings. -->
+    <h2 class="heading">Ink width</h2>
     <p class="body">How much the stroke thickens as you press harder. Applies to your next stroke.</p>
 
     {#if loaded}
-      <div class="pill-group" role="radiogroup" aria-label="Ink width">
+      <!-- tabindex -1: focus lives inside on the radios' roving tabindex,
+           never on the group itself. -->
+      <div
+        class="pill-group"
+        role="radiogroup"
+        aria-label="Ink width"
+        tabindex="-1"
+        onkeydown={(event) =>
+          handleRadioKeys(event, PRESETS, (next) => void choose(next.value))}
+      >
         {#each PRESETS as option (option.value)}
           <button
             type="button"
@@ -303,17 +354,31 @@
       </div>
 
       <p class="hint">{PRESETS.find((option) => option.value === preset)?.hint ?? ''}</p>
+
+      <!-- The try pad: draw here to feel the preset before committing to
+           it in a session. Clear wipes it for a clean comparison. -->
+      <div class="try">
+        <div class="try-pad" bind:this={padNode} role="group" aria-label="Try the ink width"></div>
+        <button type="button" class="action" onclick={() => pad?.clear()}>Clear</button>
+      </div>
     {/if}
 
     {#if widthNote}
       <p class="note" role="status" aria-live="polite">{widthNote}</p>
     {/if}
 
-    <h1 class="heading">Idle close</h1>
+    <h2 class="heading">Idle close</h2>
     <p class="body">How long with no interaction before a session closes on its own.</p>
 
     {#if loaded}
-      <div class="pill-group" role="radiogroup" aria-label="Idle close">
+      <div
+        class="pill-group"
+        role="radiogroup"
+        aria-label="Idle close"
+        tabindex="-1"
+        onkeydown={(event) =>
+          handleRadioKeys(event, IDLE_PRESETS, (next) => void chooseIdle(next.value))}
+      >
         {#each IDLE_PRESETS as option (option.value)}
           <button
             type="button"
@@ -340,7 +405,7 @@
       <p class="note" role="status" aria-live="polite">{readNote}</p>
     {/if}
 
-    <h1 class="heading">Backup</h1>
+    <h2 class="heading">Backup</h2>
     <p class="body">Download your miss counts, attempts, handwriting and history as one file.</p>
     <button type="button" class="action" onclick={() => void runExport()}>Export</button>
 
@@ -483,6 +548,22 @@
     font-family: var(--font-body);
     font-size: 0.9rem;
     color: var(--color-ink-muted);
+  }
+
+  .try {
+    display: flex;
+    align-items: stretch;
+    gap: var(--spacing-2);
+  }
+
+  .try-pad {
+    flex: 1;
+    min-width: 0;
+    height: 160px;
+  }
+
+  .try .action {
+    align-self: flex-end;
   }
 
   .note {

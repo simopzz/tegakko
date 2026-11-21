@@ -6,6 +6,7 @@
 
 import type { InkSurface } from '../ports/ink-surface';
 import type { Stroke, StrokeTiming } from '../domain/ink';
+import type { WidthPreset } from '../domain/settings';
 
 export interface FakeInkSurface extends InkSurface {
   /** Number of strokes that have landed on this surface. */
@@ -14,6 +15,10 @@ export interface FakeInkSurface extends InkSurface {
   restores: Stroke[][];
   /** Every `setCellCount()` call, in order. */
   cellCounts: number[];
+  /** Every `setWidthPreset()` call, in order. */
+  widthPresets: WidthPreset[];
+  /** How many times the surface was cleared. */
+  clears: number;
   /** Emit one completed stroke to the subscriber Drill registered. */
   landStroke(overrides?: {
     x?: number;
@@ -29,16 +34,22 @@ export function fakeInkSurface(): FakeInkSurface {
     strokesCompleted: 0,
     restores: [],
     cellCounts: [],
+    widthPresets: [],
+    clears: 0,
     mount() {},
     destroy() {},
-    clear() {},
+    clear() {
+      surface.clears += 1;
+    },
     restore(strokes: Stroke[]) {
       surface.restores.push(strokes);
     },
     onStrokeComplete(next) {
       cb = next;
     },
-    setWidthPreset() {},
+    setWidthPreset(preset: WidthPreset) {
+      surface.widthPresets.push(preset);
+    },
     setCellCount(count: number) {
       surface.cellCounts.push(count);
     },

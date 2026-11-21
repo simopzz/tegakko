@@ -36,6 +36,23 @@ function dispatchPointer(
 }
 
 describe('FirstRun', () => {
+  it('announces the pen-status chip and the dismiss/install error through live regions', async () => {
+    const settings = fakeSettings();
+    render(FirstRun, { settings, onDismiss: vi.fn() });
+
+    // The chip is a live region from the start, so a later status change
+    // is announced.
+    expect(screen.getByText('Touch the pad with your stylus').getAttribute('aria-live')).toBe(
+      'polite',
+    );
+
+    // The error note exists (empty) before any failure: a live region
+    // inserted together with its content is not reliably announced.
+    const note = document.querySelector('.error-note') as HTMLElement;
+    expect(note.getAttribute('aria-live')).toBe('polite');
+    expect(note.textContent).toBe('');
+  });
+
   it('updates the pressure readout across multiple pointermove events, not just the first', async () => {
     const settings = fakeSettings();
     render(FirstRun, { settings, onDismiss: vi.fn() });
