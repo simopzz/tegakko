@@ -9,6 +9,7 @@
   // close ever carries the positive "You ended it" chip -- the
   // idle/complete distinction is History's concern.
   import type { SessionSummaryView } from '../../domain/session';
+  import ScreenShell from './ScreenShell.svelte';
 
   interface Props {
     summary: SessionSummaryView;
@@ -32,9 +33,8 @@
   }
 </script>
 
-<main class="summary">
-  <div class="content">
-    <div class="hero">
+<ScreenShell>
+  <div class="hero">
       <p class="accuracy">{Math.round(summary.accuracy * 100)}%</p>
       <p class="accuracy-label">Accuracy</p>
     </div>
@@ -73,32 +73,9 @@
     {/if}
 
     <button type="button" class="btn btn--primary" onclick={onAgain}>Another round</button>
-  </div>
-</main>
+</ScreenShell>
 
 <style>
-  .summary {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    background: var(--color-surface-card);
-    display: flex;
-    flex-direction: column;
-    padding: var(--spacing-6);
-  }
-
-  /* `margin: auto` centres the content when it is shorter than the screen
-     and resolves to zero when it is taller (no clipped overflow, unlike
-     justify-content centring in a scroll container). */
-  .content {
-    width: 100%;
-    max-width: 640px;
-    margin: auto;
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-4);
-  }
-
   .hero {
     display: flex;
     flex-direction: column;

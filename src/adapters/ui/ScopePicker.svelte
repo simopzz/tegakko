@@ -13,6 +13,7 @@
   } from '../../domain/scope';
   import { countShaky, type Tally } from '../../domain/tally';
   import { CARDS, type Script, type CardSet } from '../../domain/cards';
+  import ScreenShell from './ScreenShell.svelte';
 
   function capitalize(value: string): string {
     return value.charAt(0).toUpperCase() + value.slice(1);
@@ -142,9 +143,8 @@
   }
 </script>
 
-<main class="scope-picker">
-  <div class="content">
-    <h1 class="heading">What are we testing today?</h1>
+<ScreenShell>
+  <h1 class="heading">What are we testing today?</h1>
 
     <div class="group">
       <p class="group-label">Script</p>
@@ -295,32 +295,9 @@
     </div>
 
     <button type="button" class="btn btn--primary" onclick={handleStart}> Start writing </button>
-  </div>
-</main>
+</ScreenShell>
 
 <style>
-  .scope-picker {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    background: var(--color-surface-card);
-    display: flex;
-    flex-direction: column;
-    padding: var(--spacing-6);
-  }
-
-  /* `margin: auto` centres the content when it is shorter than the screen
-     and resolves to zero when it is taller (no clipped overflow, unlike
-     justify-content centring in a scroll container). */
-  .content {
-    width: 100%;
-    max-width: 640px;
-    margin: auto;
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-4);
-  }
-
   .heading {
     margin: 0;
     font-family: var(--font-heading);

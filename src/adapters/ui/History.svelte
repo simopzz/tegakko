@@ -14,6 +14,7 @@
     rampColorForAccuracy,
     closureChipVariant,
   } from '../../domain/history';
+  import ScreenShell from './ScreenShell.svelte';
 
   interface Props {
     /** The composition root's use-case: the stored session list, fail-open
@@ -40,8 +41,7 @@
   const sparkline = $derived(sparklineSessions(sessions));
 </script>
 
-<main class="history">
-  <div class="content">
+<ScreenShell>
     {#if loaded}
       {#if sessions.length > 0}
         <div class="sparkline" aria-hidden="true">
@@ -77,32 +77,9 @@
         <p class="empty">No sessions yet. Finish a drill to see it here.</p>
       {/if}
     {/if}
-  </div>
-</main>
+</ScreenShell>
 
 <style>
-  .history {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    background: var(--color-surface-card);
-    display: flex;
-    flex-direction: column;
-    padding: var(--spacing-6);
-  }
-
-  /* `margin: auto` centres the content when it is shorter than the screen
-     and resolves to zero when it is taller (no clipped overflow, unlike
-     justify-content centring in a scroll container). */
-  .content {
-    width: 100%;
-    max-width: 640px;
-    margin: auto;
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-3);
-  }
-
   .sparkline {
     display: flex;
     align-items: flex-end;

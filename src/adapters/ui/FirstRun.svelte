@@ -8,6 +8,7 @@
   import { onMount } from 'svelte';
   import type { Result } from '../../domain/result';
   import type { Settings } from '../../domain/settings';
+  import ScreenShell from './ScreenShell.svelte';
 
   interface Props {
     /** The composition root's settings use-case: a read and a whole-record
@@ -161,9 +162,8 @@
   });
 </script>
 
-<main class="first-run">
-  <div class="content">
-    <h1 class="heading">Check your stylus</h1>
+<ScreenShell>
+  <h1 class="heading">Check your stylus</h1>
     <p class="body">
       Touch the pad below with your pen. This app is built around handwriting recall, so it's
       worth confirming pressure comes through before you start.
@@ -200,32 +200,9 @@
         Just use it here
       </button>
     </div>
-  </div>
-</main>
+</ScreenShell>
 
 <style>
-  .first-run {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    background: var(--color-surface-card);
-    display: flex;
-    flex-direction: column;
-    padding: var(--spacing-6);
-  }
-
-  /* `margin: auto` centres the content when it is shorter than the screen
-     and resolves to zero when it is taller (no clipped overflow, unlike
-     justify-content centring in a scroll container). */
-  .content {
-    width: 100%;
-    max-width: 640px;
-    margin: auto;
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-3);
-  }
-
   .heading {
     margin: 0;
     font-family: var(--font-heading);

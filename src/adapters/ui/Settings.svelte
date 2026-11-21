@@ -11,6 +11,7 @@
   import type { Result } from '../../domain/result';
   import { isInvalidImportError } from '../../domain/import';
   import { formatDate } from './format-date';
+  import ScreenShell from './ScreenShell.svelte';
   import { DEFAULT_SETTINGS, type Settings, type WidthPreset } from '../../domain/settings';
 
   interface Props {
@@ -278,8 +279,7 @@
   }
 </script>
 
-<main class="settings" inert={pending !== null}>
-  <div class="content">
+<ScreenShell inert={pending !== null}>
     <h1 class="heading">Ink width</h1>
     <p class="body">How much the stroke thickens as you press harder. Applies to your next stroke.</p>
 
@@ -366,8 +366,7 @@
     {#if importNote}
       <p class="note" role="status" aria-live="polite">{importNote}</p>
     {/if}
-  </div>
-</main>
+</ScreenShell>
 
 {#if pending}
   <!-- The app's only modal, the import warning: a full-screen scrim blocks
@@ -418,28 +417,6 @@
 {/if}
 
 <style>
-  .settings {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    background: var(--color-surface-card);
-    display: flex;
-    flex-direction: column;
-    padding: var(--spacing-6);
-  }
-
-  /* `margin: auto` centres the content when it is shorter than the screen
-     and resolves to zero when it is taller (no clipped overflow, unlike
-     justify-content centring in a scroll container). */
-  .content {
-    width: 100%;
-    max-width: 640px;
-    margin: auto;
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-3);
-  }
-
   .action {
     min-height: 56px;
     padding: 0 var(--spacing-3);
