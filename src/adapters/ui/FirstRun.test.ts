@@ -47,8 +47,11 @@ describe('FirstRun', () => {
     );
 
     // The error note exists (empty) before any failure: a live region
-    // inserted together with its content is not reliably announced.
-    const note = document.querySelector('.error-note') as HTMLElement;
+    // inserted together with its content is not reliably announced. The
+    // chip is the other status region, so the empty one is the note.
+    const note = screen
+      .getAllByRole('status')
+      .find((element) => element.textContent === '')!;
     expect(note.getAttribute('aria-live')).toBe('polite');
     expect(note.textContent).toBe('');
   });
