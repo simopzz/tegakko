@@ -41,3 +41,19 @@ Single-context: root `GLOSSARY.md` + `docs/adr/`. See `docs/agents/domain.md`.
 ### Browser
 
 Diagnosing a page in a browser, whether a style that won't apply, a slow load, an accessibility failure or a leak, goes through the `chrome-devtools` MCP server. Clicking through and screenshots go through `playwright-brave`. See `docs/agents/browser-tools.md` before opening either.
+
+### PR screenshots
+
+A PR that changes what the learner sees shows its screenshots in one collapsed block at the end of the body, each image captioned and sized to 520px:
+
+```html
+<details>
+<summary>Screenshots (800×1280)</summary>
+
+**What the shot shows:**
+<img src="https://github.com/user-attachments/assets/…" width="520">
+
+</details>
+```
+
+The repo is private, so images must be *uploaded*, never linked: `raw.githubusercontent.com` URLs (e.g. from a dedicated images branch) carry no auth and 404 in PR bodies. Attach with `gh pr edit <pr> --attach '<image>#caption'`, then rewrite the body: `--attach` appends the bare uploads, it does not rewrite `![](./file.png)` references, so compose the block yourself from the appended `user-attachments` URLs.

@@ -12,5 +12,8 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     include: ['src/**/*.test.ts', '*.test.ts'],
+    // Svelte transforms dominate run time; caching them across runs keeps
+    // repeated single-file runs (the agent loop) fast.
+    fsModuleCache: true,
   },
 });

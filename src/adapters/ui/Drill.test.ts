@@ -36,6 +36,7 @@ function fakeInkSurface(): InkSurface & {
   mounts: HTMLElement[];
   clears: number;
   destroys: number;
+  restores: Stroke[][];
   landStroke: (overrides?: {
     x?: number;
     y?: number;
@@ -48,6 +49,7 @@ function fakeInkSurface(): InkSurface & {
     mounts: [] as HTMLElement[],
     clears: 0,
     destroys: 0,
+    restores: [] as Stroke[][],
     mount(node: HTMLElement) {
       surface.mounts.push(node);
     },
@@ -56,6 +58,9 @@ function fakeInkSurface(): InkSurface & {
     },
     clear() {
       surface.clears += 1;
+    },
+    restore(strokes: Stroke[]) {
+      surface.restores.push(strokes);
     },
     onStrokeComplete(next: (stroke: Stroke, timing: StrokeTiming) => void) {
       cb = next;
@@ -178,10 +183,10 @@ function grade(name: 'Missed' | 'Correct'): HTMLButtonElement {
   return screen.getByRole('button', { name }) as HTMLButtonElement;
 }
 
-/** The toast's "Next character" control -- clears the toast and runs the
- * advance deferred from `handleGrade` behind this tap. */
-function nextCharacter(): HTMLButtonElement {
-  return screen.getByRole('button', { name: 'Next character' }) as HTMLButtonElement;
+/** The closing grade's completion control -- appears only on the frozen
+ * last card and closes the session as complete. */
+function finish(): HTMLButtonElement {
+  return screen.getByRole('button', { name: 'Finish' }) as HTMLButtonElement;
 }
 
 /** The toast's Undo control -- reverses the just-graded attempt. */
@@ -283,7 +288,9 @@ describe('Drill', () => {
     expect(disambiguated.map((c) => c.grapheme).sort()).toEqual(['づ', 'ぢ'].sort());
 
     // Walk the complete queue until each disambiguated card is prompted,
-    // asserting its exact rendered text along the way.
+    // asserting its exact rendered text along the way. The grade itself
+    // advances, so there is no "Next character" to tap; a Finish button
+    // means the last card froze and the walk is over either way.
     renderDrill({ scope: dakutenScope, sessionSize: cards.length });
     const seen = new Set<string>();
     for (let i = 0; i < cards.length && seen.size < disambiguated.length; i++) {
@@ -295,7 +302,7 @@ describe('Drill', () => {
       }
       await fireEvent.click(screen.getByRole('button', { name: 'Reveal' }));
       await fireEvent.click(screen.getByRole('button', { name: 'Missed' }));
-      await fireEvent.click(screen.getByRole('button', { name: 'Next character' }));
+      if (screen.queryByRole('button', { name: 'Finish' })) break;
     }
     expect(seen.size).toBe(disambiguated.length);
   });
@@ -392,12 +399,10 @@ describe('Drill', () => {
 
       await inkSurface.landStroke();
       await fireEvent.click(grade(name));
-      await fireEvent.click(nextCharacter());
 
+      // The grade itself advanced: next prompt, empty cell, dimmed grades.
       expect(screen.getByText('2 / 71')).toBeTruthy();
-      // Still a prompt from the scope.
       expect(() => currentCard(cards)).not.toThrow();
-      // The cell is empty again and the grades are back to dimmed.
       expect(inkSurface.clears).toBe(1);
       expect(grade('Correct').disabled).toBe(true);
     });
@@ -416,7 +421,6 @@ describe('Drill', () => {
     for (let i = 0; i < cards.length - 1; i++) {
       await inkSurface.landStroke();
       await fireEvent.click(grade('Correct'));
-      await fireEvent.click(nextCharacter());
     }
 
     expect(screen.getByText(`${cards.length} / ${cards.length}`)).toBeTruthy();
@@ -521,7 +525,7 @@ describe('Drill', () => {
     expect(cellEl?.className).toContain('cell--locked');
   });
 
-  it('locks the ink cell to pointer input on a grade fired without a prior reveal', async () => {
+  it('keeps the cell live for the next prompt after a mid-queue grade, attaching later strokes to the next card', async () => {
     const inkSurface = fakeInkSurface();
     const attemptRepository = fakeAttemptRepository();
     renderDrill({ inkSurface, attemptRepository });
@@ -529,14 +533,35 @@ describe('Drill', () => {
     await inkSurface.landStroke();
     await fireEvent.click(grade('Missed'));
 
+    // The grade already advanced: the cell belongs to the next prompt
+    // and stays writable, not locked.
+    const cellEl = document.querySelector('.cell');
+    expect(cellEl?.className).not.toContain('cell--locked');
+
+    // A stroke landing now is the next card's ink, never appended to
+    // the already-graded attempt.
+    const gradedStrokes = attemptRepository.adds.at(-1)?.strokes.length;
+    await inkSurface.landStroke();
+    expect(attemptRepository.adds.at(-1)?.strokes.length).toBe(gradedStrokes);
+    expect(attemptRepository.adds).toHaveLength(1);
+  });
+
+  it('locks the ink cell on the frozen closing card, so a late stroke lands nowhere', async () => {
+    const inkSurface = fakeInkSurface();
+    const attemptRepository = fakeAttemptRepository();
+    renderDrill({ inkSurface, attemptRepository, sessionSize: 1 });
+
+    await inkSurface.landStroke();
+    await fireEvent.click(grade('Correct'));
+
     const cellEl = document.querySelector('.cell');
     expect(cellEl?.className).toContain('cell--locked');
 
-    // A stroke notification arriving after the grade (e.g. still in flight)
-    // must not be treated as new ink on the already-graded attempt.
-    const strokesBefore = attemptRepository.adds.at(-1)?.strokes.length;
+    // A stroke notification still in flight when the closing grade froze
+    // the card must not become ink on anything.
     await inkSurface.landStroke();
-    expect(attemptRepository.adds.at(-1)?.strokes.length).toBe(strokesBefore);
+    expect(attemptRepository.adds).toHaveLength(1);
+    expect(attemptRepository.adds[0]?.strokes).toHaveLength(1);
   });
 
   it('moves focus to Missed so Reveal becoming disabled does not drop it to the page', async () => {
@@ -575,8 +600,9 @@ describe('Drill', () => {
 
     await fireEvent.click(reveal());
     await fireEvent.click(grade('Missed'));
-    await fireEvent.click(nextCharacter());
 
+    // The grade advanced straight to the next prompt: single cell, live
+    // Reveal, dimmed grades on the blank cell.
     expect(screen.getByText('2 / 71')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Reveal' }).hasAttribute('disabled')).toBe(false);
     expect(screen.queryByText('Yours')).toBeNull();
@@ -591,7 +617,6 @@ describe('Drill', () => {
     await inkSurface.landStroke();
     await fireEvent.click(reveal());
     await fireEvent.click(grade('Correct'));
-    await fireEvent.click(nextCharacter());
 
     expect(screen.getByText('2 / 71')).toBeTruthy();
     expect(screen.queryByText('Yours')).toBeNull();
@@ -691,7 +716,6 @@ describe('Drill', () => {
       // Flush the resolved (never-thrown) promise the failed add() returns.
       await Promise.resolve();
       await tick();
-      await fireEvent.click(nextCharacter());
 
       // The screen still advances -- persistence never blocks the next card.
       expect(screen.getByText('2 / 71')).toBeTruthy();
@@ -713,7 +737,6 @@ describe('Drill', () => {
       // Flush the rejected (never-thrown) promise the failed add() returns.
       await Promise.resolve();
       await tick();
-      await fireEvent.click(nextCharacter());
 
       expect(screen.getByText('2 / 71')).toBeTruthy();
       expect(consoleError).toHaveBeenCalledWith('Failed to persist attempt:', expect.any(Error));
@@ -751,11 +774,9 @@ describe('Drill', () => {
       const firstAttempt = attemptRepository.adds[0]!;
       const firstStrokesSnapshot = firstAttempt.strokes.map((s) => ({ ...s }));
 
-      // The next card accumulates its own stroke(s) -- `handleNext` (the
-      // advance is deferred here, off the grade itself) must have
-      // reassigned `strokes = []` for the next card rather than ever
-      // mutating the array already handed to the first attempt.
-      await fireEvent.click(nextCharacter());
+      // The next card accumulates its own stroke(s) -- the grade's advance
+      // must have reassigned `strokes = []` for the next card rather than
+      // ever mutating the array already handed to the first attempt.
       await inkSurface.landStroke({ x: 0.8, y: 0.8 });
 
       expect(firstAttempt.strokes).toEqual(firstStrokesSnapshot);
@@ -818,7 +839,6 @@ describe('Drill', () => {
       // Flush the resolved (never-thrown) promise the failed increment() returns.
       await Promise.resolve();
       await tick();
-      await fireEvent.click(nextCharacter());
 
       expect(screen.getByText('2 / 71')).toBeTruthy();
       expect(consoleError).toHaveBeenCalledWith('Failed to increment tally:', expect.any(Error));
@@ -839,7 +859,6 @@ describe('Drill', () => {
       // Flush the rejected (never-thrown) promise the failed increment() returns.
       await Promise.resolve();
       await tick();
-      await fireEvent.click(nextCharacter());
 
       expect(screen.getByText('2 / 71')).toBeTruthy();
       expect(consoleError).toHaveBeenCalledWith('Failed to increment tally:', expect.any(Error));
@@ -894,8 +913,8 @@ describe('Drill', () => {
     });
 
     it('never shows the same card twice within one session (sampling is without replacement)', async () => {
-      // The queue is sampled once, distinct, at mount -- "Next character"
-      // can never advance onto a card already seen this session.
+      // The queue is sampled once, distinct, at mount -- a grade can never
+      // advance onto a card already seen this session.
       const cards = cardsInScope([...CARDS], HIRAGANA_YOON_SCOPE);
       const inkSurface = fakeInkSurface();
       renderDrill({ scope: HIRAGANA_YOON_SCOPE, inkSurface });
@@ -907,25 +926,29 @@ describe('Drill', () => {
         seen.add(shown.cardId);
         await inkSurface.landStroke();
         await fireEvent.click(grade('Correct'));
-        await fireEvent.click(nextCharacter());
       }
     });
   });
 
-  // Grading defers the advance behind a toast (Undo, plus "Next
-  // character") instead of advancing immediately.
+  // Grading advances immediately; the toast (Undo) rides over the next
+  // prompt until its first stroke, a Reveal, an Undo -- or, on the last
+  // card, Finish.
   describe('undo last grade', () => {
-    it('replaces Missed/Correct with a dimmed Reveal and a wide Next character while the toast is showing', async () => {
+    it('keeps the normal action row on the new prompt while the toast is showing', async () => {
       const inkSurface = fakeInkSurface();
       renderDrill({ inkSurface });
 
       await inkSurface.landStroke();
       await fireEvent.click(grade('Missed'));
 
-      expect(reveal().disabled).toBe(true);
-      expect(screen.queryByRole('button', { name: 'Missed' })).toBeNull();
-      expect(screen.queryByRole('button', { name: 'Correct' })).toBeNull();
-      expect(nextCharacter()).toBeTruthy();
+      // The grade advanced, so the row belongs to the new prompt: blank
+      // cell (grades dimmed, Reveal live) and no "Next character" anywhere.
+      expect(screen.getByText('2 / 71')).toBeTruthy();
+      expect(reveal().disabled).toBe(false);
+      expect(grade('Missed').disabled).toBe(true);
+      expect(grade('Correct').disabled).toBe(true);
+      expect(screen.queryByRole('button', { name: 'Next character' })).toBeNull();
+      expect(undo()).toBeTruthy();
     });
 
     it('shows a cumulative tally on Missed but not on Correct', async () => {
@@ -939,14 +962,14 @@ describe('Drill', () => {
 
       await fireEvent.click(undo());
       await flushAsync();
-      await inkSurface.landStroke();
+      // The restored ink re-enables grading with no new stroke needed.
       await fireEvent.click(grade('Correct'));
 
       expect(screen.queryByText(/missed \d+/i)).toBeNull();
       expect(undo()).toBeTruthy();
     });
 
-    it('Undo after Missed deletes the last attempt, decrements the tally, and re-enables grading without clearing ink', async () => {
+    it('Undo after Missed deletes the last attempt, decrements the tally, and brings the card back with its ink', async () => {
       const cards = cardsInScope([...CARDS], HIRAGANA_BASE_SCOPE);
       const inkSurface = fakeInkSurface();
       const attemptRepository = fakeAttemptRepository();
@@ -954,23 +977,26 @@ describe('Drill', () => {
       renderDrill({ inkSurface, attemptRepository, tallyRepository });
       const target = currentCard(cards);
 
-      await inkSurface.landStroke();
+      await inkSurface.landStroke({ x: 0.3, y: 0.7 });
       await fireEvent.click(grade('Missed'));
       await tick();
+      expect(screen.getByText('2 / 71')).toBeTruthy();
+
       await fireEvent.click(undo());
       await flushAsync();
 
       expect(attemptRepository.deletes.length).toBeGreaterThan(0);
       expect(tallyRepository.decrements).toEqual([target.cardId]);
-      // No advance happened -- same prompt, same position, toast gone.
+      // Back on the graded card, toast gone.
       expect(currentCard(cards)).toBe(target);
       expect(screen.getByText('1 / 71')).toBeTruthy();
       expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
-      expect(screen.queryByRole('button', { name: 'Next character' })).toBeNull();
-      // Grading re-enabled and the ink from before the grade is untouched --
-      // clearing is deferred to "Next character", never to Undo.
+      // The ink came back with it -- replayed onto the cell, grading
+      // live again without a new stroke.
+      expect(inkSurface.restores).toHaveLength(1);
+      expect(inkSurface.restores[0]).toHaveLength(1);
+      expect(inkSurface.restores[0]![0]?.points[0]).toMatchObject({ x: 0.3, y: 0.7 });
       expect(grade('Correct').disabled).toBe(false);
-      expect(inkSurface.clears).toBe(0);
     });
 
     it('Undo after Correct deletes the last attempt but never calls decrement', async () => {
@@ -999,10 +1025,69 @@ describe('Drill', () => {
 
       await fireEvent.click(undo());
       await flushAsync();
-      await inkSurface.landStroke();
       await fireEvent.click(grade('Missed'));
 
       expect(screen.getByText(/missed 1/i)).toBeTruthy();
+    });
+
+    it('Undo restores the revealed state too, so a re-grade records the same revealUsed', async () => {
+      const cards = cardsInScope([...CARDS], HIRAGANA_BASE_SCOPE);
+      const inkSurface = fakeInkSurface();
+      const attemptRepository = fakeAttemptRepository();
+      renderDrill({ inkSurface, attemptRepository });
+      const target = currentCard(cards);
+
+      await inkSurface.landStroke();
+      await fireEvent.click(reveal());
+      await fireEvent.click(grade('Missed'));
+      await tick();
+
+      await fireEvent.click(undo());
+      await flushAsync();
+
+      // Side-by-side panels are back on the graded card, Reveal dimmed.
+      expect(currentCard(cards)).toBe(target);
+      expect(screen.getByText('Reference')).toBeTruthy();
+      expect(
+        (screen.getByRole('button', { name: 'Revealed' }) as HTMLButtonElement).disabled,
+      ).toBe(true);
+
+      // The re-grade reproduces the undone attempt's reveal flag.
+      await fireEvent.click(grade('Correct'));
+      expect(attemptRepository.adds.at(-1)?.revealUsed).toBe(true);
+    });
+
+    it('ends the undo window at the new prompt\'s first stroke', async () => {
+      const attemptRepository = fakeAttemptRepository();
+      const inkSurface = fakeInkSurface();
+      renderDrill({ inkSurface, attemptRepository });
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Correct'));
+      await tick();
+      expect(undo()).toBeTruthy();
+
+      // Writing on the new prompt commits the previous grade.
+      await inkSurface.landStroke();
+      await tick();
+      expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
+      // And the window does not reopen when that ink is cleared.
+      await fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+      expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
+    });
+
+    it('ends the undo window at a Reveal on the new prompt', async () => {
+      const inkSurface = fakeInkSurface();
+      renderDrill({ inkSurface });
+
+      await inkSurface.landStroke();
+      await fireEvent.click(grade('Correct'));
+      await tick();
+      expect(undo()).toBeTruthy();
+
+      await fireEvent.click(reveal());
+
+      expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
     });
 
     it('awaits the pending add()/increment() writes before calling deleteLast/decrement, even when Undo is tapped immediately', async () => {
@@ -1046,8 +1131,9 @@ describe('Drill', () => {
       await flushAsync();
 
       expect(consoleError).toHaveBeenCalledWith('Failed to undo grade:', expect.any(Error));
-      // Still returns to the written (pre-advance) state -- never blocks.
+      // Still returns to the graded card with its ink -- never blocks.
       expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
+      expect(screen.getByText('1 / 71')).toBeTruthy();
       expect(grade('Correct').disabled).toBe(false);
 
       consoleError.mockRestore();
@@ -1125,10 +1211,10 @@ describe('Drill', () => {
     });
   });
 
-  // A session closes explicitly ("I'm done"), on complete
-  // closure (via the existing "Next character" tap), or retroactively on
-  // detected inactivity -- every closure persists a `Session` record and
-  // hands the composition root a `SessionSummaryView`.
+  // A session closes explicitly ("I'm done"), on complete closure (via the
+  // Finish control on the closing grade's frozen card), or retroactively
+  // on detected inactivity -- every closure persists a `Session` record
+  // and hands the composition root a `SessionSummaryView`.
   describe('session closure', () => {
     afterEach(() => {
       vi.useRealTimers();
@@ -1198,14 +1284,13 @@ describe('Drill', () => {
       expect(structuredClone(record).scope).toEqual(HIRAGANA_BASE_SCOPE);
     });
 
-    it('closes with "explicit" even while the post-grade toast (Undo/"Next character") is showing', async () => {
+    it('closes with "explicit" even while the post-grade toast (Undo) is showing', async () => {
       const inkSurface = fakeInkSurface();
       const onClose = vi.fn();
       const sessionRepository = fakeSessionRepository();
       renderDrill({ inkSurface, onClose, sessionRepository });
 
-      // Grade a card first -- the toast is now showing and the deferred
-      // advance hasn't run yet.
+      // Grade a card first -- the toast now rides the next prompt.
       await inkSurface.landStroke();
       await fireEvent.click(grade('Correct'));
       await tick();
@@ -1213,7 +1298,7 @@ describe('Drill', () => {
       await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
 
       // "I'm done" is never gated by the toast state -- it closes with
-      // whatever was already graded, not with the deferred advance applied.
+      // whatever was already graded.
       expect(onClose).toHaveBeenCalledTimes(1);
       const summary = onClose.mock.calls[0]?.[0] as SessionSummaryView;
       expect(summary.closureReason).toBe('explicit');
@@ -1221,7 +1306,7 @@ describe('Drill', () => {
       expect(sessionRepository.adds[0]?.cardsAttempted).toBe(1);
     });
 
-    it('closes with "complete" (no explicit control) once every in-scope card has been graded', async () => {
+    it('closes with "complete" once every in-scope card has been graded and Finish is tapped', async () => {
       // With `sessionSize` at its default (the full scope), the sampled
       // queue structurally holds every in-scope card exactly once,
       // regardless of weighting or RNG -- so grading `cards.length`
@@ -1238,17 +1323,19 @@ describe('Drill', () => {
         lastCard = currentCard(cards);
         await inkSurface.landStroke();
         await fireEvent.click(grade('Correct'));
-        await fireEvent.click(nextCharacter());
       }
+
+      // The queue-completing grade froze the last card instead of closing
+      // -- the learner decides between Undo and Finish.
+      expect(onClose).not.toHaveBeenCalled();
+      expect(currentCard(cards)).toBe(lastCard);
+      await fireEvent.click(finish());
 
       expect(onClose).toHaveBeenCalledTimes(1);
       expect(onClose).toHaveBeenCalledWith(expect.objectContaining({ closureReason: 'complete' }));
       expect(sessionRepository.adds).toHaveLength(1);
       expect(sessionRepository.adds[0]?.closureReason).toBe('complete');
       expect(sessionRepository.adds[0]?.cardsAttempted).toBe(cards.length);
-      // No next prompt was drawn on the closing tap -- the same card that
-      // was just graded is still what's on screen.
-      expect(currentCard(cards)).toBe(lastCard);
     });
 
     it('closes with "complete" after exactly the resolved session size, smaller than the full scope', async () => {
@@ -1270,8 +1357,8 @@ describe('Drill', () => {
         expect(screen.getByText(`${i + 1} / ${sessionSize}`)).toBeTruthy();
         await inkSurface.landStroke();
         await fireEvent.click(grade('Correct'));
-        await fireEvent.click(nextCharacter());
       }
+      await fireEvent.click(finish());
 
       expect(onClose).toHaveBeenCalledTimes(1);
       expect(onClose).toHaveBeenCalledWith(expect.objectContaining({ closureReason: 'complete' }));
@@ -1288,20 +1375,22 @@ describe('Drill', () => {
       for (let i = 0; i < cards.length - 1; i++) {
         await inkSurface.landStroke();
         await fireEvent.click(grade('Correct'));
-        await fireEvent.click(nextCharacter());
       }
 
-      // The 33rd (and last) grade completes the queue, but the deferred
-      // advance still shows the normal toast/Undo -- closure only
-      // fires on "Next character", not on the grade itself.
+      // The 33rd (and last) grade completes the queue but only freezes the
+      // card under its toast -- closure waits for Finish, so Undo stays
+      // fair on the last card.
       await inkSurface.landStroke();
       await fireEvent.click(grade('Correct'));
       expect(onClose).not.toHaveBeenCalled();
+      expect(finish()).toBeTruthy();
 
       await fireEvent.click(undo());
       await flushAsync();
 
       expect(onClose).not.toHaveBeenCalled();
+      // Back on the last card, ready to be regraded.
+      expect(grade('Correct').disabled).toBe(false);
     });
 
     it('closes as "inactivity" on resume once idle time has elapsed, backdating date/time to the last interaction, not "now"', async () => {
@@ -1592,7 +1681,6 @@ describe('Drill', () => {
 
       await inkSurface.landStroke();
       await fireEvent.click(grade('Correct'));
-      await fireEvent.click(nextCharacter());
 
       // A returning learner who has already covered this scope before must
       // not have their session auto-closed after a single grade -- the
@@ -1617,7 +1705,6 @@ describe('Drill', () => {
 
       await inkSurface.landStroke();
       await fireEvent.click(grade('Correct'));
-      await fireEvent.click(nextCharacter());
       await inkSurface.landStroke();
       await fireEvent.click(grade('Missed'));
       await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
