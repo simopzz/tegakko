@@ -188,6 +188,26 @@ describe('Settings', () => {
     }
   });
 
+  it('still renders inert with the read-failure note when load() rejects outright', async () => {
+    // The err path above is the store's contract; this covers the other
+    // failure path -- a rejection must not leave the screen blank behind
+    // `loaded`.
+    const settings: FakeSettings = {
+      load: vi.fn().mockRejectedValue(new Error('adapter bug')),
+      save: vi.fn().mockResolvedValue(ok(undefined)),
+    };
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    renderSettings(settings);
+
+    await screen.findByRole('radiogroup', { name: 'Ink width' });
+    await screen.findByRole('radiogroup', { name: 'Idle close' });
+    expect(screen.getByText(/Couldn't load your settings/)).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Subtle' }).getAttribute('aria-disabled')).toBe(
+      'true',
+    );
+    consoleError.mockRestore();
+  });
+
   it('keeps one control\'s failure note when the other control\'s active segment is tapped', async () => {
     // Per-control notes (never a shared one): a failed width save's note
     // must survive an unrelated tap on the idle toggle's active segment,

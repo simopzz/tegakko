@@ -31,10 +31,12 @@
     type SessionSizeChoice,
   } from '../domain/scope';
   import { CARDS } from '../domain/cards';
-  import { DEFAULT_SETTINGS, type WidthPreset } from '../domain/settings';
+  import { DEFAULT_SETTINGS, type Settings as SettingsRecord, type WidthPreset } from '../domain/settings';
+  import { err } from '../domain/result';
   import type { SessionSummaryView } from '../domain/session';
   import { PracticeModule } from './practice';
   import { Backup, ScopePreview, SessionHistory, SettingsStore } from './use-cases';
+  import { INK_COLORS } from './ink-colors';
   import type { DrillSession } from '../adapters/ui/drill-session';
 
   const settingsRepository = new IdbSettingsRepository();
@@ -63,16 +65,6 @@
   const sessionHistory = new SessionHistory(sessionRepository);
   const settingsStore = new SettingsStore(settingsRepository);
   const backup = new Backup(progressExporter, progressImporter);
-
-  // A canvas can't read CSS custom properties, so `theme.css`'s token values
-  // are handed to the ink adapter from here -- the composition root is the
-  // one layer allowed to know both the theme and the adapter.
-  const INK_COLORS = Object.freeze({
-    ink: '#201E1D', // --color-ink
-    guide: '#CCDBB2', // --color-grid-guide
-    dot: '#E1EECC', // --color-positive-bg
-    canvas: '#F9F4ED', // --color-surface-canvas
-  });
 
   function createInkSurfaceFactory(): InkSurface {
     const surface = new CanvasInkSurface({ colors: INK_COLORS });
@@ -133,7 +125,15 @@
   });
 
   onMount(() => {
-    void settingsRepository.get().then((result) => {
+    void settingsRepository
+      .get()
+      // A rejection (not just a resolved `err`) must still boot the app
+      // rather than leave it blank behind `ready`.
+      .catch((error: unknown) => {
+        console.error('Failed to read settings:', error);
+        return err<SettingsRecord>(error instanceof Error ? error : new Error(String(error)));
+      })
+      .then((result) => {
       // First Run never hard-blocks: an unreadable settings store just means
       // we fall back to showing First Run rather than skipping it silently,
       // and the ink width stays at its default.

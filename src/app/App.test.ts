@@ -74,6 +74,20 @@ describe('App', () => {
     expect(await screen.findByText('Check your stylus')).toBeTruthy();
   });
 
+  it('still boots to First Run when the settings read rejects outright', async () => {
+    // The err fallback above is the repository's contract; this covers the
+    // other failure path adapters can take -- an outright rejection must
+    // not leave the app blank behind `ready`.
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    getMock.mockRejectedValue(new Error('adapter bug'));
+
+    render(App);
+
+    expect(await screen.findByText('Check your stylus')).toBeTruthy();
+    expect(consoleError).toHaveBeenCalledWith('Failed to read settings:', expect.any(Error));
+    consoleError.mockRestore();
+  });
+
   it('carries the full scope forward into the drill when "Start writing" is tapped', async () => {
     getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
 

@@ -145,7 +145,13 @@ export class DrillSession {
     this.tallyRepository = options.tallyRepository;
     this.sessionRepository = options.sessionRepository;
     this.onClose = options.onClose;
-    this.cardTallies = new Map(options.tallies.map((t) => [t.cardId, t.missCount]));
+    // A corrupt stored record (NaN or negative from a bad write) seeds as 0
+    // rather than poisoning every count derived from this map -- the Missed
+    // toast and the Summary would otherwise read NaN or a negative lifetime
+    // count. `NaN > 0` is false, so one comparison covers both.
+    this.cardTallies = new Map(
+      options.tallies.map((t) => [t.cardId, t.missCount > 0 ? t.missCount : 0]),
+    );
     this.queue = sampleSessionCards(options.attempts, this.scope, options.sessionSize);
   }
 

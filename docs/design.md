@@ -124,6 +124,7 @@ Script is a multi-select of pill toggles — Hiragana and Katakana today, a thir
 | Explicit closure | Summary | Positive "You ended it" chip. "I'm done" — the drill bar's back control — is always reachable in the drill. |
 | Complete / inactivity closure | Summary | Same summary layout, no chip. The distinction shows in History. Inactivity closes after the idle threshold (default 5 minutes, set in Settings). |
 | Empty History | History | Sparkline hidden; "No sessions yet. Finish a drill to see it here." |
+| Loading History | History | "Loading…" in the empty state's muted style until the list lands -- an in-flight read never looks like lost data. |
 | Import rejected | Settings | Inline error under Import, nothing written, no modal. |
 | Export failed | Settings | Not modelled; retry the tap. |
 
