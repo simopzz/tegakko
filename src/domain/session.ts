@@ -37,11 +37,14 @@ export interface MissedChip {
 }
 
 /** In-memory view the Session Summary screen renders from -- never persisted
- * itself (`time` has no store-side equivalent). */
+ * itself (`time` has no store-side equivalent). `scope` and `cardsAttempted`
+ * ride along so the screen can say what the accuracy was taken over. */
 export interface SessionSummaryView {
   accuracy: number;
   timeMs: number;
   revealCount: number;
+  cardsAttempted: number;
+  scope: Scope;
   closureReason: ClosureReason;
   missed: MissedChip[];
 }
@@ -79,6 +82,7 @@ export function buildSummary(
   cardTallies: Map<string, number>,
   closureReason: ClosureReason,
   timeMs: number,
+  scope: Scope,
 ): SessionSummaryView {
   const revealCount = sessionAttempts.filter((a) => a.revealUsed).length;
 
@@ -101,6 +105,8 @@ export function buildSummary(
     accuracy: computeAccuracy(sessionAttempts),
     timeMs,
     revealCount,
+    cardsAttempted: sessionAttempts.length,
+    scope,
     closureReason,
     missed,
   };

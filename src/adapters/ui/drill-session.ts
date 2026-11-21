@@ -316,7 +316,13 @@ export class DrillSession {
     const timeMs = Math.max(0, closedAt - this.sessionStartedAt);
     // `thisSessionAttempts`, never the lifetime `attempts` -- the persisted
     // record and the Summary view reflect only this session's own attempts.
-    const summary = buildSummary(this.thisSessionAttempts, this.cardTallies, reason, timeMs);
+    const summary = buildSummary(
+      this.thisSessionAttempts,
+      this.cardTallies,
+      reason,
+      timeMs,
+      this.scope,
+    );
     const record = buildSessionRecord(
       this.sessionId,
       this.scope,

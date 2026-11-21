@@ -92,6 +92,10 @@ describe('App integration', () => {
     // to land before opening History.
     expect(await screen.findByText('Session summary')).toBeTruthy();
     expect(screen.getByText('0%')).toBeTruthy();
+    // The session's own card count and its scope, so "0%" means something.
+    expect(screen.getByText('Cards')).toBeTruthy();
+    expect(screen.getByText('1')).toBeTruthy();
+    expect(screen.getByText('Hiragana Yoon')).toBeTruthy();
     const sessionRepository = new IdbSessionRepository();
     await vi.waitFor(async () => {
       const sessions = await sessionRepository.list();
@@ -285,6 +289,11 @@ describe('App integration', () => {
     expect(within(rows[1]!).getByText(formatDate(explicit.date))).toBeTruthy();
     expect(within(rows[2]!).getByText(formatDate(idle.date))).toBeTruthy();
 
+    // Each row carries its own card count and scope.
+    for (const row of rows) {
+      expect(within(row).getByText('10 cards · Hiragana Base')).toBeTruthy();
+    }
+
     // Complete: positive chip, no dimming. Idle: neutral chip, dimmed.
     expect(within(rows[0]!).getByText('Session complete').className).toContain('chip--positive');
     expect(within(rows[0]!).getByText('90%').className).not.toContain('dimmed');
@@ -296,6 +305,24 @@ describe('App integration', () => {
     const bars = sparklineBars();
     expect(bars).toHaveLength(3);
     expect(bars[2]!.getAttribute('style')).toContain('background-color: var(--color-accent)');
+  });
+
+  it('hides the sparkline below 3 sessions but still lists the rows', async () => {
+    // One or two sessions would draw a flat, meaningless line -- the
+    // sparkline waits for a third.
+    const first = seededSession({ date: '2026-09-01T00:00:00.000Z' });
+    const second = seededSession({ date: '2026-09-02T00:00:00.000Z' });
+    const sessionRepository = new IdbSessionRepository();
+    await sessionRepository.add(first);
+    await sessionRepository.add(second);
+
+    render(App);
+    await screen.findByText('What are we testing today?');
+    await fireEvent.click(screen.getByRole('button', { name: 'History' }));
+
+    expect(await screen.findByText(formatDate(second.date))).toBeTruthy();
+    expect(historyRows()).toHaveLength(2);
+    expect(document.querySelector('.sparkline')).toBeNull();
   });
 
   it('shows History\'s empty state on a fresh database', async () => {

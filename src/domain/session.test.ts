@@ -82,7 +82,7 @@ describe('buildSummary', () => {
     ];
     const tallies = new Map([[card.cardId, 5]]);
 
-    const summary = buildSummary(attempts, tallies, 'explicit', 60_000);
+    const summary = buildSummary(attempts, tallies, 'explicit', 60_000, HIRAGANA_BASE_SCOPE);
 
     expect(summary.missed).toEqual([
       { cardId: card.cardId, grapheme: card.grapheme, script: card.script, missCount: 5 },
@@ -93,7 +93,7 @@ describe('buildSummary', () => {
     const card = cardsInHiraganaBase[0]!;
     const attempts = [attempt({ cardId: card.cardId, selfGrade: 'correct' })];
 
-    const summary = buildSummary(attempts, new Map(), 'explicit', 0);
+    const summary = buildSummary(attempts, new Map(), 'explicit', 0, HIRAGANA_BASE_SCOPE);
 
     expect(summary.missed).toEqual([]);
   });
@@ -105,22 +105,35 @@ describe('buildSummary', () => {
       attempt({ revealUsed: true }),
     ];
 
-    const summary = buildSummary(attempts, new Map(), 'explicit', 0);
+    const summary = buildSummary(attempts, new Map(), 'explicit', 0, HIRAGANA_BASE_SCOPE);
 
     expect(summary.revealCount).toBe(2);
   });
 
   it('carries closureReason and timeMs through unchanged', () => {
-    const summary = buildSummary([], new Map(), 'inactivity', 12_345);
+    const summary = buildSummary([], new Map(), 'inactivity', 12_345, HIRAGANA_BASE_SCOPE);
 
     expect(summary.closureReason).toBe('inactivity');
     expect(summary.timeMs).toBe(12_345);
   });
 
   it('computes accuracy from the given attempts, 0 when there were none', () => {
-    const summary = buildSummary([], new Map(), 'explicit', 0);
+    const summary = buildSummary([], new Map(), 'explicit', 0, HIRAGANA_BASE_SCOPE);
 
     expect(summary.accuracy).toBe(0);
+  });
+
+  it('carries the scope and the graded-card count through', () => {
+    const summary = buildSummary(
+      [attempt(), attempt()],
+      new Map(),
+      'explicit',
+      0,
+      HIRAGANA_BASE_SCOPE,
+    );
+
+    expect(summary.scope).toBe(HIRAGANA_BASE_SCOPE);
+    expect(summary.cardsAttempted).toBe(2);
   });
 });
 

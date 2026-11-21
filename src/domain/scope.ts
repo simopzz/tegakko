@@ -4,6 +4,10 @@
 // adapter computes itself.
 import type { Card, Script, CardSet } from './cards';
 
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 /** `Session.scope`'s persisted type, also what the Scope picker hands
  * forward and what weak-spot selection filters candidates by: one entry
  * per selected script, listing that script's Sets -- each script narrows
@@ -45,4 +49,18 @@ export type SessionSizeChoice = 10 | 20 | 50 | 'all';
  * the scope -- "50" on a 33-card scope just means all of them. */
 export function resolveSessionSize(choice: SessionSizeChoice, scopedCount: number): number {
   return choice === 'all' ? scopedCount : Math.min(choice, scopedCount);
+}
+
+/** One-line scope readout, e.g. "Hiragana Base+Yoon · Katakana Base" --
+ * what Summary and each History row show beside a session's card count,
+ * so a narrowed scope reads differently from the full one. Scripts and
+ * Sets render in the scope's own stored order. */
+export function describeScope(scope: Scope): string {
+  return Object.entries(scope)
+    .map(([script, sets]) =>
+      sets && sets.length > 0
+        ? `${capitalize(script)} ${sets.map(capitalize).join('+')}`
+        : capitalize(script),
+    )
+    .join(' · ');
 }

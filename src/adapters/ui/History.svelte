@@ -8,6 +8,7 @@
   import { onMount } from 'svelte';
   import type { Session } from '../../domain/session';
   import { formatDate } from './format-date';
+  import { describeScope } from '../../domain/scope';
   import {
     sortSessionsDescending,
     sparklineSessions,
@@ -44,7 +45,8 @@
 <ScreenShell>
     {#if loaded}
       {#if sessions.length > 0}
-        <div class="sparkline" aria-hidden="true">
+        {#if sessions.length >= 3}
+          <div class="sparkline" aria-hidden="true">
           {#each sparkline as entry, i (entry.id)}
             <div
               class="bar"
@@ -53,14 +55,23 @@
               };`}
             ></div>
           {/each}
-        </div>
+          </div>
+        {/if}
 
         <ul class="rows">
           {#each sessions as sessionItem (sessionItem.id)}
             {@const variant = closureChipVariant(sessionItem.closureReason)}
             <li class="row">
               <div class="row-left">
-                <p class="date">{formatDate(sessionItem.date)}</p>
+                <div class="row-head">
+                  <p class="date">{formatDate(sessionItem.date)}</p>
+                  <p class="meta">
+                    {sessionItem.cardsAttempted}
+                    {sessionItem.cardsAttempted === 1 ? 'card' : 'cards'} · {describeScope(
+                      sessionItem.scope,
+                    )}
+                  </p>
+                </div>
                 {#if variant === 'positive'}
                   <span class="chip chip--positive">Session complete</span>
                 {:else if variant === 'neutral'}
@@ -126,6 +137,18 @@
     font-family: var(--font-body);
     font-weight: 600;
     color: var(--color-ink);
+  }
+
+  .row-head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+  }
+
+  .meta {
+    margin: 0;
+    font-family: var(--font-body);
+    color: var(--color-ink-muted);
   }
 
   .accuracy {
