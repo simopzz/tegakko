@@ -10,6 +10,7 @@
   import { onMount, tick, untrack } from 'svelte';
   import type { PendingImport } from '../../ports/progress-importer';
   import type { Result } from '../../domain/result';
+  import { err } from '../../domain/result';
   import { isInvalidImportError } from '../../domain/import';
   import { formatDate } from './format-date';
   import ScreenShell from './ScreenShell.svelte';
@@ -146,7 +147,17 @@
   }
 
   onMount(() => {
-    void settings.load().then((result) => {
+    void settings
+      .load()
+      // Same treatment as a resolved `err` below: `SettingsStore`'s
+      // contract folds failures into `err`, and this catch covers the bug
+      // that breaks it -- a rejection must render the inert screen with
+      // the note, not leave it blank behind `loaded`.
+      .catch((error: unknown) => {
+        console.error('Failed to read settings:', error);
+        return err<Settings>(error instanceof Error ? error : new Error(String(error)));
+      })
+      .then((result) => {
       if (result.ok) {
         lastRead = result.value;
         preset = result.value.widthPreset;

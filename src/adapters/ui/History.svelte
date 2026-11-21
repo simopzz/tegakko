@@ -87,6 +87,8 @@
       {:else}
         <p class="empty">No sessions yet. Finish a drill to see it here.</p>
       {/if}
+    {:else}
+      <p class="empty">Loading…</p>
     {/if}
 </ScreenShell>
 

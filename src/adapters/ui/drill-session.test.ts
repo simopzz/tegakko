@@ -208,6 +208,19 @@ describe('DrillSession', () => {
       expect(session.recordGrade(gradeInput(card, 'incorrect'))).toBe(4);
     });
 
+    it('reads a corrupt stored miss count as 0, so the toast and Summary can never show NaN', () => {
+      const { session: probe } = setup();
+      const card = probe.queue[0]!;
+      // NaN (a bad write) and a negative (a decremented-below-zero record)
+      // both seed as 0: the next Missed reads 1, never NaN or a negative
+      // lifetime count.
+      for (const missCount of [Number.NaN, -3]) {
+        const { session } = setup({ tallies: [{ cardId: card.cardId, missCount }] });
+        expect(session.recordGrade(gradeInput(card, 'incorrect'))).toBe(1);
+        session.clearUndoable();
+      }
+    });
+
     it('a Correct grade fires add only and returns null', () => {
       const { session, attemptRepository, tallyRepository } = setup();
       expect(session.recordGrade(gradeInput(session.queue[0]!, 'correct'))).toBeNull();

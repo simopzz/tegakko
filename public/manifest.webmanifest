@@ -1,4 +1,6 @@
 {
+  "id": "/",
+  "lang": "en",
   "name": "tegakko",
   "short_name": "tegakko",
   "description": "Kana handwriting recall practice on a pressure-sensitive pen canvas.",
