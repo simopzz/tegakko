@@ -169,7 +169,11 @@
       worth confirming pressure comes through before you start.
     </p>
 
-    <div class="chip chip--{chipVariant[penStatus]}">{chipText[penStatus]}</div>
+    <!-- Live region: a pen-status change is an outcome worth hearing, not
+         just seeing. -->
+    <div class="chip chip--{chipVariant[penStatus]}" role="status" aria-live="polite">
+      {chipText[penStatus]}
+    </div>
 
     {#if penStatus === 'pressure-detected'}
       <p class="readout">{pressure.toFixed(2)}</p>
@@ -186,9 +190,9 @@
       <span class="pad-hint">touch here</span>
     </div>
 
-    {#if dismissError}
-      <p class="error-note">{dismissError}</p>
-    {/if}
+    <!-- Always in the DOM, even while empty: a live region inserted
+         together with its content is not reliably announced. -->
+    <p class="error-note" role="status" aria-live="polite">{dismissError ?? ''}</p>
 
     <div class="actions">
       {#if deferredInstallPrompt}

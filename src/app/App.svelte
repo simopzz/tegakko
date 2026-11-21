@@ -270,6 +270,7 @@
         {backup}
         onPresetChange={handlePresetChange}
         onModalChange={(open) => (settingsModal = open)}
+        inkSurfaceFactory={inkSurfaceFactory}
       />
     {:else if screen === 'drill' && drillSession && inkSurface}
       <Drill {drillSession} {inkSurface} />

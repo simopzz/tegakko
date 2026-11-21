@@ -396,8 +396,11 @@
          until the learner commits to what's under it: the new prompt's
          first stroke or a Reveal, Undo itself, or Finish on the last
          card. -->
-    <div class="toast" role="status">
-      <div class="toast-copy">
+    <div class="toast">
+      <!-- role=status wraps ONLY the copy: a button inside a live region
+           gets read out as part of the announcement, so Undo stays an
+           ordinary control outside it. -->
+      <div class="toast-copy" role="status">
         <p class="toast-headline">
           {graded.missCount !== null ? 'Marked missed' : 'Marked correct'}
         </p>
