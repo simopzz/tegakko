@@ -4,6 +4,7 @@ import { tick } from 'svelte';
 import 'fake-indexeddb/auto';
 import App from './App.svelte';
 import { IdbSettingsRepository } from '../adapters/persistence/settings-repository';
+import { IdbAttemptRepository } from '../adapters/persistence/attempt-repository';
 import { IdbSessionRepository } from '../adapters/persistence/session-repository';
 import { IdbTallyRepository } from '../adapters/persistence/tally-repository';
 import { resetDb } from '../adapters/persistence/test-reset-db';
@@ -94,6 +95,107 @@ describe('App integration', () => {
     expect(await screen.findByText('History')).toBeTruthy();
     expect(await screen.findByText('0%')).toBeTruthy();
     expect(screen.queryByText('No sessions yet. Finish a drill to see it here.')).toBeNull();
+  });
+
+  // The drill grade flow (#41): one tap per card -- a grade advances
+  // straight to the next prompt, and the Undo toast lives over that prompt
+  // until its first stroke. Shared preamble: an 8-card hiragana-yoon drill
+  // (25% of the 33-card scope), started and waiting at "1 / 8".
+  async function startEightCardDrill(): Promise<ReturnType<typeof fakeInkSurface>> {
+    let surface = fakeInkSurface();
+    render(App, {
+      inkSurfaceFactory: () => {
+        surface = fakeInkSurface();
+        return surface;
+      },
+    });
+    await screen.findByText('What are we testing today?');
+    await fireEvent.click(screen.getByRole('radio', { name: 'Hiragana' }));
+    await fireEvent.click(screen.getByRole('radio', { name: 'Yoon' }));
+    await fireEvent.click(screen.getByRole('radio', { name: '25%' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
+    expect(await screen.findByText(/1 \/ 8/)).toBeTruthy();
+    return surface;
+  }
+
+  it('grades straight to the next prompt, and Undo reverts the card before its first stroke', async () => {
+    const surface = await startEightCardDrill();
+
+    // One tap per card: the grade itself advances; "Next character" is gone.
+    await surface.landStroke();
+    await fireEvent.click(screen.getByRole('button', { name: 'Missed' }));
+    await tick();
+
+    expect(screen.getByText(/2 \/ 8/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Next character' })).toBeNull();
+    // The toast rides the new prompt rather than freezing the graded card.
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeTruthy();
+
+    // Undo before the new prompt's first stroke reverts the attempt and its
+    // miss count, and brings the graded card back with its ink intact.
+    await fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(await screen.findByText(/1 \/ 8/)).toBeTruthy();
+    // Ink intact: grading is live again without writing anything new.
+    expect(screen.getByRole('button', { name: 'Missed' }).hasAttribute('disabled')).toBe(false);
+
+    const attemptRepository = new IdbAttemptRepository();
+    const tallyRepository = new IdbTallyRepository();
+    await vi.waitFor(async () => {
+      const attempts = await attemptRepository.listAll();
+      expect(attempts.ok && attempts.value).toHaveLength(0);
+      const tallies = await tallyRepository.getAll();
+      expect(tallies.ok && tallies.value.every((t) => t.missCount === 0)).toBe(true);
+    });
+  });
+
+  it('ends the Undo window at the new prompt\'s first stroke', async () => {
+    const surface = await startEightCardDrill();
+
+    await surface.landStroke();
+    await fireEvent.click(screen.getByRole('button', { name: 'Correct' }));
+    await tick();
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeTruthy();
+
+    // Writing on the new prompt commits the previous grade: the toast is
+    // gone and stays gone.
+    await surface.landStroke();
+    await tick();
+    expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
+
+    // Clearing the just-written ink does not bring the window back either.
+    await fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
+  });
+
+  it('grades the last card to a frozen prompt with Undo, and Finish closes the session as complete', async () => {
+    const surface = await startEightCardDrill();
+
+    // Grades 1 through 7 advance straight through the queue; the 8th card
+    // is now the prompt (the grade itself moved the counter).
+    for (let i = 0; i < 7; i++) {
+      await surface.landStroke();
+      await fireEvent.click(screen.getByRole('button', { name: 'Correct' }));
+      await tick();
+    }
+    expect(screen.getByText(/8 \/ 8/)).toBeTruthy();
+
+    // The queue-completing grade freezes the last card under its toast
+    // instead of closing on its own: Undo stays fair, Finish completes.
+    await surface.landStroke();
+    await fireEvent.click(screen.getByRole('button', { name: 'Correct' }));
+    await tick();
+    expect(screen.getByText(/8 \/ 8/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Finish' })).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+
+    expect(await screen.findByText('Session summary')).toBeTruthy();
+    const sessionRepository = new IdbSessionRepository();
+    await vi.waitFor(async () => {
+      const sessions = await sessionRepository.list();
+      expect(sessions.ok && sessions.value[0]?.closureReason).toBe('complete');
+    });
   });
 
   it('shows the scope\'s card and shaky counts live, from the stored miss counts', async () => {

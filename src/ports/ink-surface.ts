@@ -25,6 +25,10 @@ export interface InkSurface {
   destroy(): void;
   /** Empty the cell: ink gone, guide redrawn, center dot back. */
   clear(): void;
+  /** Replace the cell's contents with `strokes`, redrawn at the width
+   * preset each stroke carries -- the Undo path: a graded card returns
+   * exactly as it was written. */
+  restore(strokes: Stroke[]): void;
   /** Register the single stroke-completion subscriber, replacing any previous
    * one. `timing` carries pointer-accurate `startedAt`/`endedAt`
    * (`performance.now()` ms) -- only the adapter sees the raw pointer events

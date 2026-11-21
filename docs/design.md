@@ -92,7 +92,7 @@ One screen at a time, single column, no tab bar or drawer, no router: one top-le
 | Chip | `-sm`; positive, missed or neutral tint, always with text | Read-only. Positive for script/set/status, missed where a count is inherently negative (shaky, miss count). Card position ("12 / 46") is plain heading text, not a chip. |
 | Card count + shaky badge | Count in plain text; "N shaky" as a missed chip | "N shaky" counts shaky cards in the current scope. Informational; it doesn't feed selection. |
 | Progress bar | 6px, hairline track, accent fill, `-full` | Always beside an "N / total" counter, total = the session's sampled size. Advances on every grade, reaches exactly 100%. |
-| Grade toast | Peach, `-xl`, shadow, floats above the action row | Shows the card and, on Missed, its new miss count, plus Undo as text-only accent-strong (no fill, no border). A toast always carries one next step, never information alone. Stays until "Next character" or Undo. Undo reverts the attempt and miss count and returns to the card with its strokes intact. |
+| Grade toast | Peach, `-xl`, shadow, floats above the action row | Shows the graded card and, on Missed, its new miss count, plus Undo as text-only accent-strong (no fill, no border). Rides over the next prompt (one tap per card: the grade itself advances) until the learner commits to what's under it — the new prompt's first stroke, or a Reveal — or taps Undo. Undo reverts the attempt and miss count and brings the graded card back exactly as it was written: strokes, reveal panel and all. On the last card the toast stays over the frozen card until Undo or Finish. |
 | Import warning | Toast, modal weight | Says the replace is destructive, shows the current data's date and the file's date, needs an explicit confirm. Cancel leaves current data untouched. The only two-step action in the app. |
 | Stat tile | Secondary surface, `-lg`, label over value | Exactly two on Summary: time, reveal count. |
 | History row | Hairline divider (none on the last row) | Newest first. Complete sessions get a positive "Session complete" chip, inactivity closures a neutral "Closed on idle" chip, explicit ones none. Accuracy in accent-deep, dimmed to ink-muted on inactivity rows. |
@@ -106,7 +106,8 @@ One screen at a time, single column, no tab bar or drawer, no router: one top-le
 | Written | Ink, no dot, all three buttons live, Clear available. |
 | Revealed from written | Side-by-side replaces the single cell; Reveal becomes a dimmed "Revealed" label; Missed/Correct live. |
 | Revealed from blank | Same layout, "yours" shows the empty cell. Revealing enabled grading; Correct isn't blocked. |
-| Graded | Prompt and cell dim (not hidden); toast floats over the action row, which becomes Reveal (dimmed) + a wide "Next character". |
+| Post-grade (mid-queue) | No visible state change to the drill itself: the grade advances straight to the next prompt, and the grade toast floats above it. Writing or revealing on the new prompt dismisses the toast; until then its Undo brings the graded card back with its ink and reveal panel intact. |
+| Frozen closing card | Grading the last card freezes it: prompt and cell dim (not hidden), cell locked, Reveal becomes a dimmed "Revealed" label, and the wide control is "Finish". Undo or the toast's Undo reverses the grade; Finish closes the session as complete. |
 
 ## Other states
 
@@ -125,7 +126,8 @@ One screen at a time, single column, no tab bar or drawer, no router: one top-le
 
 - **Pen first.** The cell is the only drawing surface; everything else is one tap on a labelled control. No swipe, drag or long-press.
 - **Tap targets** sit well above Android's 48dp: a missed tap mid-session costs more here than in a list app.
-- **Undo** is a one-step reversal of the grade just given, available only in the graded state. It is not a general history undo.
+- **One tap per card.** Grading is the only step between prompts: a grade shows the next prompt immediately; there is no "Next character". The last card's grade freezes it and offers Finish instead.
+- **Undo** is a one-step reversal of the grade just given, available only while its toast is showing: until the next prompt's first stroke or Reveal, or — on the frozen closing card — until Undo or Finish. It is not a general history undo.
 - **Never colour alone:** every chip pairs its tint with text.
 
 ## Weak spots
@@ -134,7 +136,7 @@ The weak-spot bias ([ADR-0004](adr/0004-session-sampled-once-by-weakness.md)) ha
 
 ## Key flows
 
-**Morning session.** Open the app → Scope picker (both scripts, all sets, or narrowed on a lighter day) → Start writing. Write each card from memory and grade it; on a shaky card, blank, Reveal, compare, honestly tap Missed. The session closes on its own when the sampled cards run out, and Summary's accuracy answers "is this still working?". If interrupted, it closes on inactivity and History marks it, so a truncated session doesn't skew the trend.
+**Morning session.** Open the app → Scope picker (both scripts, all sets, or narrowed on a lighter day) → Start writing. Write each card from memory and grade it; the grade moves straight to the next prompt. On a shaky card, blank, Reveal, compare, honestly tap Missed. Grading the last card freezes it; tapping Finish closes the session as complete, and Summary's accuracy answers "is this still working?". If interrupted, it closes on inactivity and History marks it, so a truncated session doesn't skew the trend.
 
 **Single-card check.** Unsure about one card mid-day: open, narrow the scope or not, Start writing, write it, Reveal, grade, "I'm done". An honest answer in under a minute.
 

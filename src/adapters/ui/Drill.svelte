@@ -35,9 +35,8 @@
     katakana: 'Katakana',
   };
 
-  // Index into `queue` of the card on screen. Advances only on "Next
-  // character", never on the grade itself, so Undo needs no queue
-  // reinsertion.
+  // Index into `queue` of the card on screen. Advances on the grade itself;
+  // Undo is the only thing that moves it back.
   let queueIndex = $state(0);
   // 1-based, display-only; `$derived` so it can never desync.
   const position = $derived(queueIndex + 1);
@@ -47,15 +46,29 @@
   // blank cell -- revealing nothing is itself an honest "I don't know".
   let revealed = $state(false);
 
-  // The post-grade toast: set by `handleGrade`, cleared by
-  // `handleUndo`/`handleNext`. While set, Missed/Correct/Reveal stay disabled
-  // and prompt/ink/strokes stay frozen, so Undo needs no restore mechanism.
-  let graded = $state<{ cardId: string; grade: SelfGrade; missCount: number | null } | null>(
-    null,
-  );
-  // Component-side undo-in-flight flag: drives rendering (dims "Next
-  // character") and `handleUndo`'s double-tap guard. `DrillSession`'s own
-  // flag is authoritative for session-level guards (idle/close/interaction).
+  // The post-grade toast, floating over whatever the grade moved to: the
+  // next prompt mid-queue, or the frozen last card at queue end. Carries
+  // everything Undo needs to bring the graded card back exactly as it
+  // was -- position, reveal state, ink and its timing. `strokes` is a
+  // copy, so later drawing on the restored card can never mutate the array
+  // the persisted attempt already embeds.
+  let graded = $state<{
+    grade: SelfGrade;
+    missCount: number | null;
+    index: number;
+    revealed: boolean;
+    strokes: Stroke[];
+    promptShownAt: number;
+    firstStrokeStartedAt: number | undefined;
+  } | null>(null);
+  // The queue-completing grade has no next prompt: the last card freezes
+  // under its toast (dimmed, cell locked) until Undo or Finish, and
+  // nothing can be written on it. Every other graded card is already
+  // behind the queue pointer.
+  const frozen = $derived(graded !== null && graded.index === queueIndex);
+  // Component-side undo-in-flight flag: drives rendering (dims Finish) and
+  // `handleUndo`'s double-tap guard. `DrillSession`'s own flag is
+  // authoritative for session-level guards (idle/close/interaction).
   // Set synchronously around the awaited `session.undoLastGrade()`.
   let undoing = $state(false);
 
@@ -95,17 +108,22 @@
   onMount(() => {
     if (!cell) return;
     inkSurface.onStrokeComplete((stroke, timing) => {
-      // A reveal, or a grade fired without one (Missed/Correct straight from
-      // the blank cell), locks the cell to pointer input (see
-      // `.cell--locked` below); this guards the same invariant at the state
-      // level in case a stroke-complete notification is ever still in
-      // flight when it fires.
-      if (revealed || graded !== null) return;
+      // A reveal, or the frozen closing card, locks the cell to pointer
+      // input (see `.cell--locked` below); this guards the same invariant
+      // at the state level in case a stroke-complete notification is ever
+      // still in flight when it fires.
+      if (revealed || frozen) return;
       // A stroke is itself an interaction: if it arrives idle-eligible, it
       // closes the session instead of landing -- the interaction that
       // reveals an idle session is dropped, never recorded as part of the
       // closed session.
       if (!session.recordInteraction()) return;
+      // The new prompt's first stroke ends the undo window: writing here
+      // is committing to this card, so the previous grade is final.
+      if (graded !== null) {
+        graded = null;
+        session.clearUndoable();
+      }
       hasInk = true;
       strokes.push(stroke);
       // Only the first stroke since the last Clear/grade sets this --
@@ -138,6 +156,12 @@
 
   function handleReveal(): void {
     if (!session.recordInteraction()) return;
+    // A Reveal on the new prompt ends the undo window, same as its first
+    // stroke -- either way the learner has committed to this card.
+    if (graded !== null) {
+      graded = null;
+      session.clearUndoable();
+    }
     // Never assigns a grade -- Missed/Correct stay required afterward.
     revealed = true;
     // Move focus onto the newly-active Missed button so a keyboard/screen
@@ -148,9 +172,8 @@
   function handleGrade(grade: SelfGrade): void {
     if (!session.recordInteraction()) return;
     // A grade always persists an attempt, ink or not, reveal or not; the
-    // writes are never awaited. The advance (queue index/clear/reset) is
-    // deferred to `handleNext` -- the toast shows instead, offering Undo
-    // (always) and the new miss count (only on Missed).
+    // writes are never awaited. Snapshot the graded card's state for Undo,
+    // then advance immediately -- one tap per card, no "Next character".
     const missCount = session.recordGrade({
       card,
       grade,
@@ -159,22 +182,22 @@
       promptShownAt,
       firstStrokeStartedAt,
     });
-    graded = { cardId: card.cardId, grade, missCount };
-    // Move focus onto Undo, the same way Reveal moves it onto Missed:
-    // Missed/Correct/Reveal just went `disabled`, and the toast's two
-    // controls are new to the page.
+    graded = {
+      grade,
+      missCount,
+      index: queueIndex,
+      revealed,
+      strokes: [...strokes],
+      promptShownAt,
+      firstStrokeStartedAt,
+    };
+    // Move focus onto Undo: the prompt the learner just tapped Missed or
+    // Correct on is gone, and the toast's control is new to the page.
     void tick().then(() => undoButton?.focus());
-  }
-
-  function handleNext(): void {
-    if (!session.recordInteraction()) return;
-    // Complete closure rides this existing tap rather than a
-    // new control: the queue-completing grade still shows the normal
-    // toast/Undo, and only tapping past it closes the session.
-    if (session.isLastCard(queueIndex)) {
-      session.closeComplete();
-      return;
-    }
+    // The queue-completing grade has no next prompt to advance to: freeze
+    // this card instead, leaving Undo and Finish (in the action row) to
+    // close the session when the learner says so.
+    if (session.isLastCard(queueIndex)) return;
     queueIndex += 1;
     revealed = false;
     inkSurface.clear();
@@ -182,17 +205,34 @@
     strokes = [];
     firstStrokeStartedAt = undefined;
     promptShownAt = performance.now();
-    graded = null;
-    session.clearUndoable();
+  }
+
+  /** Complete closure rides this control on the closing grade's frozen
+   * card -- the queue-completing grade never closes on its own, so Undo
+   * stays fair on the last card too. */
+  function handleFinish(): void {
+    if (!session.recordInteraction()) return;
+    session.closeComplete();
   }
 
   async function handleUndo(): Promise<void> {
     if (!session.recordInteraction()) return;
-    if (!graded || undoing) return;
+    const snapshot = graded;
+    if (!snapshot || undoing) return;
     undoing = true;
     try {
       await session.undoLastGrade();
       graded = null;
+      // The graded card returns exactly as it was written: prompt, reveal
+      // panel, ink and its timing all restored from the snapshot, so a
+      // re-grade reproduces the original attempt (reveal flag included).
+      queueIndex = snapshot.index;
+      revealed = snapshot.revealed;
+      strokes = snapshot.strokes;
+      promptShownAt = snapshot.promptShownAt;
+      firstStrokeStartedAt = snapshot.firstStrokeStartedAt;
+      hasInk = snapshot.strokes.length > 0;
+      inkSurface.restore(snapshot.strokes);
     } finally {
       undoing = false;
     }
@@ -222,7 +262,7 @@
     </div>
   </header>
 
-  <section class="prompt" class:dimmed={graded !== null}>
+  <section class="prompt" class:dimmed={frozen}>
     <p class="label">Write from memory</p>
     <p class="romaji">{card.writtenRomaji ? `${card.romaji} (${card.writtenRomaji})` : card.romaji}</p>
     <p class="script">{scriptLabel[card.script]}</p>
@@ -241,13 +281,13 @@
   <div
     class="cell-wrap"
     class:cell-wrap--revealed={revealed}
-    class:dimmed={graded !== null}
+    class:dimmed={frozen}
   >
     <div class="panel">
       {#if revealed}<p class="label" id="yours-label">Yours</p>{/if}
       <div
         class="cell"
-        class:cell--locked={revealed || graded !== null}
+        class:cell--locked={revealed || frozen}
         bind:this={cell}
         role="group"
         aria-labelledby={revealed ? 'yours-label' : undefined}
@@ -263,7 +303,7 @@
     {/if}
   </div>
 
-  {#if !revealed && !graded}
+  {#if !revealed && !frozen}
     <div class="cell-footer">
       <p class="disclaimer">Your call — nothing is checking the shape</p>
       {#if hasInk}
@@ -273,10 +313,12 @@
   {/if}
 
   <div class="grades">
-    {#if graded}
-      <!-- The action row collapses to a dimmed
-           Reveal (its own state is frozen either way -- Missed/Correct never
-           came back once reveal fired) plus a wide "Next character". -->
+    {#if frozen}
+      <!-- The closing grade's action row: Reveal keeps its own frozen
+           state (dimmed either way -- Missed/Correct never came back once
+           reveal fired), and the wide control completes the session; Undo
+           lives in the toast above, so the last card stays as reversible
+           as every other one. -->
       <button type="button" class="btn btn--neutral btn--dimmed" disabled>
         {revealed ? 'Revealed' : 'Reveal'}
       </button>
@@ -285,9 +327,9 @@
         class="btn btn--primary next-btn"
         disabled={undoing}
         class:btn--dimmed={undoing}
-        onclick={handleNext}
+        onclick={handleFinish}
       >
-        Next character
+        Finish
       </button>
     {:else}
       <button
@@ -323,16 +365,19 @@
 
   {#if graded}
     <!-- "Self-grade landed": a peach (missed-tint) card
-         floating above the action row, not a dark full-width bar -- message
-         plus a single outlined Undo pill; "Next character" lives in the
-         action row above, not in this card. -->
+         floating above the action row, not a dark full-width bar -- the
+         graded card and its new miss count, plus a single outlined Undo
+         pill. It rides over the next prompt (or the frozen last card)
+         until the learner commits to what's under it: the new prompt's
+         first stroke or a Reveal, Undo itself, or Finish on the last
+         card. -->
     <div class="toast" role="status">
       <div class="toast-copy">
         <p class="toast-headline">
           {graded.missCount !== null ? 'Marked missed' : 'Marked correct'}
         </p>
         <p class="toast-detail">
-          {card.grapheme} · {scriptLabel[card.script]}
+          {queue[graded.index]!.grapheme} · {scriptLabel[queue[graded.index]!.script]}
           {#if graded.missCount !== null}
             — missed {graded.missCount}
             {graded.missCount === 1 ? 'time' : 'times'} now, so it'll come round
@@ -506,12 +551,12 @@
   }
 
   .cell--locked {
-    /* Once revealed, or once a grade lands (with or without a prior
-       reveal), the cell is a frozen record of what was written, not an
-       active writing surface -- tracing over the just-revealed reference
-       would undercut the whole point of reveal never assigning a grade for
-       the learner, and drawing after a grade has already landed would
-       silently attach strokes to an attempt that's already been recorded. */
+    /* Once revealed, or on the frozen closing card, the cell is a frozen
+       record of what was written, not an active writing surface --
+       tracing over the just-revealed reference would undercut the whole
+       point of reveal never assigning a grade for the learner, and writing
+       after the queue is complete would attach strokes to a card whose
+       attempt is already recorded. */
     pointer-events: none;
   }
 
@@ -683,14 +728,13 @@
     cursor: default;
   }
 
-  /* Prompt and cell fade back once a grade lands -- signals the drill
-     is mid-transition without hiding what was just written; ink/strokes
-     stay exactly as graded until "Next character" (see `handleNext`). */
+  /* The closing grade dims and locks the last card -- its ink stays
+     exactly as graded until Undo or Finish (see `frozen`). */
   .dimmed {
     opacity: 0.35;
   }
 
-  /* Post-grade action row: Reveal keeps its `flex: 1` share, "Next character"
+  /* Closing-grade action row: Reveal keeps its `flex: 1` share, Finish
      takes the two grade buttons' combined share instead of a third slot. */
   .next-btn {
     flex: 2;

@@ -186,14 +186,14 @@ export class DrillSession {
     this.close('explicit');
   }
 
-  /** `true` when `index` is the queue's final entry -- tapping past it closes
-   * the session as complete. */
+  /** `true` when `index` is the queue's final entry -- grading it freezes
+   * the card and offers Undo/Finish instead of advancing. */
   isLastCard(index: number): boolean {
     return index + 1 >= this.queue.length;
   }
 
-  /** Complete closure -- rides "Next character" past the last
-   * queue entry rather than a control of its own. */
+  /** Complete closure -- rides the Finish control on the closing grade's
+   * frozen card rather than a control of its own. */
   closeComplete(): void {
     this.close('complete');
   }
@@ -244,9 +244,10 @@ export class DrillSession {
   }
 
   /** Forgets the last grade and its pending writes, so it can no longer be
-   * undone -- called by the component on "Next character" and after an undo
-   * completes. (The queue pointer never passes a card while its Undo is
-   * offered, so undo needs no queue reinsertion.) */
+   * undone -- called by the component when the undo window ends (the new
+   * prompt's first stroke or a Reveal) and after an undo completes. (The
+   * component's own snapshot handles moving the queue pointer and ink back
+   * on undo; this class only reverses the attempt and the tally.) */
   clearUndoable(): void {
     this.lastGrade = null;
     this.pendingAttemptWrite = undefined;

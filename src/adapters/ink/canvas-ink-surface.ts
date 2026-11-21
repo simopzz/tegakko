@@ -189,6 +189,15 @@ export class CanvasInkSurface implements InkSurface {
     this.redraw();
   }
 
+  restore(strokes: Stroke[]): void {
+    // A copy, so the caller's array (e.g. one embedded in an `Attempt`)
+    // is never aliased by later drawing on the cell.
+    this.strokes = [...strokes];
+    this.currentPoints = [];
+    this.activePointerId = null;
+    this.redraw();
+  }
+
   onStrokeComplete(cb: (stroke: Stroke, timing: StrokeTiming) => void): void {
     // Single subscriber by contract -- a second registration replaces the
     // first rather than fanning out.

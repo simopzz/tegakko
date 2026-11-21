@@ -10,6 +10,8 @@ import type { Stroke, StrokeTiming } from '../domain/ink';
 export interface FakeInkSurface extends InkSurface {
   /** Number of strokes that have landed on this surface. */
   strokesCompleted: number;
+  /** Every `restore()` call, in order. */
+  restores: Stroke[][];
   /** Emit one completed stroke to the subscriber Drill registered. */
   landStroke(overrides?: {
     x?: number;
@@ -23,9 +25,13 @@ export function fakeInkSurface(): FakeInkSurface {
   let cb: ((stroke: Stroke, timing: StrokeTiming) => void) | null = null;
   const surface: FakeInkSurface = {
     strokesCompleted: 0,
+    restores: [],
     mount() {},
     destroy() {},
     clear() {},
+    restore(strokes: Stroke[]) {
+      surface.restores.push(strokes);
+    },
     onStrokeComplete(next) {
       cb = next;
     },

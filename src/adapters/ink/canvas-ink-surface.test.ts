@@ -550,6 +550,60 @@ describe('CanvasInkSurface', () => {
     expect(fake.segments.filter((segment) => segment.color === COLORS.ink)).toHaveLength(0);
   });
 
+  it('restore() redraws the given strokes at each one\'s own preset, dropping the center dot', () => {
+    const { surface } = mounted('subtle');
+    const strokes: Stroke[] = [
+      {
+        points: [
+          { x: 0.25, y: 0.25, pressure: 0.8 },
+          { x: 0.5, y: 0.5, pressure: 0.6 },
+        ],
+        widthPreset: 'calligraphy',
+      },
+    ];
+
+    fake.segments.length = 0;
+    fake.arcs.length = 0;
+    surface.restore(strokes);
+
+    const ink = fake.segments.filter((segment) => segment.color === COLORS.ink);
+    expect(ink).toHaveLength(1);
+    expect(ink[0]).toMatchObject({ x0: 0.25 * CELL, y0: 0.25 * CELL, x1: 0.5 * CELL, y1: 0.5 * CELL });
+    // The preset the stroke carries, never the surface's current one.
+    expect(ink[0]?.width).toBeCloseTo(pressureToWidth(0.6, 'calligraphy'), 10);
+    // Ink exists again, so the guide redraw leaves the center dot off.
+    expect(fake.arcs).toHaveLength(0);
+
+    // An empty restore empties the cell like clear(), dot back.
+    fake.segments.length = 0;
+    fake.arcs.length = 0;
+    surface.restore([]);
+    expect(fake.segments.filter((segment) => segment.color === COLORS.ink)).toHaveLength(0);
+    expect(fake.arcs.at(-1)).toEqual({ x: CELL / 2, y: CELL / 2, r: 5, color: COLORS.dot });
+  });
+
+  it('restore() copies, so later strokes never mutate the caller\'s array', () => {
+    const { surface, canvas } = mounted();
+    const onStroke = vi.fn();
+    surface.onStrokeComplete(onStroke);
+    const strokes: Stroke[] = [
+      { points: [{ x: 0.2, y: 0.2, pressure: 0.5 }], widthPreset: 'expressive' },
+    ];
+
+    surface.restore(strokes);
+    writeStroke(canvas, [
+      [10, 10],
+      [20, 20],
+    ]);
+
+    // The restored stroke survived the new one; the caller's array is
+    // untouched.
+    expect(strokes).toHaveLength(1);
+    fake.segments.length = 0;
+    window.dispatchEvent(new Event('resize'));
+    expect(fake.segments.filter((segment) => segment.color === COLORS.ink)).toHaveLength(2);
+  });
+
   it('replays in-memory strokes after a resize blows away the backing store', () => {
     const { canvas } = mounted();
     writeStroke(canvas, [
