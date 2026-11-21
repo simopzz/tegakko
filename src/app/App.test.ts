@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { DEFAULT_SETTINGS } from '../domain/settings';
 import { err, ok } from '../domain/result';
@@ -33,6 +33,14 @@ const { IdbAttemptRepository } = await import('../adapters/persistence/attempt-r
 const App = (await import('./App.svelte')).default;
 
 describe('App', () => {
+  // The rebuilt Scope picker: scripts are a multi-select, each selected
+  // script gets its own Set row, and session sizes are fixed counts.
+  function setPill(script: string, set: string): HTMLElement {
+    return within(screen.getByRole('group', { name: `${script} Sets` })).getByRole('button', {
+      name: set,
+    });
+  }
+
   beforeEach(() => {
     getMock.mockReset();
   });
@@ -167,18 +175,57 @@ describe('App', () => {
 
   it('resolves the chosen session size into the sampled drill queue', async () => {
     // `handleStart` resolves the session-size pill via `resolveSessionSize`
-    // and threads it into `<Drill sessionSize={...}>`, which samples exactly
-    // that many distinct cards. 25% of the
-    // full 208-card scope resolves to 52.
+    // and threads it into the practice module, which samples exactly that
+    // many distinct cards. 20 of the full 208-card scope.
     getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
 
     render(App);
 
     await screen.findByText('What are we testing today?');
-    await fireEvent.click(screen.getByRole('radio', { name: '25%' }));
+    await fireEvent.click(screen.getByRole('radio', { name: '20' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
 
-    expect(await screen.findByText('1 / 52')).toBeTruthy();
+    expect(await screen.findByText('1 / 20')).toBeTruthy();
+  });
+
+  it('clamps a session size larger than the scope down to the scope', async () => {
+    getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
+
+    render(App);
+
+    await screen.findByText('What are we testing today?');
+    // Hiragana yoon only: a 33-card scope.
+    await fireEvent.click(screen.getByRole('button', { name: 'Katakana' }));
+    await fireEvent.click(setPill('Hiragana', 'Base'));
+    // "50" on a 33-card scope just means all of them.
+    await fireEvent.click(screen.getByRole('radio', { name: '50' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
+
+    expect(await screen.findByText('1 / 33')).toBeTruthy();
+  });
+
+  it("keeps a script's last Set on, and the last selected script itself", async () => {
+    getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
+
+    render(App);
+
+    await screen.findByText('What are we testing today?');
+    // Narrow katakana to yoon only.
+    await fireEvent.click(setPill('Katakana', 'Base'));
+    expect(await screen.findByText('137 cards · 0 shaky')).toBeTruthy();
+
+    // Katakana's last Set (yoon) cannot be deselected.
+    await fireEvent.click(setPill('Katakana', 'Yoon'));
+    expect(setPill('Katakana', 'Yoon').getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByText('137 cards · 0 shaky')).toBeTruthy();
+
+    // Drop hiragana entirely; katakana is then the last selected script
+    // and cannot be deselected either.
+    await fireEvent.click(screen.getByRole('button', { name: 'Hiragana' }));
+    expect(await screen.findByText('33 cards · 0 shaky')).toBeTruthy();
+    await fireEvent.click(screen.getByRole('button', { name: 'Katakana' }));
+    expect(screen.getByRole('button', { name: 'Katakana' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByText('33 cards · 0 shaky')).toBeTruthy();
   });
 
   it('carries a narrowed scope forward into the drill', async () => {
@@ -187,8 +234,8 @@ describe('App', () => {
     render(App);
 
     await screen.findByText('What are we testing today?');
-    await fireEvent.click(screen.getByRole('radio', { name: 'Hiragana' }));
-    await fireEvent.click(screen.getByRole('radio', { name: 'Base' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Katakana' }));
+    await fireEvent.click(setPill('Hiragana', 'Yoon'));
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
 
     expect(await screen.findByText('1 / 71')).toBeTruthy();
@@ -200,7 +247,7 @@ describe('App', () => {
     render(App);
 
     await screen.findByText('What are we testing today?');
-    await fireEvent.click(screen.getByRole('radio', { name: 'Katakana' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Hiragana' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
     await screen.findByText('1 / 104');
     // "I'm done" closes the session and lands on the Session
@@ -214,8 +261,9 @@ describe('App', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Another round' }));
 
     await screen.findByText('What are we testing today?');
-    expect(screen.getByText('104 cards in scope')).toBeTruthy();
-    expect(screen.getByRole('radio', { name: 'Katakana' }).className).toContain('pill--active');
+    expect(screen.getByText('104 cards · 0 shaky')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Katakana' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Hiragana' }).getAttribute('aria-pressed')).toBe('false');
   });
 
   it('returns to the Scope picker from the summary bar\'s Back, with focus on the bar title', async () => {
@@ -264,7 +312,7 @@ describe('App', () => {
     render(App);
 
     await screen.findByText('What are we testing today?');
-    await fireEvent.click(screen.getByRole('radio', { name: 'Katakana' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Hiragana' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
     await screen.findByText('1 / 104');
     await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
@@ -287,7 +335,10 @@ describe('App', () => {
     render(App);
 
     await screen.findByText('What are we testing today?');
-    await fireEvent.click(screen.getByRole('radio', { name: 'Yoon' }));
+    // Both scripts narrowed to yoon only: each script's Set row narrows on
+    // its own terms.
+    await fireEvent.click(setPill('Hiragana', 'Base'));
+    await fireEvent.click(setPill('Katakana', 'Base'));
     await fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
 
     expect(await screen.findByRole('radiogroup', { name: 'Ink width' })).toBeTruthy();
@@ -295,8 +346,9 @@ describe('App', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
 
     await screen.findByText('What are we testing today?');
-    expect(screen.getByText('66 cards in scope')).toBeTruthy();
-    expect(screen.getByRole('radio', { name: 'Yoon' }).className).toContain('pill--active');
+    expect(screen.getByText('66 cards · 0 shaky')).toBeTruthy();
+    expect(setPill('Hiragana', 'Yoon').getAttribute('aria-pressed')).toBe('true');
+    expect(setPill('Katakana', 'Yoon').getAttribute('aria-pressed')).toBe('true');
   });
 
   it('reaches Settings from the Scope-picker header and back again, session-size selection intact', async () => {
@@ -305,7 +357,7 @@ describe('App', () => {
     render(App);
 
     await screen.findByText('What are we testing today?');
-    await fireEvent.click(screen.getByRole('radio', { name: '25%' }));
+    await fireEvent.click(screen.getByRole('radio', { name: '20' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
 
     expect(await screen.findByRole('radiogroup', { name: 'Ink width' })).toBeTruthy();
@@ -313,8 +365,7 @@ describe('App', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
 
     await screen.findByText('What are we testing today?');
-    expect(screen.getByRole('radio', { name: '25%' }).className).toContain('pill--active');
-    expect(screen.getByText('52 cards this session')).toBeTruthy();
+    expect(screen.getByRole('radio', { name: '20' }).className).toContain('pill--active');
   });
 
   it('applies a preset chosen in Settings to the next drill entry', async () => {
@@ -383,7 +434,8 @@ describe('App', () => {
     render(App);
 
     await screen.findByText('What are we testing today?');
-    await fireEvent.click(screen.getByRole('radio', { name: 'Yoon' }));
+    await fireEvent.click(setPill('Hiragana', 'Base'));
+    await fireEvent.click(setPill('Katakana', 'Base'));
     await fireEvent.click(screen.getByRole('button', { name: 'History' }));
 
     expect(await screen.findByText('No sessions yet. Finish a drill to see it here.')).toBeTruthy();
@@ -391,8 +443,9 @@ describe('App', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
 
     await screen.findByText('What are we testing today?');
-    expect(screen.getByText('66 cards in scope')).toBeTruthy();
-    expect(screen.getByRole('radio', { name: 'Yoon' }).className).toContain('pill--active');
+    expect(screen.getByText('66 cards · 0 shaky')).toBeTruthy();
+    expect(setPill('Hiragana', 'Yoon').getAttribute('aria-pressed')).toBe('true');
+    expect(setPill('Katakana', 'Yoon').getAttribute('aria-pressed')).toBe('true');
   });
 
   it('governs the live Drill session with the idleTimeoutMs persisted in Settings, not the default', async () => {

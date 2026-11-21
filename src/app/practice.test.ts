@@ -18,7 +18,7 @@ import type { SessionRepository } from '../ports/session-repository';
 import type { InkSurface } from '../ports/ink-surface';
 import { fakeInkSurface } from '../test-utils/fake-ink-surface';
 
-const SCOPE: Scope = { scripts: ['hiragana'], sets: ['yoon'] };
+const SCOPE: Scope = { hiragana: ['yoon'] };
 const IDLE_MS = 300_000;
 const OK_RESULT: Result<void> = { ok: true, value: undefined };
 

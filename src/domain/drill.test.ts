@@ -10,7 +10,7 @@ import type { TallyRepository } from '../ports/tally-repository';
 import type { Result } from './result';
 import { ok, err } from './result';
 
-const SCOPE: Scope = { scripts: ['hiragana'], sets: ['base'] };
+const SCOPE: Scope = { hiragana: ['base'] };
 
 function scoped(): Card[] {
   return cardsInScope([...CARDS], SCOPE);
@@ -68,7 +68,7 @@ describe('sampleSessionCards', () => {
     });
 
     it('throws on an empty scope rather than inventing a queue', () => {
-      expect(() => sampleSessionCards([], { scripts: [], sets: [] }, 1, () => 0)).toThrow(
+      expect(() => sampleSessionCards([], {}, 1, () => 0)).toThrow(
         /no cards in scope/,
       );
     });

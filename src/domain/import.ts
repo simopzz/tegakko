@@ -13,6 +13,7 @@ import { EXPORT_VERSION } from './export';
 import type { Stroke, StrokePoint } from './ink';
 import { err, ok, type Result } from './result';
 import type { ClosureReason, Session } from './session';
+import type { Scope } from './scope';
 import type { WidthPreset } from './settings';
 import type { Tally } from './tally';
 
@@ -168,20 +169,27 @@ function toAttempt(value: unknown, path: string): Attempt {
   };
 }
 
+/** Parses a scope's per-script entries. Absent scripts are unselected;
+ * unknown keys (a future script, a typo) are dropped rather than rejected
+ * -- the same strip-extras contract every other level of the file follows.
+ * A known script's Sets array is validated strictly. */
+function toScope(source: Record<string, unknown>, path: string): Scope {
+  const scope: Partial<Record<Script, CardSet[]>> = {};
+  for (const script of SCRIPTS) {
+    if (!(script in source)) continue;
+    scope[script] = array(source[script], `${path}.${script}`).map((set, index) =>
+      oneOf(set, CARD_SETS, `${path}.${script}[${index}]`),
+    );
+  }
+  return scope;
+}
+
 function toSession(value: unknown, path: string): Session {
   const source = record(value, path);
-  const scope = record(source.scope, `${path}.scope`);
   return {
     id: string(source.id, `${path}.id`),
     date: isoDate(source.date, `${path}.date`),
-    scope: {
-      scripts: array(scope.scripts, `${path}.scope.scripts`).map((script, index) =>
-        oneOf(script, SCRIPTS, `${path}.scope.scripts[${index}]`),
-      ),
-      sets: array(scope.sets, `${path}.scope.sets`).map((set, index) =>
-        oneOf(set, CARD_SETS, `${path}.scope.sets[${index}]`),
-      ),
-    },
+    scope: toScope(record(source.scope, `${path}.scope`), `${path}.scope`),
     cardsAttempted: finite(source.cardsAttempted, `${path}.cardsAttempted`),
     accuracy: finite(source.accuracy, `${path}.accuracy`),
     closureReason: oneOf(source.closureReason, CLOSURE_REASONS, `${path}.closureReason`),

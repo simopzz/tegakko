@@ -8,71 +8,72 @@ describe('cardsInScope', () => {
   });
 
   it('narrows to hiragana + base only (71 cards)', () => {
-    const scope: Scope = { scripts: ['hiragana'], sets: ['base'] };
+    const scope: Scope = { hiragana: ['base'] };
     const result = cardsInScope(CARDS, scope);
     expect(result).toHaveLength(71);
     expect(result.every((c) => c.script === 'hiragana' && c.set === 'base')).toBe(true);
   });
 
   it('narrows to katakana + yoon only (33 cards)', () => {
-    const scope: Scope = { scripts: ['katakana'], sets: ['yoon'] };
+    const scope: Scope = { katakana: ['yoon'] };
     const result = cardsInScope(CARDS, scope);
     expect(result).toHaveLength(33);
     expect(result.every((c) => c.script === 'katakana' && c.set === 'yoon')).toBe(true);
   });
 
-  it('narrows to both scripts but base only (142 cards)', () => {
-    const scope: Scope = { scripts: ['hiragana', 'katakana'], sets: ['base'] };
+  it('narrows both scripts to base only (142 cards)', () => {
+    const scope: Scope = { hiragana: ['base'], katakana: ['base'] };
     expect(cardsInScope(CARDS, scope)).toHaveLength(142);
   });
 
   it('narrows to hiragana only, both sets (104 cards)', () => {
-    const scope: Scope = { scripts: ['hiragana'], sets: ['base', 'yoon'] };
+    const scope: Scope = { hiragana: ['base', 'yoon'] };
     expect(cardsInScope(CARDS, scope)).toHaveLength(104);
   });
 
-  it('returns no cards for an empty scripts array, never treating it as unrestricted', () => {
-    const scope: Scope = { scripts: [], sets: ['base', 'yoon'] };
-    expect(cardsInScope(CARDS, scope)).toHaveLength(0);
+  it('narrows each script on its own terms -- the case one flat sets array could not express', () => {
+    // Hiragana base+yoon (104) but katakana base only (71): katakana's
+    // yoon cards must stay out even though hiragana still draws its own.
+    const scope: Scope = { hiragana: ['base', 'yoon'], katakana: ['base'] };
+    const result = cardsInScope(CARDS, scope);
+    expect(result).toHaveLength(175);
+    expect(result.filter((c) => c.script === 'katakana').every((c) => c.set === 'base')).toBe(true);
+  });
+
+  it('returns no cards for a script absent from the scope, never treating it as unrestricted', () => {
+    const scope: Scope = { hiragana: ['base', 'yoon'] };
+    expect(cardsInScope(CARDS, scope).every((c) => c.script === 'hiragana')).toBe(true);
   });
 
   it('returns no cards for an empty sets array, never treating it as unrestricted', () => {
-    const scope: Scope = { scripts: ['hiragana', 'katakana'], sets: [] };
-    expect(cardsInScope(CARDS, scope)).toHaveLength(0);
+    const scope: Scope = { hiragana: [], katakana: ['base'] };
+    expect(cardsInScope(CARDS, scope)).toHaveLength(71);
+    expect(cardsInScope(CARDS, { hiragana: [] })).toHaveLength(0);
   });
 
   it('does not mutate the input cards array', () => {
     const before = [...CARDS];
-    cardsInScope(CARDS, { scripts: ['hiragana'], sets: ['base'] });
+    cardsInScope(CARDS, { hiragana: ['base'] });
     expect(CARDS).toEqual(before);
   });
 });
 
 describe('resolveSessionSize', () => {
-  it("returns the full scoped count unchanged for 'all', matching prior default behavior", () => {
+  it("returns the full scoped count unchanged for 'all'", () => {
     expect(resolveSessionSize('all', 208)).toBe(208);
     expect(resolveSessionSize('all', 1)).toBe(1);
   });
 
-  it('rounds each percent preset against the given scoped count', () => {
-    expect(resolveSessionSize(0.25, 208)).toBe(52);
-    expect(resolveSessionSize(0.5, 208)).toBe(104);
-    expect(resolveSessionSize(0.75, 208)).toBe(156);
+  it('passes each count preset through as itself against a large scope', () => {
+    expect(resolveSessionSize(10, 208)).toBe(10);
+    expect(resolveSessionSize(20, 208)).toBe(20);
+    expect(resolveSessionSize(50, 208)).toBe(50);
   });
 
-  it('rounds to a minimum of 1, never 0, at a tiny scoped count', () => {
-    // The I/O matrix's exact edge case: Math.round(0.25 * 3) === 1 already,
-    // but the floor is what guarantees this for any input that would
-    // otherwise round to 0 (e.g. a 1-card scope at 25%).
-    expect(resolveSessionSize(0.25, 3)).toBe(1);
-    expect(resolveSessionSize(0.25, 1)).toBe(1);
-  });
-
-  it('rounds to the nearest whole card, not merely floors', () => {
-    // Math.round(0.25 * 5) = Math.round(1.25) = 1; Math.round(0.75 * 5) =
-    // Math.round(3.75) = 4 -- proves this rounds rather than always
-    // flooring or ceiling.
-    expect(resolveSessionSize(0.25, 5)).toBe(1);
-    expect(resolveSessionSize(0.75, 5)).toBe(4);
+  it('clamps a preset larger than the scope down to the scope, never past it', () => {
+    // "50" on a 33-card scope just means all of them.
+    expect(resolveSessionSize(50, 33)).toBe(33);
+    expect(resolveSessionSize(10, 8)).toBe(8);
+    expect(resolveSessionSize(20, 1)).toBe(1);
   });
 });

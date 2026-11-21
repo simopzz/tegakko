@@ -13,7 +13,10 @@ import type { WidthPreset } from './settings';
 import type { Tally } from './tally';
 
 /** The envelope's schema version. Import rejects any other value. */
-export const EXPORT_VERSION = 2;
+// v3: `scope` became one entry per script, that script's own Sets listed
+// under it. Older backups are rejected by the version check, never
+// partially reinterpreted.
+export const EXPORT_VERSION = 3;
 
 /** A stroke in compact form: each point is an `[x, y, pressure]` triple,
  * every number rounded to 4 decimals (~0.04px on a 400px cell, below visible

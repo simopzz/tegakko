@@ -28,7 +28,7 @@ const SESSIONS: Session[] = [
   {
     id: 's1',
     date: '2026-09-23T10:05:00.000Z',
-    scope: { scripts: ['hiragana'], sets: ['base'] },
+    scope: { hiragana: ['base'] },
     cardsAttempted: 1,
     accuracy: 0,
     closureReason: 'explicit',

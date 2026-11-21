@@ -28,7 +28,7 @@ A base consonant kana plus small ゃ/ゅ/ょ, practised as one card.
 ### Practice
 
 **Scope**:
-The scripts and sets a session draws its cards from.
+The scripts a session draws its cards from, each with its own selected Sets -- one script's Sets never widen or narrow another's.
 _Avoid_: Filter, deck
 
 **Session**:

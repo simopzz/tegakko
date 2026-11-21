@@ -10,7 +10,7 @@ import type { Session } from '../../domain/session';
 const SESSION: Session = {
   id: 'session-1',
   date: '2026-09-08T09:00:00.000Z',
-  scope: { scripts: ['hiragana'], sets: ['base'] },
+  scope: { hiragana: ['base'] },
   cardsAttempted: 12,
   accuracy: 0.75,
   closureReason: 'explicit',

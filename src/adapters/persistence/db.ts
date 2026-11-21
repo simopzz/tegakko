@@ -14,12 +14,12 @@ import type { Tally } from '../../domain/tally';
 import type { Session } from '../../domain/session';
 
 export const DB_NAME = 'tegakko';
-// v5: renames scope to sets and closure reason to complete; wipes every
-// store on upgrade so no migration code is needed. `upgrade()` only re-runs
-// when the requested version exceeds a database's *stored* version -- a
-// pre-existing v4 database would otherwise keep its old record shapes forever,
-// so this bump is required, not cosmetic.
-export const DB_VERSION = 5;
+// v6: `Session.scope` became one entry per script, that script's own Sets
+// listed under it. v5's upgrade wipe pattern is kept verbatim: the
+// bump exists so pre-v6 sessions with the old flat `scripts`/`sets` scope
+// are deleted rather than read back in a shape the app no longer
+// understands -- no migration code.
+export const DB_VERSION = 6;
 
 export const SETTINGS_STORE = 'settings';
 export const ATTEMPTS_STORE = 'attempts';
@@ -50,10 +50,10 @@ export interface TegakkoDb extends DBSchema {
 export async function openTegakkoDb(): Promise<IDBPDatabase<TegakkoDb>> {
   const connection = await openDB<TegakkoDb>(DB_NAME, DB_VERSION, {
     upgrade(db) {
-      // v5 deletes every store before recreating them. The issue's required
-      // upgrade wipe means settings (including `penCheckShown`) are cleared,
-      // so First Run shows again and no migration of old record shapes is
-      // attempted.
+      // Every upgrade deletes every store before recreating them -- the
+      // no-migration stance (see DB_VERSION): settings (including
+      // `penCheckShown`) are cleared, so First Run shows again and no
+      // migration of old record shapes is attempted.
       for (const storeName of [...db.objectStoreNames]) {
         db.deleteObjectStore(storeName);
       }

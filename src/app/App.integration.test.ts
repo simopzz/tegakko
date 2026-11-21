@@ -25,7 +25,7 @@ function seededSession(overrides: Partial<Session> = {}): Session {
   return {
     id: overrides.id ?? crypto.randomUUID(),
     date: overrides.date ?? '2026-09-01T00:00:00.000Z',
-    scope: overrides.scope ?? { scripts: ['hiragana'], sets: ['base'] },
+    scope: overrides.scope ?? { hiragana: ['base'] },
     cardsAttempted: overrides.cardsAttempted ?? 10,
     accuracy: overrides.accuracy ?? 0.5,
     closureReason: overrides.closureReason ?? 'explicit',
@@ -41,6 +41,14 @@ function sparklineBars(): HTMLElement[] {
 }
 
 describe('App integration', () => {
+  // The rebuilt Scope picker: scripts are a multi-select, each selected
+  // script gets its own Set row, and session sizes are fixed counts.
+  function setPill(script: string, set: string): HTMLElement {
+    return within(screen.getByRole('group', { name: `${script} Sets` })).getByRole('button', {
+      name: set,
+    });
+  }
+
   beforeEach(async () => {
     await resetDb();
     const settings = new IdbSettingsRepository();
@@ -65,8 +73,8 @@ describe('App integration', () => {
 
     // Narrow to a small, deterministic scope so grading one card and ending
     // is enough to exercise the whole pipeline.
-    await fireEvent.click(screen.getByRole('radio', { name: 'Hiragana' }));
-    await fireEvent.click(screen.getByRole('radio', { name: 'Yoon' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Katakana' }));
+    await fireEvent.click(setPill('Hiragana', 'Base'));
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
 
     // Drill entry: one card from the 33-card hiragana-yoon scope.
@@ -99,9 +107,9 @@ describe('App integration', () => {
 
   // The drill grade flow: one tap per card -- a grade advances
   // straight to the next prompt, and the Undo toast lives over that prompt
-  // until its first stroke. Shared preamble: an 8-card hiragana-yoon drill
-  // (25% of the 33-card scope), started and waiting at "1 / 8".
-  async function startEightCardDrill(): Promise<ReturnType<typeof fakeInkSurface>> {
+  // until its first stroke. Shared preamble: a 10-card hiragana-yoon drill,
+  // started and waiting at "1 / 10".
+  async function startTenCardDrill(): Promise<ReturnType<typeof fakeInkSurface>> {
     let surface = fakeInkSurface();
     render(App, {
       inkSurfaceFactory: () => {
@@ -110,23 +118,23 @@ describe('App integration', () => {
       },
     });
     await screen.findByText('What are we testing today?');
-    await fireEvent.click(screen.getByRole('radio', { name: 'Hiragana' }));
-    await fireEvent.click(screen.getByRole('radio', { name: 'Yoon' }));
-    await fireEvent.click(screen.getByRole('radio', { name: '25%' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Katakana' }));
+    await fireEvent.click(setPill('Hiragana', 'Base'));
+    await fireEvent.click(screen.getByRole('radio', { name: '10' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
-    expect(await screen.findByText(/1 \/ 8/)).toBeTruthy();
+    expect(await screen.findByText(/1 \/ 10/)).toBeTruthy();
     return surface;
   }
 
   it('grades straight to the next prompt, and Undo reverts the card before its first stroke', async () => {
-    const surface = await startEightCardDrill();
+    const surface = await startTenCardDrill();
 
     // One tap per card: the grade itself advances; "Next character" is gone.
     await surface.landStroke();
     await fireEvent.click(screen.getByRole('button', { name: 'Missed' }));
     await tick();
 
-    expect(screen.getByText(/2 \/ 8/)).toBeTruthy();
+    expect(screen.getByText(/2 \/ 10/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Next character' })).toBeNull();
     // The toast rides the new prompt rather than freezing the graded card.
     expect(screen.getByRole('button', { name: 'Undo' })).toBeTruthy();
@@ -134,7 +142,7 @@ describe('App integration', () => {
     // Undo before the new prompt's first stroke reverts the attempt and its
     // miss count, and brings the graded card back with its ink intact.
     await fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
-    expect(await screen.findByText(/1 \/ 8/)).toBeTruthy();
+    expect(await screen.findByText(/1 \/ 10/)).toBeTruthy();
     // Ink intact: grading is live again without writing anything new.
     expect(screen.getByRole('button', { name: 'Missed' }).hasAttribute('disabled')).toBe(false);
 
@@ -149,7 +157,7 @@ describe('App integration', () => {
   });
 
   it('ends the Undo window at the new prompt\'s first stroke', async () => {
-    const surface = await startEightCardDrill();
+    const surface = await startTenCardDrill();
 
     await surface.landStroke();
     await fireEvent.click(screen.getByRole('button', { name: 'Correct' }));
@@ -168,23 +176,23 @@ describe('App integration', () => {
   });
 
   it('grades the last card to a frozen prompt with Undo, and Finish closes the session as complete', async () => {
-    const surface = await startEightCardDrill();
+    const surface = await startTenCardDrill();
 
-    // Grades 1 through 7 advance straight through the queue; the 8th card
+    // Grades 1 through 9 advance straight through the queue; the 10th card
     // is now the prompt (the grade itself moved the counter).
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 9; i++) {
       await surface.landStroke();
       await fireEvent.click(screen.getByRole('button', { name: 'Correct' }));
       await tick();
     }
-    expect(screen.getByText(/8 \/ 8/)).toBeTruthy();
+    expect(screen.getByText(/10 \/ 10/)).toBeTruthy();
 
     // The queue-completing grade freezes the last card under its toast
     // instead of closing on its own: Undo stays fair, Finish completes.
     await surface.landStroke();
     await fireEvent.click(screen.getByRole('button', { name: 'Correct' }));
     await tick();
-    expect(screen.getByText(/8 \/ 8/)).toBeTruthy();
+    expect(screen.getByText(/10 \/ 10/)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Undo' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Finish' })).toBeTruthy();
 
@@ -199,7 +207,7 @@ describe('App integration', () => {
   });
 
   it('writes a yoon across two genkouyoushi cells and reveals the reference cell by cell', async () => {
-    const surface = await startEightCardDrill();
+    const surface = await startTenCardDrill();
 
     // One writing cell per character: every card in this scope is a yoon,
     // so the row the adapter draws (ADR-0002: its canvas, observed through
@@ -216,7 +224,7 @@ describe('App integration', () => {
     expect(cells[1]?.querySelector('.glyph')?.className).toContain('glyph--small');
   });
 
-  it('shows the scope\'s card and shaky counts live, from the stored miss counts', async () => {
+  it('shows one live "N cards · M shaky" line, from the stored miss counts', async () => {
     // One heavily-missed hiragana card: above the average on the full
     // scope, gone entirely once the scope narrows past it.
     const tallyRepository = new IdbTallyRepository();
@@ -228,19 +236,15 @@ describe('App integration', () => {
     render(App);
 
     await screen.findByText('What are we testing today?');
-    expect(screen.getByText('208 cards in scope')).toBeTruthy();
-    expect(screen.getByText('208 cards this session')).toBeTruthy();
-    expect(await screen.findByText('1 shaky')).toBeTruthy();
+    expect(await screen.findByText('208 cards · 1 shaky')).toBeTruthy();
 
-    await fireEvent.click(screen.getByRole('radio', { name: 'Katakana' }));
-    expect(await screen.findByText('104 cards in scope')).toBeTruthy();
+    await fireEvent.click(screen.getByRole('button', { name: 'Hiragana' }));
     // The only miss record dropped out of scope -- nothing is above the
     // average any more.
-    expect(await screen.findByText('0 shaky')).toBeTruthy();
+    expect(await screen.findByText('104 cards · 0 shaky')).toBeTruthy();
 
-    await fireEvent.click(screen.getByRole('radio', { name: 'Both scripts' }));
-    expect(await screen.findByText('208 cards in scope')).toBeTruthy();
-    expect(await screen.findByText('1 shaky')).toBeTruthy();
+    await fireEvent.click(screen.getByRole('button', { name: 'Hiragana' }));
+    expect(await screen.findByText('208 cards · 1 shaky')).toBeTruthy();
   });
 
   it('lists stored sessions newest-first with closure chips and a sparkline', async () => {
@@ -266,8 +270,8 @@ describe('App integration', () => {
 
     render(App);
     await screen.findByText('What are we testing today?');
-    // No stored miss counts on a fresh database -- the badge reads zero.
-    expect(await screen.findByText('0 shaky')).toBeTruthy();
+    // No stored miss counts on a fresh database -- the line reads zero shaky.
+    expect(await screen.findByText('208 cards · 0 shaky')).toBeTruthy();
     await fireEvent.click(screen.getByRole('button', { name: 'History' }));
 
     // Focus lands on the History heading on entry.
@@ -372,7 +376,7 @@ describe('App integration', () => {
       tallies: Array<{ cardId: string; missCount: number }>;
       sessions: Session[];
     };
-    expect(envelope.version).toBe(2);
+    expect(envelope.version).toBe(3);
     expect(envelope.tallies).toEqual([{ cardId: missed.cardId, missCount: 3 }]);
     expect(envelope.sessions).toEqual([stored]);
 
@@ -383,7 +387,7 @@ describe('App integration', () => {
     const imported: Session = {
       id: 'imported-session',
       date: '2026-10-05T00:00:00.000Z',
-      scope: { scripts: ['katakana'], sets: ['yoon'] },
+      scope: { katakana: ['yoon'] },
       cardsAttempted: 7,
       accuracy: 0.5,
       closureReason: 'complete',

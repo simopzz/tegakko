@@ -1,18 +1,14 @@
 <script lang="ts">
-  // Scope picker screen. Follows FirstRun.svelte's pattern: its own scoped
-  // style block using existing theme tokens, callback props, no local
-  // routing. Pill-toggle groups commit immediately (no confirm step) and
-  // drive a live card-count recompute (see docs/design.md).
+  // Scope picker screen (docs/design.md): script is a multi-select, each
+  // selected script gets its own Set row, session size is a fixed count
+  // clamped to the scope, and one "N cards · M shaky" line sums the scope
+  // up. Scripts and their Sets derive from the catalog, so a third script
+  // slots into the same layout when its cards land in `CARDS`.
   import { onMount, untrack } from 'svelte';
-  import {
-    cardsInScope,
-    FULL_SCOPE,
-    resolveSessionSize,
-    type Scope,
-    type SessionSizeChoice,
-  } from '../../domain/scope';
+  import { cardsInScope, FULL_SCOPE } from '../../domain/scope';
+  import type { Scope, SessionSizeChoice } from '../../domain/scope';
   import { countShaky, type Tally } from '../../domain/tally';
-  import { CARDS, type Script, type CardSet } from '../../domain/cards';
+  import { CARDS, type CardSet, type Script } from '../../domain/cards';
   import ScreenShell from './ScreenShell.svelte';
 
   function capitalize(value: string): string {
@@ -24,25 +20,21 @@
      * fail-open to none. The counts themselves are pure domain over the
      * static bundled catalog, computed below. */
     scopePreview: { tallies(): Promise<Tally[]> };
-    /** The composition root's `handleStart` is `async` (it awaits
-     * `listAll()` before entering the drill) -- `void | Promise<void>`
-     * reflects that without forcing this component to await it itself. */
+    /** The composition root's `handleStart` is `async` (it awaits the
+     * practice module's start) -- `void | Promise<void>` reflects that
+     * without forcing this component to await it itself. */
     onStart: (scope: Scope) => void | Promise<void>;
-    /** Seeds the pill groups on mount. This screen is unmounted whenever the
-     * drill or Settings is open, so the composition root -- not this
+    /** Seeds the selection on mount. This screen is unmounted while Drill,
+     * Settings or History is open, so the composition root -- not this
      * component -- is what keeps a selection alive across a Back
      * (`onScopeChange` feeds it, this prop restores it). */
     initialScope?: Scope;
     onScopeChange?: (scope: Scope) => void;
-    /** A second, independent pill group for the
-     * session-size choice. Mirrors `initialScope`/`onScopeChange` exactly --
-     * seeds the pill on mount, reports every change so Back (via Settings)
-     * restores it. Deliberately not threaded into `onStart` itself (that
-     * signature stays `(scope: Scope) => ...`) -- the composition root
-     * resolves this into an exact card
-     * count via `domain/scope.ts`'s `resolveSessionSize` inside its own
-     * `handleStart`, from the `sessionSize` state reported through
-     * `onSessionSizeChange`. */
+    /** A second, independent pill group for the session-size choice.
+     * Mirrors `initialScope`/`onScopeChange` exactly. Deliberately not
+     * threaded into `onStart` itself -- the composition root resolves this
+     * into an exact card count via `domain/scope.ts`'s
+     * `resolveSessionSize` inside its own `handleStart`. */
     initialSessionSize?: SessionSizeChoice;
     onSessionSizeChange?: (choice: SessionSizeChoice) => void;
   }
@@ -66,235 +58,144 @@
     });
   });
 
-  // The static bundled catalog -- never a repository round trip.
-  const allCards = CARDS;
-
-  type ScriptChoice = 'both' | Script;
-  type SetChoice = 'all' | CardSet;
-
-  // A restored `Scope` maps back onto the pill choices unambiguously: a
-  // two-entry array is the unnarrowed "Both", anything else is the single
-  // narrowed value. `untrack` because this is a deliberate one-shot seed --
-  // the props are read for their initial value only, and Svelte otherwise
-  // warns (state_referenced_locally) about exactly that.
-  let scriptChoice = $state<ScriptChoice>(
-    untrack(() => {
-      const scripts = initialScope?.scripts;
-      return scripts && scripts.length === 1 && scripts[0] ? scripts[0] : 'both';
-    }),
+  // The catalog decides what can be picked: first-appearance order puts
+  // scripts and Sets in catalog order, and a future script (kanji) needs
+  // no change here once its cards exist.
+  const scripts = [...new Set(CARDS.map((card) => card.script))] as Script[];
+  const setsByScript = new Map<Script, CardSet[]>(
+    scripts.map((script) => [
+      script,
+      [...new Set(CARDS.filter((card) => card.script === script).map((card) => card.set))] as CardSet[],
+    ]),
   );
-  let setChoice = $state<SetChoice>(
-    untrack(() => {
-      const sets = initialScope?.sets;
-      return sets && sets.length === 1 && sets[0] ? sets[0] : 'all';
-    }),
-  );
-  // Restored verbatim -- unlike `scriptChoice`/`setChoice`, there is no
-  // `Scope`-shaped round trip to unambiguously re-derive here, so the prop
-  // carries the discrete choice itself.
+
+  // A plain mutable copy (frozen arrays would throw under $state proxies):
+  // the scope itself is the single source of truth -- pills read from it,
+  // toggles write it, nothing translates between a "choice" type and it.
+  function cloneScope(scope: Scope): Scope {
+    return Object.fromEntries(
+      Object.entries(scope).map(([script, sets]) => [script, [...(sets ?? [])]]),
+    ) as Scope;
+  }
+
+  let scope = $state<Scope>(untrack(() => cloneScope(initialScope ?? FULL_SCOPE)));
+
+  const selectedScripts = $derived(scripts.filter((script) => scope[script] !== undefined));
+
+  function toggleScript(script: Script): void {
+    if (scope[script] === undefined) {
+      // Re-selecting a script restores its full Set row -- the widest
+      // guaranteed-valid scope for it.
+      scope = { ...scope, [script]: [...(setsByScript.get(script) ?? [])] };
+      return;
+    }
+    // The last selected script stays on: an empty scope has no cards, so
+    // no session could ever start from it.
+    if (selectedScripts.length === 1) return;
+    const next = { ...scope };
+    delete next[script];
+    scope = next;
+  }
+
+  function toggleSet(script: Script, set: CardSet): void {
+    const current = scope[script] ?? [];
+    if (!current.includes(set)) {
+      scope = { ...scope, [script]: [...current, set] };
+      return;
+    }
+    // A selected script always keeps at least one Set.
+    if (current.length === 1) return;
+    scope = { ...scope, [script]: current.filter((candidate) => candidate !== set) };
+  }
+
+  const SIZE_CHOICES: readonly SessionSizeChoice[] = [10, 20, 50, 'all'];
   let sizeChoice = $state<SessionSizeChoice>(untrack(() => initialSessionSize ?? 'all'));
 
-  // "Both"/"All" fall back to `FULL_SCOPE`'s own arrays -- not a re-typed
-  // literal -- so this can never silently drift from the domain's definition
-  // of "unnarrowed" (verification-gap: ScopePicker used to duplicate the
-  // literal instead of importing it).
-  const scope = $derived<Scope>({
-    scripts: scriptChoice === 'both' ? FULL_SCOPE.scripts : [scriptChoice],
-    sets: setChoice === 'all' ? FULL_SCOPE.sets : [setChoice],
-  });
+  const scopedCards = $derived(cardsInScope(CARDS, scope));
+  const shakyCount = $derived(countShaky(scopedCards, tallies));
 
-  const scopedCount = $derived(cardsInScope(allCards, scope).length);
-
-  // Live recompute, not a cached number: a percentage of a
-  // changed scope is already a valid value for that scope, so there is no
-  // separate "clamp" step when the scope narrows or widens underneath an
-  // already-made choice. `resolveSessionSize` is the one shared formula
-  // (`domain/scope.ts`) -- this hint can never drift from what
-  // `App.svelte`'s `handleStart` independently resolves and actually
-  // samples.
-  const effectiveSessionSize = $derived(resolveSessionSize(sizeChoice, scopedCount));
-
-  // Informational only: recomputed
-  // live on every script/set toggle, but never fed back into
-  // `sampleSessionCards`' weighting.
-  const shakyCount = $derived(countShaky(cardsInScope(allCards, scope), tallies));
-
-  // Chip labels are derived from `scope` itself, not re-branched from
-  // `scriptChoice`/`setChoice` a second time, so the chips the learner sees
-  // can never drift from the scope actually handed to `onStart`.
-  const scriptChipLabels = $derived(scope.scripts.map(capitalize));
-  const setChipLabels = $derived(scope.sets.map(capitalize));
-
-  // Report every change, not just the one at "Start writing" -- Settings can
-  // be opened mid-selection, and coming back must land on the same pills.
+  // Report every change, not just the one at "Start writing" -- Settings or
+  // History can be opened mid-selection, and coming back must land on the
+  // same pills. A snapshot, never the $state proxy itself: proxies are not
+  // structured-cloneable (coding-standards.md rule 9).
   $effect(() => {
-    onScopeChange?.(scope);
+    onScopeChange?.($state.snapshot(scope));
   });
 
-  // Mirrors the `onScopeChange` effect above, one-for-one: reports every
-  // change (not just the one at "Start writing"), since Settings can be
-  // opened mid-pick and coming back must land on the same segment.
+  // Mirrors the `onScopeChange` effect above, one-for-one.
   $effect(() => {
     onSessionSizeChange?.(sizeChoice);
   });
 
   function handleStart(): void {
-    onStart(scope);
+    // Snapshot for the same reason as `onScopeChange` above.
+    onStart($state.snapshot(scope));
   }
 </script>
 
 <ScreenShell>
   <h1 class="heading">What are we testing today?</h1>
 
-    <div class="group">
-      <p class="group-label">Script</p>
-      <div class="pill-group" role="radiogroup" aria-label="Script">
+  <div class="group">
+    <p class="group-label">Script</p>
+    <div class="pill-group" role="group" aria-label="Script">
+      {#each scripts as script (script)}
         <button
           type="button"
           class="pill"
-          class:pill--active={scriptChoice === 'both'}
-          role="radio"
-          aria-checked={scriptChoice === 'both'}
-          aria-label="Both scripts"
-          tabindex={scriptChoice === 'both' ? 0 : -1}
-          onclick={() => (scriptChoice = 'both')}
+          class:pill--active={scope[script] !== undefined}
+          aria-pressed={scope[script] !== undefined}
+          onclick={() => toggleScript(script)}
         >
-          Both
+          {capitalize(script)}
         </button>
-        <button
-          type="button"
-          class="pill"
-          class:pill--active={scriptChoice === 'hiragana'}
-          role="radio"
-          aria-checked={scriptChoice === 'hiragana'}
-          tabindex={scriptChoice === 'hiragana' ? 0 : -1}
-          onclick={() => (scriptChoice = 'hiragana')}
-        >
-          Hiragana
-        </button>
-        <button
-          type="button"
-          class="pill"
-          class:pill--active={scriptChoice === 'katakana'}
-          role="radio"
-          aria-checked={scriptChoice === 'katakana'}
-          tabindex={scriptChoice === 'katakana' ? 0 : -1}
-          onclick={() => (scriptChoice = 'katakana')}
-        >
-          Katakana
-        </button>
-      </div>
+      {/each}
     </div>
+  </div>
 
+  {#each selectedScripts as script (script)}
     <div class="group">
-      <p class="group-label">Set</p>
-      <div class="pill-group" role="radiogroup" aria-label="Set">
-        <button
-          type="button"
-          class="pill"
-          class:pill--active={setChoice === 'all'}
-          role="radio"
-          aria-checked={setChoice === 'all'}
-          aria-label="Both sets"
-          tabindex={setChoice === 'all' ? 0 : -1}
-          onclick={() => (setChoice = 'all')}
-        >
-          Both
-        </button>
-        <button
-          type="button"
-          class="pill"
-          class:pill--active={setChoice === 'base'}
-          role="radio"
-          aria-checked={setChoice === 'base'}
-          tabindex={setChoice === 'base' ? 0 : -1}
-          onclick={() => (setChoice = 'base')}
-        >
-          Base
-        </button>
-        <button
-          type="button"
-          class="pill"
-          class:pill--active={setChoice === 'yoon'}
-          role="radio"
-          aria-checked={setChoice === 'yoon'}
-          tabindex={setChoice === 'yoon' ? 0 : -1}
-          onclick={() => (setChoice = 'yoon')}
-        >
-          Yoon
-        </button>
-      </div>
-    </div>
-
-    <div class="group">
-      <p class="group-label">Session size</p>
-      <div class="pill-group" role="radiogroup" aria-label="Session size">
-        <button
-          type="button"
-          class="pill"
-          class:pill--active={sizeChoice === 0.25}
-          role="radio"
-          aria-checked={sizeChoice === 0.25}
-          tabindex={sizeChoice === 0.25 ? 0 : -1}
-          onclick={() => (sizeChoice = 0.25)}
-        >
-          25%
-        </button>
-        <button
-          type="button"
-          class="pill"
-          class:pill--active={sizeChoice === 0.5}
-          role="radio"
-          aria-checked={sizeChoice === 0.5}
-          tabindex={sizeChoice === 0.5 ? 0 : -1}
-          onclick={() => (sizeChoice = 0.5)}
-        >
-          50%
-        </button>
-        <button
-          type="button"
-          class="pill"
-          class:pill--active={sizeChoice === 0.75}
-          role="radio"
-          aria-checked={sizeChoice === 0.75}
-          tabindex={sizeChoice === 0.75 ? 0 : -1}
-          onclick={() => (sizeChoice = 0.75)}
-        >
-          75%
-        </button>
-        <button
-          type="button"
-          class="pill"
-          class:pill--active={sizeChoice === 'all'}
-          role="radio"
-          aria-checked={sizeChoice === 'all'}
-          tabindex={sizeChoice === 'all' ? 0 : -1}
-          onclick={() => (sizeChoice = 'all')}
-        >
-          All
-        </button>
-      </div>
-      <!-- Never threaded into `onStart` itself (see the prop docstring
-           above) -- `App.svelte`'s `handleStart` independently resolves the
-           same `resolveSessionSize` formula, so this hint can never drift
-           from what the session actually samples. -->
-      <p class="hint">{effectiveSessionSize} {effectiveSessionSize === 1 ? 'card' : 'cards'} this session</p>
-    </div>
-
-    <div class="count-card">
-      <p class="count-value">{scopedCount} {scopedCount === 1 ? 'card' : 'cards'} in scope</p>
-      <div class="chips">
-        {#each scriptChipLabels as label (label)}
-          <span class="chip chip--positive">{label}</span>
+      <p class="group-label">{capitalize(script)} Sets</p>
+      <div class="pill-group" role="group" aria-label="{capitalize(script)} Sets">
+        {#each setsByScript.get(script) ?? [] as set (set)}
+          <button
+            type="button"
+            class="pill"
+            class:pill--active={scope[script]?.includes(set) === true}
+            aria-pressed={scope[script]?.includes(set) === true}
+            onclick={() => toggleSet(script, set)}
+          >
+            {capitalize(set)}
+          </button>
         {/each}
-        {#each setChipLabels as label (label)}
-          <span class="chip chip--positive">{label}</span>
-        {/each}
-        <span class="chip chip--missed">{shakyCount} shaky</span>
       </div>
     </div>
+  {/each}
 
-    <button type="button" class="btn btn--primary" onclick={handleStart}> Start writing </button>
+  <div class="group">
+    <p class="group-label">Session size</p>
+    <div class="pill-group" role="radiogroup" aria-label="Session size">
+      {#each SIZE_CHOICES as choice (choice)}
+        <button
+          type="button"
+          class="pill"
+          class:pill--active={sizeChoice === choice}
+          role="radio"
+          aria-checked={sizeChoice === choice}
+          tabindex={sizeChoice === choice ? 0 : -1}
+          onclick={() => (sizeChoice = choice)}
+        >
+          {choice === 'all' ? 'All' : choice}
+        </button>
+      {/each}
+    </div>
+  </div>
+
+  <!-- One line, live: the scope's size and how many shaky cards it holds.
+       A count preset larger than the scope clamps silently at Start. -->
+  <p class="summary" aria-live="polite">{scopedCards.length} cards · {shakyCount} shaky</p>
+
+  <button type="button" class="btn btn--primary" onclick={handleStart}> Start writing </button>
 </ScreenShell>
 
 <style>
@@ -349,53 +250,12 @@
     color: var(--color-surface-card);
   }
 
-  .hint {
-    margin: 0;
-    font-family: var(--font-body);
-    font-size: 0.9rem;
-    color: var(--color-ink-muted);
-  }
-
-  .count-card {
-    background: var(--color-surface-card-secondary);
-    border-radius: var(--radius-xl);
-    padding: var(--spacing-4);
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-2);
-  }
-
-  .count-value {
+  .summary {
     margin: 0;
     font-family: var(--font-heading);
     font-weight: 600;
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     color: var(--color-ink);
-  }
-
-  .chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-1);
-  }
-
-  .chip {
-    border-radius: var(--radius-sm);
-    padding: var(--spacing-1) var(--spacing-2);
-    font-family: var(--font-label);
-    font-weight: 700;
-    font-size: 0.8rem;
-    letter-spacing: 0.02em;
-  }
-
-  .chip--positive {
-    background: var(--color-positive-bg);
-    color: var(--color-positive-fg);
-  }
-
-  .chip--missed {
-    background: var(--color-missed-bg);
-    color: var(--color-missed-fg);
   }
 
   .btn {
