@@ -44,4 +44,16 @@ Diagnosing a page in a browser, whether a style that won't apply, a slow load, a
 
 ### PR screenshots
 
-A PR that changes what the learner sees shows screenshots in its body. This repo is private, so images must be *attached*, never linked as raw-branch URLs: `raw.githubusercontent.com` carries no auth and 404s inside private-repo bodies. Attach with `gh pr edit <pr> --attach '<image>#caption'` — the uploads land as `user-attachments` URLs appended to the body — then edit the body to place them (wrapped in a `<details>` block if preferred; `<img src width>` renders for resizing). `![](./file.png)` body references are *not* rewritten by `--attach`; move the appended URLs yourself.
+A PR that changes what the learner sees shows its screenshots in one collapsed block at the end of the body, each image captioned and sized to 520px:
+
+```html
+<details>
+<summary>Screenshots (800×1280)</summary>
+
+**What the shot shows:**
+<img src="https://github.com/user-attachments/assets/…" width="520">
+
+</details>
+```
+
+The repo is private, so images must be *uploaded*, never linked: `raw.githubusercontent.com` URLs (e.g. from a dedicated images branch) carry no auth and 404 in PR bodies. Attach with `gh pr edit <pr> --attach '<image>#caption'`, then rewrite the body: `--attach` appends the bare uploads, it does not rewrite `![](./file.png)` references, so compose the block yourself from the appended `user-attachments` URLs.
