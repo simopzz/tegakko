@@ -97,7 +97,7 @@ describe('App integration', () => {
     expect(screen.queryByText('No sessions yet. Finish a drill to see it here.')).toBeNull();
   });
 
-  // The drill grade flow (#41): one tap per card -- a grade advances
+  // The drill grade flow: one tap per card -- a grade advances
   // straight to the next prompt, and the Undo toast lives over that prompt
   // until its first stroke. Shared preamble: an 8-card hiragana-yoon drill
   // (25% of the 33-card scope), started and waiting at "1 / 8".

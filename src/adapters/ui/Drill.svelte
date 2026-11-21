@@ -105,6 +105,14 @@
   // No-op mid-undo (see `DrillSession.checkIdleOnResume`'s guard).
   const checkIdleOnResume = (): void => session.checkIdleOnResume();
 
+  /** Ends the undo window: writing on, or revealing, the new prompt is
+   * committing to it, so the previous grade becomes final. */
+  function endUndoWindow(): void {
+    if (graded === null) return;
+    graded = null;
+    session.clearUndoable();
+  }
+
   onMount(() => {
     if (!cell) return;
     inkSurface.onStrokeComplete((stroke, timing) => {
@@ -118,12 +126,8 @@
       // reveals an idle session is dropped, never recorded as part of the
       // closed session.
       if (!session.recordInteraction()) return;
-      // The new prompt's first stroke ends the undo window: writing here
-      // is committing to this card, so the previous grade is final.
-      if (graded !== null) {
-        graded = null;
-        session.clearUndoable();
-      }
+      // The new prompt's first stroke ends the undo window.
+      endUndoWindow();
       hasInk = true;
       strokes.push(stroke);
       // Only the first stroke since the last Clear/grade sets this --
@@ -157,11 +161,8 @@
   function handleReveal(): void {
     if (!session.recordInteraction()) return;
     // A Reveal on the new prompt ends the undo window, same as its first
-    // stroke -- either way the learner has committed to this card.
-    if (graded !== null) {
-      graded = null;
-      session.clearUndoable();
-    }
+    // stroke.
+    endUndoWindow();
     // Never assigns a grade -- Missed/Correct stay required afterward.
     revealed = true;
     // Move focus onto the newly-active Missed button so a keyboard/screen
