@@ -41,3 +41,7 @@ Single-context: root `GLOSSARY.md` + `docs/adr/`. See `docs/agents/domain.md`.
 ### Browser
 
 Diagnosing a page in a browser, whether a style that won't apply, a slow load, an accessibility failure or a leak, goes through the `chrome-devtools` MCP server. Clicking through and screenshots go through `playwright-brave`. See `docs/agents/browser-tools.md` before opening either.
+
+### PR screenshots
+
+A PR that changes what the learner sees shows screenshots in its body, published on the orphan branch `pr-images`: `mise run pr-image <pr> <image>...` publishes them and prints the `<img>` tags. PRs share the branch, so a refused push retries after re-fetching it.
