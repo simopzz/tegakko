@@ -76,8 +76,8 @@ describe('App', () => {
 
   it('still boots to First Run when the settings read rejects outright', async () => {
     // The err fallback above is the repository's contract; this covers the
-    // bug that breaks it -- an uncaught rejection must not leave the app
-    // blank behind `ready`.
+    // other failure path adapters can take -- an outright rejection must
+    // not leave the app blank behind `ready`.
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     getMock.mockRejectedValue(new Error('adapter bug'));
 

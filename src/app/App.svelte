@@ -127,9 +127,8 @@
   onMount(() => {
     void settingsRepository
       .get()
-      // The repository folds its own failures into `err`; this catch covers
-      // the bug that breaks that contract -- a rejection must still boot the
-      // app rather than leave it blank behind `ready`.
+      // A rejection (not just a resolved `err`) must still boot the app
+      // rather than leave it blank behind `ready`.
       .catch((error: unknown) => {
         console.error('Failed to read settings:', error);
         return err<SettingsRecord>(error instanceof Error ? error : new Error(String(error)));

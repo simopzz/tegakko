@@ -189,14 +189,14 @@ describe('Settings', () => {
   });
 
   it('still renders inert with the read-failure note when load() rejects outright', async () => {
-    // The err path above is the store's contract; this covers the bug that
-    // breaks it -- a rejection must not leave the screen blank behind
+    // The err path above is the store's contract; this covers the other
+    // failure path -- a rejection must not leave the screen blank behind
     // `loaded`.
     const settings: FakeSettings = {
       load: vi.fn().mockRejectedValue(new Error('adapter bug')),
       save: vi.fn().mockResolvedValue(ok(undefined)),
     };
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     renderSettings(settings);
 
     await screen.findByRole('radiogroup', { name: 'Ink width' });
@@ -205,6 +205,7 @@ describe('Settings', () => {
     expect(screen.getByRole('radio', { name: 'Subtle' }).getAttribute('aria-disabled')).toBe(
       'true',
     );
+    consoleError.mockRestore();
   });
 
   it('keeps one control\'s failure note when the other control\'s active segment is tapped', async () => {
