@@ -16,7 +16,6 @@
   import { IdbAttemptRepository } from '../adapters/persistence/attempt-repository';
   import { IdbTallyRepository } from '../adapters/persistence/tally-repository';
   import { IdbSessionRepository } from '../adapters/persistence/session-repository';
-  import { InMemoryCardRepository } from '../adapters/content/card-repository';
   import { CanvasInkSurface } from '../adapters/ink/canvas-ink-surface';
   import { JsonProgressExporter } from '../adapters/io/json-progress-exporter';
   import { JsonProgressImporter } from '../adapters/io/json-progress-importer';
@@ -34,13 +33,13 @@
   import { DEFAULT_SETTINGS, type WidthPreset } from '../domain/settings';
   import type { SessionSummaryView } from '../domain/session';
   import { PracticeModule } from './practice';
+  import { Backup, ScopePreview, SessionHistory, SettingsStore } from './use-cases';
   import type { DrillSession } from '../adapters/ui/drill-session';
 
   const settingsRepository = new IdbSettingsRepository();
   const attemptRepository = new IdbAttemptRepository();
   const tallyRepository = new IdbTallyRepository();
   const sessionRepository: SessionRepository = new IdbSessionRepository();
-  const cardRepository = new InMemoryCardRepository();
   // The io adapter reads through the same repo instances as the rest of the
   // app -- it never imports `adapters/persistence` itself.
   const progressExporter = new JsonProgressExporter({
@@ -56,6 +55,13 @@
     sessions: sessionRepository,
     replacer: new IdbProgressReplacer(),
   });
+
+  // The screens' use-cases: repositories stop at this line -- no screen
+  // below receives one (docs/adr/0001-hexagonal-boundary.md).
+  const scopePreview = new ScopePreview(tallyRepository);
+  const sessionHistory = new SessionHistory(sessionRepository);
+  const settingsStore = new SettingsStore(settingsRepository);
+  const backup = new Backup(progressExporter, progressImporter);
 
   // A canvas can't read CSS custom properties, so `theme.css`'s token values
   // are handed to the ink adapter from here -- the composition root is the
@@ -212,11 +218,10 @@
 
 {#if ready}
   {#if screen === 'pen-check'}
-    <FirstRun {settingsRepository} onDismiss={handlePenCheckDismissed} />
+    <FirstRun settings={settingsStore} onDismiss={handlePenCheckDismissed} />
   {:else if screen === 'scope-picker'}
     <ScopePicker
-      {cardRepository}
-      {tallyRepository}
+      {scopePreview}
       onStart={handleStart}
       onSettings={handleOpenSettings}
       onHistory={handleOpenHistory}
@@ -227,9 +232,8 @@
     />
   {:else if screen === 'settings'}
     <Settings
-      {settingsRepository}
-      {progressExporter}
-      {progressImporter}
+      settings={settingsStore}
+      {backup}
       onPresetChange={handlePresetChange}
       onBack={handleSettingsBack}
     />
@@ -238,6 +242,6 @@
   {:else if screen === 'summary' && summary}
     <SessionSummary {summary} onAgain={handleSummaryAgain} onHistory={handleOpenHistory} />
   {:else if screen === 'history'}
-    <History {sessionRepository} onBack={handleHistoryBack} />
+    <History history={sessionHistory} onBack={handleHistoryBack} />
   {/if}
 {/if}

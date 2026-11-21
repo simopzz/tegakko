@@ -6,14 +6,22 @@
   // Lightweight normalizedPressure/pointer handling, simplified: no stroke
   // rendering, just a live pressure readout.
   import { onMount } from 'svelte';
-  import type { SettingsRepository } from '../../ports/settings-repository';
+  import type { Result } from '../../domain/result';
+  import type { Settings } from '../../domain/settings';
 
   interface Props {
-    settingsRepository: SettingsRepository;
+    /** The composition root's settings use-case: a read and a whole-record
+     * save -- this screen merges `penCheckShown` onto the record it read
+     * itself, so a failed read can never persist a record built from
+     * guesses. */
+    settings: {
+      load(): Promise<Result<Settings>>;
+      save(record: Settings): Promise<Result<void>>;
+    };
     onDismiss: () => void;
   }
 
-  const { settingsRepository, onDismiss }: Props = $props();
+  const { settings, onDismiss }: Props = $props();
 
   // `beforeinstallprompt` isn't in lib.dom's WindowEventMap -- declared here
   // instead of reaching for `any` (Chromium-only, so the install button only
@@ -94,7 +102,7 @@
       onDismiss();
       return;
     }
-    const current = await settingsRepository.get();
+    const current = await settings.load();
     if (!current.ok) {
       // Don't silently fall back to defaults on a read failure -- that
       // would overwrite any real settings (widthPreset, etc.) the same way a
@@ -104,7 +112,7 @@
       persistenceFailed = true;
       return;
     }
-    const result = await settingsRepository.save({ ...current.value, penCheckShown: true });
+    const result = await settings.save({ ...current.value, penCheckShown: true });
     if (!result.ok) {
       // Never hard-block: surface the failure (a short, generic message --
       // the technical detail is for the console, not the learner), but stay

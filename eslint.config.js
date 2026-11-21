@@ -9,7 +9,7 @@ import svelte from 'eslint-plugin-svelte';
 // `from` with `minimatch`, which matches path *segments* -- without `/**`,
 // `./src/adapters/!(ui)` only matches a path literally equal to one sibling
 // adapter's directory name, never a file nested inside it.
-export const adapterZones = ['content', 'ink', 'persistence', 'ui', 'io'].map((name) => ({
+export const adapterZones = ['ink', 'persistence', 'ui', 'io'].map((name) => ({
   target: `./src/adapters/${name}`,
   from: `./src/adapters/!(${name})/**`,
 }));

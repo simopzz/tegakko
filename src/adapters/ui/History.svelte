@@ -5,14 +5,12 @@
   // the `{#if loaded}` gate, one-shot `onMount` read, no live re-fetch/poll
   // while mounted.
   //
-  // Reads only via `sessionRepository.list()` -- no writes, no
-  // editing/deleting rows. `list()`'s own order is
-  // unspecified per its port docstring, so `sortSessionsDescending` always
-  // imposes History's own order before anything renders.
+  // Reads only -- no writes, no editing/deleting rows. The list arrives from
+  // the composition root's use-case in unspecified order, so
+  // `sortSessionsDescending` always imposes History's own order before
+  // anything renders.
   import { onMount } from 'svelte';
-  import type { SessionRepository } from '../../ports/session-repository';
   import type { Session } from '../../domain/session';
-  import { err } from '../../domain/result';
   import { formatDate } from './format-date';
   import {
     sortSessionsDescending,
@@ -22,11 +20,15 @@
   } from '../../domain/history';
 
   interface Props {
-    sessionRepository: SessionRepository;
+    /** The composition root's use-case: the stored session list, fail-open
+     * to empty -- the use-case folds and logs the failure. Order is
+     * unspecified there, so `sortSessionsDescending` below always imposes
+     * History's own order before anything renders. */
+    history: { list(): Promise<Session[]> };
     onBack: () => void;
   }
 
-  const { sessionRepository, onBack }: Props = $props();
+  const { history, onBack }: Props = $props();
 
   let sessions = $state<Session[]>([]);
   let loaded = $state(false);
@@ -39,25 +41,12 @@
   });
 
   // One-shot fetch, same pattern as `Settings.svelte`'s `onMount` -- no
-  // live re-fetch/poll while History is mounted. Mirrors `App.svelte`'s
-  // `attemptRepository.listAll().catch(...)` handling: a rejected promise is
-  // converted into the same `Result` shape a resolved `{ ok: false }` already
-  // is, so both of a repository's possible failure paths fail open through
-  // one branch, leaving `sessions` empty and logging via `console.error`.
+  // live re-fetch/poll while History is mounted.
   onMount(() => {
-    void sessionRepository
-      .list()
-      .catch((error: unknown) =>
-        err<Session[]>(error instanceof Error ? error : new Error(String(error))),
-      )
-      .then((result) => {
-        if (result.ok) {
-          sessions = sortSessionsDescending(result.value);
-        } else {
-          console.error('Failed to load sessions:', result.error);
-        }
-        loaded = true;
-      });
+    void history.list().then((listed) => {
+      sessions = sortSessionsDescending(listed);
+      loaded = true;
+    });
   });
 
   const sparkline = $derived(sparklineSessions(sessions));

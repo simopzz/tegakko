@@ -4,8 +4,6 @@
   // routing. Pill-toggle groups commit immediately (no confirm step) and
   // drive a live card-count recompute (see docs/design.md).
   import { onMount, untrack } from 'svelte';
-  import type { CardRepository } from '../../ports/card-repository';
-  import type { TallyRepository } from '../../ports/tally-repository';
   import {
     cardsInScope,
     FULL_SCOPE,
@@ -14,15 +12,17 @@
     type SessionSizeChoice,
   } from '../../domain/scope';
   import { countShaky, type Tally } from '../../domain/tally';
-  import type { Script, CardSet } from '../../domain/cards';
+  import { CARDS, type Script, type CardSet } from '../../domain/cards';
 
   function capitalize(value: string): string {
     return value.charAt(0).toUpperCase() + value.slice(1);
   }
 
   interface Props {
-    cardRepository: CardRepository;
-    tallyRepository: TallyRepository;
+    /** The composition root's preview use-case: fresh stored miss counts,
+     * fail-open to none. The counts themselves are pure domain over the
+     * static bundled catalog, computed below. */
+    scopePreview: { tallies(): Promise<Tally[]> };
     /** The composition root's `handleStart` is `async` (it awaits
      * `listAll()` before entering the drill) -- `void | Promise<void>`
      * reflects that without forcing this component to await it itself. */
@@ -49,8 +49,7 @@
   }
 
   const {
-    cardRepository,
-    tallyRepository,
+    scopePreview,
     onStart,
     onSettings,
     onHistory,
@@ -60,27 +59,18 @@
     onSessionSizeChange,
   }: Props = $props();
 
-  // Fetched once on mount, fails open to `[]` -- mirrors `App.svelte`'s
-  // settings-read fallback: a tally-fetch failure still shows "0 shaky"
+  // Fetched once on mount, fails open to [] -- the use-case folds the
+  // failure and logs it, so a tally-fetch failure still shows "0 shaky"
   // rather than blocking the Scope picker.
   let tallies = $state<Tally[]>([]);
   onMount(() => {
-    void tallyRepository
-      .getAll()
-      .then((result) => {
-        if (result.ok) tallies = result.value;
-      })
-      .catch((error: unknown) => {
-        console.error('Failed to load tallies:', error);
-      });
+    void scopePreview.tallies().then((loaded) => {
+      tallies = loaded;
+    });
   });
 
-  // `$derived`, not a plain top-level read, so Svelte doesn't warn about
-  // capturing only `cardRepository`'s initial value (state_referenced_locally)
-  // -- in practice this recomputes once, since the catalog is static bundled
-  // data and `cardRepository` itself never changes over this
-  // component's lifetime.
-  const allCards = $derived(cardRepository.getAll());
+  // The static bundled catalog -- never a repository round trip.
+  const allCards = CARDS;
 
   type ScriptChoice = 'both' | Script;
   type SetChoice = 'all' | CardSet;
