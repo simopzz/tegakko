@@ -218,6 +218,46 @@ describe('App', () => {
     expect(screen.getByRole('radio', { name: 'Katakana' }).className).toContain('pill--active');
   });
 
+  it('returns to the Scope picker from the summary bar\'s Back, with focus on the bar title', async () => {
+    getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
+
+    render(App);
+
+    await screen.findByText('What are we testing today?');
+    await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
+    await screen.findByText('1 / 208');
+    await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
+
+    // Focus lands on the bar's title on entry -- the bar outlives the
+    // screen below it, so the entry focus lives there, not in Summary.
+    expect(await screen.findByText('Session summary')).toBeTruthy();
+    await vi.waitFor(() => expect(document.activeElement?.textContent).toBe('Session summary'));
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+
+    await screen.findByText('What are we testing today?');
+  });
+
+  it('offers Settings from the summary bar, and Back returns to the Scope picker', async () => {
+    getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
+
+    render(App);
+
+    await screen.findByText('What are we testing today?');
+    await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
+    await screen.findByText('1 / 208');
+    await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
+
+    await screen.findByText('Session summary');
+    await fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+
+    expect(await screen.findByRole('radiogroup', { name: 'Ink width' })).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+
+    await screen.findByText('What are we testing today?');
+  });
+
   it('navigates from the Session summary\'s "History" link to the History screen', async () => {
     getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
 

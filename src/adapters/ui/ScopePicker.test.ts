@@ -45,8 +45,6 @@ function renderPicker(): void {
   render(ScopePicker, {
     scopePreview: fakeScopePreview(),
     onStart: vi.fn(),
-    onSettings: vi.fn(),
-    onHistory: vi.fn(),
   });
 }
 

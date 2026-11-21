@@ -12,6 +12,7 @@
   import Settings from '../adapters/ui/Settings.svelte';
   import SessionSummary from '../adapters/ui/SessionSummary.svelte';
   import History from '../adapters/ui/History.svelte';
+  import TopBar from '../adapters/ui/TopBar.svelte';
   import { IdbSettingsRepository } from '../adapters/persistence/settings-repository';
   import { IdbAttemptRepository } from '../adapters/persistence/attempt-repository';
   import { IdbTallyRepository } from '../adapters/persistence/tally-repository';
@@ -192,18 +193,14 @@
     screen = 'settings';
   }
 
-  function handleSettingsBack(): void {
-    screen = 'scope-picker';
-  }
-
   function handleOpenHistory(): void {
     screen = 'history';
   }
 
-  // History's own "Back" always returns to the Scope picker, even when
-  // opened from the Session summary: avoids adding
+  // The bar's Back always returns to the Scope picker, even when History or
+  // Settings was opened from the Session summary: avoids adding
   // "previous screen" state for a single-portrait, no-router app.
-  function handleHistoryBack(): void {
+  function handleBarBack(): void {
     screen = 'scope-picker';
   }
 
@@ -214,34 +211,90 @@
     // stroke; strokes already drawn are untouched.
     inkSurface?.setWidthPreset(preset);
   }
+
+  // The one top bar's per-screen config (docs/design.md): one back control,
+  // one title, and History/Settings offered from exactly this bar wherever
+  // they are offered at all. Drill is absent -- it renders its own
+  // TopBar inside Drill.svelte, where the progress readout lives.
+  interface BarConfig {
+    title: string;
+    onBack?: () => void;
+    onHistory?: () => void;
+    onSettings?: () => void;
+    focusTitle?: boolean;
+  }
+
+  const bar = $derived<BarConfig>(
+    screen === 'scope-picker'
+      ? { title: 'Scope', onHistory: handleOpenHistory, onSettings: handleOpenSettings }
+      : screen === 'summary' && summary
+        ? {
+            title: 'Session summary',
+            onBack: handleSummaryAgain,
+            onHistory: handleOpenHistory,
+            onSettings: handleOpenSettings,
+            focusTitle: true,
+          }
+        : screen === 'history'
+          ? { title: 'History', onBack: handleBarBack, focusTitle: true }
+          : screen === 'settings'
+            ? { title: 'Settings', onBack: handleBarBack }
+            : { title: 'First run' },
+  );
+
+  // Settings' import warning is that screen's own modal, but the bar sits
+  // outside its inert main -- Settings reports the open state up so the
+  // composition root can inert the bar too (no keyboard escape).
+  let settingsModal = $state(false);
 </script>
 
-{#if ready}
-  {#if screen === 'pen-check'}
-    <FirstRun settings={settingsStore} onDismiss={handlePenCheckDismissed} />
-  {:else if screen === 'scope-picker'}
-    <ScopePicker
-      {scopePreview}
-      onStart={handleStart}
-      onSettings={handleOpenSettings}
-      onHistory={handleOpenHistory}
-      initialScope={scope}
-      onScopeChange={(next) => (scope = next)}
-      initialSessionSize={sessionSize}
-      onSessionSizeChange={(next) => (sessionSize = next)}
-    />
-  {:else if screen === 'settings'}
-    <Settings
-      settings={settingsStore}
-      {backup}
-      onPresetChange={handlePresetChange}
-      onBack={handleSettingsBack}
-    />
-  {:else if screen === 'drill' && drillSession && inkSurface}
-    <Drill {drillSession} {inkSurface} />
-  {:else if screen === 'summary' && summary}
-    <SessionSummary {summary} onAgain={handleSummaryAgain} onHistory={handleOpenHistory} />
-  {:else if screen === 'history'}
-    <History history={sessionHistory} onBack={handleHistoryBack} />
+<div class="app">
+  {#if ready}
+    {#if screen !== 'drill'}
+      <TopBar {...bar} inert={settingsModal} />
+    {/if}
+
+    {#if screen === 'pen-check'}
+      <FirstRun settings={settingsStore} onDismiss={handlePenCheckDismissed} />
+    {:else if screen === 'scope-picker'}
+      <ScopePicker
+        {scopePreview}
+        onStart={handleStart}
+        initialScope={scope}
+        onScopeChange={(next) => (scope = next)}
+        initialSessionSize={sessionSize}
+        onSessionSizeChange={(next) => (sessionSize = next)}
+      />
+    {:else if screen === 'settings'}
+      <Settings
+        settings={settingsStore}
+        {backup}
+        onPresetChange={handlePresetChange}
+        onModalChange={(open) => (settingsModal = open)}
+      />
+    {:else if screen === 'drill' && drillSession && inkSurface}
+      <Drill {drillSession} {inkSurface} />
+    {:else if screen === 'summary' && summary}
+      <SessionSummary {summary} onAgain={handleSummaryAgain} />
+    {:else if screen === 'history'}
+      <History history={sessionHistory} />
+    {/if}
   {/if}
-{/if}
+</div>
+
+<style>
+  /* The one full-height shell (docs/design.md): the bar takes its own
+     height, the screen below fills exactly the rest. Fixed to the visible
+     viewport, not just its floor -- `min-height` would let the page grow
+     past what is actually visible (worse in a browser tab with an address
+     bar than in the installed PWA), pushing controls below the fold.
+     `100dvh` tracks the real visible height and `overflow: hidden` keeps
+     the whole app inside it; each scrollable screen scrolls in its own
+     `<main>` instead. */
+  .app {
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+</style>

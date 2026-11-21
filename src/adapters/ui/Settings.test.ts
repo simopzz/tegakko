@@ -85,7 +85,6 @@ function renderSettings(settings: FakeSettings, backup: FakeBackup = fakeBackup(
     settings,
     backup,
     onPresetChange: vi.fn(),
-    onBack: vi.fn(),
   });
 }
 
@@ -109,7 +108,6 @@ describe('Settings', () => {
       settings,
       backup: fakeBackup(),
       onPresetChange,
-      onBack: vi.fn(),
     });
 
     await screen.findByRole('radiogroup', { name: 'Ink width' });
@@ -132,7 +130,6 @@ describe('Settings', () => {
       settings,
       backup: fakeBackup(),
       onPresetChange,
-      onBack: vi.fn(),
     });
 
     await screen.findByRole('radiogroup', { name: 'Ink width' });

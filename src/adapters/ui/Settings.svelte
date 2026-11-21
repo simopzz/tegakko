@@ -29,10 +29,13 @@
       apply(pending: PendingImport): Promise<Result<void>>;
     };
     onPresetChange: (preset: WidthPreset) => void;
-    onBack: () => void;
+    /** Reports the import warning's open state up to the composition
+     * root, which inerts the shared top bar while it is open -- the bar
+     * sits outside this screen's own inert main. */
+    onModalChange?: (open: boolean) => void;
   }
 
-  const { settings, backup, onPresetChange, onBack }: Props = $props();
+  const { settings, backup, onPresetChange, onModalChange }: Props = $props();
 
   const PRESETS: Array<{ value: WidthPreset; label: string; hint: string }> = [
     { value: 'subtle', label: 'Subtle', hint: 'Even line, slight taper' },
@@ -94,6 +97,13 @@
   // the only destructive two-step action in the app.
   $effect(() => {
     if (pending && cancelButton) cancelButton.focus();
+  });
+
+  // Reports the warning's open state so the composition root can inert the
+  // top bar (outside this screen's own inert main) -- mirrors the picker's
+  // `$effect`-reports-every-change pattern.
+  $effect(() => {
+    onModalChange?.(pending !== null);
   });
 
   // Serializes `choose()`/`chooseIdle()`'s writes onto one queue. Without
@@ -269,12 +279,7 @@
 </script>
 
 <main class="settings" inert={pending !== null}>
-  <div class="card">
-    <header class="header">
-      <button type="button" class="back" onclick={onBack}>Back</button>
-      <p class="label">Settings</p>
-    </header>
-
+  <div class="content">
     <h1 class="heading">Ink width</h1>
     <p class="body">How much the stroke thickens as you press harder. Applies to your next stroke.</p>
 
@@ -414,32 +419,27 @@
 
 <style>
   .settings {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    background: var(--color-surface-card);
     display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
+    flex-direction: column;
     padding: var(--spacing-6);
   }
 
-  .card {
+  /* `margin: auto` centres the content when it is shorter than the screen
+     and resolves to zero when it is taller (no clipped overflow, unlike
+     justify-content centring in a scroll container). */
+  .content {
     width: 100%;
     max-width: 640px;
-    background: var(--color-surface-card);
-    border-radius: var(--radius-xl);
-    box-shadow: 0 12px 32px rgba(32, 30, 29, 0.16);
-    padding: var(--spacing-6);
+    margin: auto;
     display: flex;
     flex-direction: column;
     gap: var(--spacing-3);
   }
 
-  .header {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-3);
-  }
-
-  .back,
   .action {
     min-height: 56px;
     padding: 0 var(--spacing-3);
@@ -451,20 +451,7 @@
     font-weight: 600;
     font-size: 1rem;
     cursor: pointer;
-  }
-
-  .action {
     align-self: flex-start;
-  }
-
-  .label {
-    margin: 0;
-    font-family: var(--font-label);
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    font-size: 0.75rem;
-    color: var(--color-ink-muted);
   }
 
   .heading {

@@ -27,8 +27,6 @@
      * `listAll()` before entering the drill) -- `void | Promise<void>`
      * reflects that without forcing this component to await it itself. */
     onStart: (scope: Scope) => void | Promise<void>;
-    onSettings: () => void;
-    onHistory: () => void;
     /** Seeds the pill groups on mount. This screen is unmounted whenever the
      * drill or Settings is open, so the composition root -- not this
      * component -- is what keeps a selection alive across a Back
@@ -51,8 +49,6 @@
   const {
     scopePreview,
     onStart,
-    onSettings,
-    onHistory,
     initialScope,
     onScopeChange,
     initialSessionSize,
@@ -147,16 +143,7 @@
 </script>
 
 <main class="scope-picker">
-  <div class="card">
-    <!-- Settings is a text link, not a second accent-filled control: exactly
-         one primary action per screen, and that is "Start writing". -->
-    <div class="header">
-      <p class="label">Scope</p>
-      <div class="header-links">
-        <button type="button" class="link" onclick={onHistory}>History</button>
-        <button type="button" class="link" onclick={onSettings}>Settings</button>
-      </div>
-    </div>
+  <div class="content">
     <h1 class="heading">What are we testing today?</h1>
 
     <div class="group">
@@ -313,58 +300,25 @@
 
 <style>
   .scope-picker {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    background: var(--color-surface-card);
     display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
+    flex-direction: column;
     padding: var(--spacing-6);
   }
 
-  .card {
+  /* `margin: auto` centres the content when it is shorter than the screen
+     and resolves to zero when it is taller (no clipped overflow, unlike
+     justify-content centring in a scroll container). */
+  .content {
     width: 100%;
     max-width: 640px;
-    background: var(--color-surface-card);
-    border-radius: var(--radius-xl);
-    box-shadow: 0 12px 32px rgba(32, 30, 29, 0.16);
-    padding: var(--spacing-6);
+    margin: auto;
     display: flex;
     flex-direction: column;
     gap: var(--spacing-4);
-  }
-
-  .header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--spacing-3);
-  }
-
-  .header-links {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-2);
-  }
-
-  .link {
-    min-height: 56px;
-    padding: 0 var(--spacing-2);
-    border: none;
-    background: transparent;
-    color: var(--color-accent-strong);
-    font-family: var(--font-heading);
-    font-weight: 600;
-    font-size: 1rem;
-    cursor: pointer;
-  }
-
-  .label {
-    margin: 0;
-    font-family: var(--font-label);
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    font-size: 0.75rem;
-    color: var(--color-ink-muted);
   }
 
   .heading {

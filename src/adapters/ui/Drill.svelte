@@ -20,6 +20,7 @@
   import type { Stroke } from '../../domain/ink';
   import type { SelfGrade } from '../../domain/attempt';
   import { DrillSession } from './drill-session';
+  import TopBar from './TopBar.svelte';
 
   interface Props {
     /** The running session, created and owned by the practice module. */
@@ -93,10 +94,6 @@
   // `promptShownAt` above. `undefined` until a stroke lands; stays
   // `undefined` through a reveal-from-blank grade.
   let firstStrokeStartedAt: number | undefined;
-
-  // Sampled without replacement: always reaches exactly 100%, never
-  // overshoots. Always shown alongside the text counter, never alone.
-  const progress = $derived(position / queue.length);
 
   // Assigned by `bind:this` before `onMount` runs; typed as possibly
   // undefined rather than asserted, so the mount below is a real check.
@@ -265,24 +262,17 @@
   }
 </script>
 
-<main class="drill">
-  <header class="header">
-    <button type="button" class="back" onclick={handleExplicitClose}>I'm done</button>
-    <div class="progress">
-      <p class="counter">{position} / {queue.length}</p>
-      <div
-        class="bar"
-        role="progressbar"
-        aria-label="Cards written"
-        aria-valuemin={0}
-        aria-valuemax={queue.length}
-        aria-valuenow={position}
-      >
-        <div class="bar-fill" style="width: {progress * 100}%"></div>
-      </div>
-    </div>
-  </header>
+<!-- The shared top bar's Drill instance: "I'm done" is this screen's back
+     control (a session closure into Summary, not back-navigation) and the
+     progress readout sits beside it -- rendered by Drill itself because
+     the queue position is Drill's render state. -->
+<TopBar
+  backLabel="I'm done"
+  onBack={handleExplicitClose}
+  progress={{ now: position, total: queue.length }}
+/>
 
+<main class="drill">
   <section class="prompt" class:dimmed={frozen}>
     <p class="label">Write from memory</p>
     <p class="romaji">{card.writtenRomaji ? `${card.romaji} (${card.writtenRomaji})` : card.romaji}</p>
@@ -438,62 +428,14 @@
     display: flex;
     flex-direction: column;
     gap: var(--spacing-3);
-    /* Fixed to the visible viewport, not just its floor: `min-height` let the
-       page grow past whatever was actually visible (worse on a browser tab
-       with an address bar than an installed PWA), pushing Missed/Correct
-       below the fold. `100dvh` tracks the real visible height, and
-       `overflow: hidden` plus every other section's fixed sizing (leaving
-       `.cell-wrap` to fill what's left, below) keeps the whole screen inside
-       it with nothing to scroll. */
-    height: 100dvh;
+    /* Fills exactly the room the shell (`App.svelte`'s `.app`) leaves under
+       the top bar -- the shell owns the fixed `100dvh`, and every other
+       section's fixed sizing (leaving `.cell-wrap` to fill what's left,
+       below) keeps the whole screen inside it with nothing to scroll. */
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
     padding: var(--spacing-5) var(--spacing-4);
-  }
-
-  .header {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-4);
-  }
-
-  .back {
-    min-height: 56px;
-    padding: 0 var(--spacing-3);
-    border: 1px solid var(--color-ink-faint);
-    border-radius: var(--radius-md);
-    background: transparent;
-    color: var(--color-ink);
-    font-family: var(--font-heading);
-    font-weight: 600;
-    font-size: 1rem;
-    cursor: pointer;
-  }
-
-  .progress {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-1);
-  }
-
-  .counter {
-    margin: 0;
-    font-family: var(--font-body);
-    font-size: 0.95rem;
-    color: var(--color-ink-muted);
-  }
-
-  .bar {
-    height: 6px;
-    border-radius: var(--radius-full);
-    background: var(--color-ink-hairline);
-    overflow: hidden;
-  }
-
-  .bar-fill {
-    height: 100%;
-    border-radius: var(--radius-full);
-    background: var(--color-accent);
   }
 
   .prompt {
@@ -733,7 +675,8 @@
   /* The post-grade toast: the missed-tint card
      floats above the action row -- an overlay, not a flex-column sibling,
      so it can appear/disappear on every grade without reflowing `.drill`
-     (fixed to `100dvh` with nothing to scroll; see `.drill` above). */
+     (the shell is fixed to `100dvh` with nothing to scroll; see `.drill`
+     above). */
   .toast {
     position: fixed;
     left: var(--spacing-6);

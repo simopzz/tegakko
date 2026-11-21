@@ -162,8 +162,7 @@
 </script>
 
 <main class="first-run">
-  <div class="card">
-    <p class="label">First run</p>
+  <div class="content">
     <h1 class="heading">Check your stylus</h1>
     <p class="body">
       Touch the pad below with your pen. This app is built around handwriting recall, so it's
@@ -206,33 +205,25 @@
 
 <style>
   .first-run {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    background: var(--color-surface-card);
     display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
+    flex-direction: column;
     padding: var(--spacing-6);
   }
 
-  .card {
+  /* `margin: auto` centres the content when it is shorter than the screen
+     and resolves to zero when it is taller (no clipped overflow, unlike
+     justify-content centring in a scroll container). */
+  .content {
     width: 100%;
     max-width: 640px;
-    background: var(--color-surface-card);
-    border-radius: var(--radius-xl);
-    box-shadow: 0 12px 32px rgba(32, 30, 29, 0.16);
-    padding: var(--spacing-6);
+    margin: auto;
     display: flex;
     flex-direction: column;
     gap: var(--spacing-3);
-  }
-
-  .label {
-    margin: 0;
-    font-family: var(--font-label);
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    font-size: 0.75rem;
-    color: var(--color-ink-muted);
   }
 
   .heading {
