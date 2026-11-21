@@ -25,6 +25,10 @@ run = "python3 scripts/gen-icons.py"
 description = "Remove build output"
 run = "rm -rf dist dev-dist"
 
+[tasks.pr-image]
+description = "Publish images on the pr-images branch for a PR body (pr, image...)"
+run = "bash scripts/pr-image.sh"
+
 [tasks.lint]
 description = "Run ESLint, including the hexagonal import boundary"
 run = "npm run lint"
