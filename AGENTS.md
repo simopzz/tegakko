@@ -44,4 +44,4 @@ Diagnosing a page in a browser, whether a style that won't apply, a slow load, a
 
 ### PR screenshots
 
-A PR that changes what the learner sees shows screenshots in its body, published on the orphan branch `pr-images`: `mise run pr-image <pr> <image>...` publishes them and prints the `<img>` tags. PRs share the branch, so a refused push retries after re-fetching it.
+A PR that changes what the learner sees shows screenshots in its body. This repo is private, so images must be *attached* (`gh pr edit <pr> --attach '<image>#caption' ...`), never linked as raw-branch URLs: `raw.githubusercontent.com` carries no auth and 404s inside private-repo bodies. A `![](./file.png)` reference already in the body is rewritten to the uploaded URL.
