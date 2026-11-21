@@ -8,6 +8,7 @@
   import { onMount } from 'svelte';
   import type { Result } from '../../domain/result';
   import type { Settings } from '../../domain/settings';
+  import ScreenShell from './ScreenShell.svelte';
 
   interface Props {
     /** The composition root's settings use-case: a read and a whole-record
@@ -161,10 +162,8 @@
   });
 </script>
 
-<main class="first-run">
-  <div class="card">
-    <p class="label">First run</p>
-    <h1 class="heading">Check your stylus</h1>
+<ScreenShell>
+  <h1 class="heading">Check your stylus</h1>
     <p class="body">
       Touch the pad below with your pen. This app is built around handwriting recall, so it's
       worth confirming pressure comes through before you start.
@@ -201,40 +200,9 @@
         Just use it here
       </button>
     </div>
-  </div>
-</main>
+</ScreenShell>
 
 <style>
-  .first-run {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: var(--spacing-6);
-  }
-
-  .card {
-    width: 100%;
-    max-width: 640px;
-    background: var(--color-surface-card);
-    border-radius: var(--radius-xl);
-    box-shadow: 0 12px 32px rgba(32, 30, 29, 0.16);
-    padding: var(--spacing-6);
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-3);
-  }
-
-  .label {
-    margin: 0;
-    font-family: var(--font-label);
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    font-size: 0.75rem;
-    color: var(--color-ink-muted);
-  }
-
   .heading {
     margin: 0;
     font-family: var(--font-heading);

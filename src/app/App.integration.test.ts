@@ -416,10 +416,15 @@ describe('App integration', () => {
     expect(dialog.getAttribute('aria-modal')).toBe('true');
     expect(screen.getByText('On this device: nothing yet')).toBeTruthy();
     expect(screen.getByText(`In the file: ${formatDate(exportedAt)}`)).toBeTruthy();
+    // The bar sits outside Settings' own inert main, so the composition
+    // root inerts it itself while the warning is open -- no keyboard
+    // escape from the modal.
+    expect(document.querySelector('.top-bar')?.hasAttribute('inert')).toBe(true);
 
     // Cancel, practise something locally, pick again: the warning now
     // reports the local activity instead.
     await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(document.querySelector('.top-bar')?.hasAttribute('inert')).toBe(false);
     const local = seededSession({ date: '2026-10-01T00:00:00.000Z' });
     const sessionRepository = new IdbSessionRepository();
     await sessionRepository.add(local);

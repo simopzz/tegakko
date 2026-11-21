@@ -34,8 +34,7 @@ One chromatic accent; everything else is warm paper neutrals plus two quiet tint
 
 | Token | Role |
 |---|---|
-| `--color-page-bg` | Warm tan ground around the card. Never a surface itself. |
-| `--color-surface-card` | The cream paper every screen is written on. |
+| `--color-surface-card` | The cream paper. The whole viewport is this surface — no separate ground colour exists. |
 | `--color-surface-card-secondary` | One shade warmer: grouped controls and stat tiles nested in a card. |
 | `--color-surface-canvas` | Only the genkouyoushi cell. The lightest surface, so the writing area reads as the cleanest page. |
 | `--color-ink` | Text and stroke colour. Warm sumi, never pure black. |
@@ -63,28 +62,29 @@ Every load-bearing text/background pair meets WCAG AA (4.5:1 body, 3:1 large hea
 
 ## Layout, depth, shape
 
-- **Spacing** `--spacing-1`…`-8` (8→72px): 1–2 inside one control, 3–4 between stacked elements in a card, 6–8 for card padding and between major sections.
-- **Depth:** two levels. Card surfaces and the toast cast one soft, ink-tinted shadow (~`0 12px 32px`, low opacity), like paper lifted off a desk. Buttons, chips and tiles sit flush and differ by fill alone.
-- **Radii:** `--radius-sm`/`-md` for chips, buttons, small controls; `-lg` for the genkouyoushi cell and stat tiles; `-xl` for card surfaces and the toast; `-full` only on progress bars, History bars and pill tracks, never on a button or card. `-squircle` is for the app icon only.
+- **Full-height screens.** The shell (`App.svelte`'s `.app`) is fixed to the visible viewport (`100dvh`, nothing scrolls at the shell level): the top bar takes its own height and the screen below fills exactly the rest. Scrollable screens (everything but Drill) share one shell (`ScreenShell.svelte`): a `<main>` that scrolls in itself and centers its content horizontally (max-width 640px) and vertically (`margin: auto`, which degrades to top-aligned without clipping when content is taller than the screen); stacked elements in that column are one `--spacing-3` apart. The Drill is not scrollable: its writing area fills whatever room is left.
+- **Spacing** `--spacing-1`…`-8` (8→72px): 1–2 inside one control, 3–4 between stacked elements, 6–8 for screen padding and between major sections.
+- **Depth:** one level. The toast casts one soft, ink-tinted shadow (~`0 12px 32px`, low opacity), like paper lifted off a desk. Buttons, chips and tiles sit flush and differ by fill alone; screens are the paper itself, so they cast no shadow and have no radius.
+- **Radii:** `--radius-sm`/`-md` for chips, buttons, small controls; `-lg` for the genkouyoushi cell and stat tiles; `-xl` for the toast; `-full` only on progress bars, History bars and pill tracks, never on a button or card. `-squircle` is for the app icon only.
 
 ## Screens
 
-One screen at a time, single column, no tab bar or drawer, no router: one top-level `Screen` value picks what renders. The only modal is the import confirmation.
+One screen at a time, single column, no tab bar or drawer, no router: one top-level `Screen` value picks what renders. Every screen shares one thin top bar (`TopBar.svelte`) with one back control and one placement for the History and Settings links; the bar's Back always returns to the Scope picker, even when History or Settings was opened from the Session summary. Drill renders its own instance of the same bar ("I'm done" — a session closure into Summary, not back-navigation — plus the progress readout) and offers no History/Settings links, so Settings stays unreachable while a drill is mounted. Entry focus lands on the bar's title on History and Summary. The only modal is the import confirmation; while it is open the bar is inert too, so there is no keyboard escape.
 
 | Screen | Reached from | Purpose |
 |---|---|---|
 | First run | First open only | Check the stylus and pressure range; offer install. |
-| Scope picker | App open; "Another round" on Summary | Choose scope and session size, see the live card count, start. |
+| Scope picker | App open; bar Back and "Another round" on Summary | Choose scope and session size, see the live card count, start. |
 | Drill | Scope picker → "Start writing" | The prompt → write → (reveal) → self-grade loop. |
 | Summary | Any closure | Accuracy, time, reveal count, this session's misses. |
-| History | Scope picker; Summary | Past sessions, newest first, accuracy trend. |
-| Settings | Scope picker | Ink width, idle-close threshold, export/import. |
+| History | Bar links on Scope picker and Summary | Past sessions, newest first, accuracy trend. |
+| Settings | Bar links on Scope picker and Summary | Ink width, idle-close threshold, export/import. |
 
 ## Components
 
 | Component | Look | Behaviour |
 |---|---|---|
-| Card surface | `--color-surface-card`, `-xl`, shadow | One per screen; nested groups use the secondary surface, not a second card. Never interactive. |
+| Top bar | Thin strip on the paper, hairline bottom rule; micro-label title in `--font-label`; Back as a bordered button; History/Settings as accent-strong text links at the far right | One instance per screen, rendered by the composition root (Drill renders its own with the progress readout). Back is absent on First run and Scope picker; links appear only where that screen offers them. Focus moves onto the title on History and Summary entry. Inert while the import warning is open. |
 | Genkouyoushi cell | Canvas surface, one cell per character of the grapheme in a row (two for a yoon like チョ, one for a single kana; a kanji later gets one), solid rule between cells, dashed cross inside each, `-lg` | Centre dot in each cell only while the row is empty. Once ink exists, Clear appears next to "Your call — nothing is checking the shape". Clearing never advances or grades; it dims Missed/Correct again (the row is blank) while Reveal stays live. |
 | Grade buttons | Correct: accent fill. Reveal, Missed: transparent with faint border. 88px min height, `-md`, equal widths in a row under the cell | Reveal is live from the moment the prompt shows. Missed and Correct are dimmed (40% opacity, not a different colour) until there is a stroke or Reveal was tapped. A blank revealed cell can be graded; a blank unrevealed one can't. |
 | Reveal | Yours above Reference, the ink taking the larger share (2:1), both at full width in portrait; reference on peach, one reference cell per character in the same row shape the learner wrote in, grid-guide rule between cells; a small kana (the ョ in チョ) renders about half size in its own cell | Never overlaid, never replacing your strokes, never side by side in portrait (that halves both cells and leaves empty bands). Doesn't grade; Missed/Correct stay required. Whether Reveal was used is recorded on the attempt. |
@@ -116,7 +116,7 @@ One screen at a time, single column, no tab bar or drawer, no router: one top-le
 | Stylus found | First run | Positive chip, live 0–1 pressure readout. |
 | No pressure input | First run | Chip reads "No pressure input detected", readout hidden, both install and "Just use it here" stay available. No hard block. |
 | Install declined or unsupported | First run | Not modelled; "Just use it here" covers it. |
-| Explicit closure | Summary | Positive "You ended it" chip. "I'm done" is always reachable in the drill. |
+| Explicit closure | Summary | Positive "You ended it" chip. "I'm done" — the drill bar's back control — is always reachable in the drill. |
 | Complete / inactivity closure | Summary | Same summary layout, no chip. The distinction shows in History. Inactivity closes after the idle threshold (default 5 minutes, set in Settings). |
 | Empty History | History | Sparkline hidden; "No sessions yet. Finish a drill to see it here." |
 | Import rejected | Settings | Inline error under Import, nothing written, no modal. |

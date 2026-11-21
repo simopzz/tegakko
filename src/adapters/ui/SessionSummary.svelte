@@ -1,32 +1,22 @@
 <script lang="ts">
   // Session Summary screen: the climax of every session closure
   // (explicit "I'm done", complete closure, retroactively-detected
-  // inactivity). Follows Settings.svelte's structural pattern: a single
-  // `.card` centered in `main`, no local routing -- the only way out is
-  // "Another round", back to the Scope picker.
+  // inactivity). No local routing -- the exits are the bar's Back and
+  // History/Settings links plus "Another round", all owned by the
+  // composition root.
   //
   // Idle and complete closures render identically here: only an explicit
   // close ever carries the positive "You ended it" chip -- the
   // idle/complete distinction is History's concern.
-  import { onMount } from 'svelte';
   import type { SessionSummaryView } from '../../domain/session';
+  import ScreenShell from './ScreenShell.svelte';
 
   interface Props {
     summary: SessionSummaryView;
     onAgain: () => void;
-    onHistory: () => void;
   }
 
-  const { summary, onAgain, onHistory }: Props = $props();
-
-  // Move keyboard/screen-reader focus onto the summary heading on entry:
-  // the Drill instance just unmounted (focus would otherwise drop to
-  // `<body>`), and the missed chips are now list items whose group count
-  // is announced via the list semantics below.
-  let heading: HTMLHeadingElement | undefined = $state();
-  onMount(() => {
-    heading?.focus();
-  });
+  const { summary, onAgain }: Props = $props();
 
   const scriptLabel: Record<string, string> = {
     hiragana: 'Hiragana',
@@ -43,14 +33,8 @@
   }
 </script>
 
-<main class="summary">
-  <div class="card">
-    <div class="header">
-      <button type="button" class="link" onclick={onHistory}>History</button>
-    </div>
-    <h1 class="label" tabindex="-1" bind:this={heading}>Session summary</h1>
-
-    <div class="hero">
+<ScreenShell>
+  <div class="hero">
       <p class="accuracy">{Math.round(summary.accuracy * 100)}%</p>
       <p class="accuracy-label">Accuracy</p>
     </div>
@@ -89,61 +73,9 @@
     {/if}
 
     <button type="button" class="btn btn--primary" onclick={onAgain}>Another round</button>
-  </div>
-</main>
+</ScreenShell>
 
 <style>
-  .summary {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: var(--spacing-6);
-  }
-
-  .card {
-    width: 100%;
-    max-width: 640px;
-    background: var(--color-surface-card);
-    border-radius: var(--radius-xl);
-    box-shadow: 0 12px 32px rgba(32, 30, 29, 0.16);
-    padding: var(--spacing-6);
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-4);
-  }
-
-  .header {
-    display: flex;
-    justify-content: flex-end;
-  }
-
-  .link {
-    min-height: 56px;
-    padding: 0 var(--spacing-2);
-    border: none;
-    background: transparent;
-    color: var(--color-accent-strong);
-    font-family: var(--font-heading);
-    font-weight: 600;
-    font-size: 1rem;
-    cursor: pointer;
-  }
-
-  .label {
-    margin: 0;
-    font-family: var(--font-label);
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    font-size: 0.75rem;
-    color: var(--color-ink-muted);
-  }
-
-  .label:focus {
-    outline: none;
-  }
-
   .hero {
     display: flex;
     flex-direction: column;

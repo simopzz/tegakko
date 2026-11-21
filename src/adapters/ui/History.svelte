@@ -1,14 +1,10 @@
 <script lang="ts">
   // History screen: reverse-chronological session rows plus an
-  // up-to-10-session accuracy sparkline. Follows Settings.svelte's structural
-  // pattern exactly -- a single `.card` centered in `main`, header outside
-  // the `{#if loaded}` gate, one-shot `onMount` read, no live re-fetch/poll
-  // while mounted.
-  //
-  // Reads only -- no writes, no editing/deleting rows. The list arrives from
-  // the composition root's use-case in unspecified order, so
-  // `sortSessionsDescending` always imposes History's own order before
-  // anything renders.
+  // up-to-10-session accuracy sparkline. Reads only -- no writes, no
+  // editing/deleting rows. The list arrives from the composition root's
+  // use-case in unspecified order, so `sortSessionsDescending` always
+  // imposes History's own order before anything renders. The top bar
+  // (title, Back) is rendered by the composition root.
   import { onMount } from 'svelte';
   import type { Session } from '../../domain/session';
   import { formatDate } from './format-date';
@@ -18,6 +14,7 @@
     rampColorForAccuracy,
     closureChipVariant,
   } from '../../domain/history';
+  import ScreenShell from './ScreenShell.svelte';
 
   interface Props {
     /** The composition root's use-case: the stored session list, fail-open
@@ -25,20 +22,12 @@
      * unspecified there, so `sortSessionsDescending` below always imposes
      * History's own order before anything renders. */
     history: { list(): Promise<Session[]> };
-    onBack: () => void;
   }
 
-  const { history, onBack }: Props = $props();
+  const { history }: Props = $props();
 
   let sessions = $state<Session[]>([]);
   let loaded = $state(false);
-
-  // Move keyboard/screen-reader focus onto the "History" heading on entry --
-  // mirrors `SessionSummary.svelte`'s identical `heading?.focus()` pattern.
-  let heading: HTMLHeadingElement | undefined = $state();
-  onMount(() => {
-    heading?.focus();
-  });
 
   // One-shot fetch, same pattern as `Settings.svelte`'s `onMount` -- no
   // live re-fetch/poll while History is mounted.
@@ -52,13 +41,7 @@
   const sparkline = $derived(sparklineSessions(sessions));
 </script>
 
-<main class="history">
-  <div class="card">
-    <header class="header">
-      <button type="button" class="back" onclick={onBack}>Back</button>
-      <h1 class="label" tabindex="-1" bind:this={heading}>History</h1>
-    </header>
-
+<ScreenShell>
     {#if loaded}
       {#if sessions.length > 0}
         <div class="sparkline" aria-hidden="true">
@@ -94,59 +77,9 @@
         <p class="empty">No sessions yet. Finish a drill to see it here.</p>
       {/if}
     {/if}
-  </div>
-</main>
+</ScreenShell>
 
 <style>
-  .history {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: var(--spacing-6);
-  }
-
-  .card {
-    width: 100%;
-    max-width: 640px;
-    background: var(--color-surface-card);
-    border-radius: var(--radius-xl);
-    box-shadow: 0 12px 32px rgba(32, 30, 29, 0.16);
-    padding: var(--spacing-6);
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-3);
-  }
-
-  .header {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-3);
-  }
-
-  .back {
-    min-height: 56px;
-    padding: 0 var(--spacing-3);
-    border: 1px solid var(--color-ink-faint);
-    border-radius: var(--radius-md);
-    background: transparent;
-    color: var(--color-ink);
-    font-family: var(--font-heading);
-    font-weight: 600;
-    font-size: 1rem;
-    cursor: pointer;
-  }
-
-  .label {
-    margin: 0;
-    font-family: var(--font-label);
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    font-size: 0.75rem;
-    color: var(--color-ink-muted);
-  }
-
   .sparkline {
     display: flex;
     align-items: flex-end;

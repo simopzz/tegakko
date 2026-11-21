@@ -3,7 +3,6 @@
 
 :root {
   /* colors */
-  --color-page-bg: #e6d9c1;
   --color-surface-card: #f5ead8;
   --color-surface-card-secondary: #ebddc5;
   --color-surface-canvas: #f9f4ed;
@@ -52,14 +51,12 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--color-page-bg);
+  /* The cream paper itself -- no tan ground anywhere: each screen fills
+     the viewport (docs/design.md). */
+  background: var(--color-surface-card);
   color: var(--color-ink);
   font-family: var(--font-body);
   -webkit-tap-highlight-color: transparent;
-}
-
-#app {
-  min-height: 100vh;
 }
 
 * {
