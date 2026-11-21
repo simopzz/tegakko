@@ -292,43 +292,47 @@
   <!-- The ink adapter owns the inner node: it creates and appends the single
        canvas element there on mount. Svelte renders nothing inside it. The
        `.cell` div itself is never inside a conditional block -- only its
-       enclosing `.panel`'s CSS box changes (a second `.panel` sibling
-       appears beside it on reveal), so Svelte never remounts it and the ink
-       port's "mount() exactly once per instance" holds across a reveal. Each
-       `.panel` is its own container-query context so the cell can size
-       itself to whatever room is actually left after the header/prompt/
-       footer/grades claim theirs, rather than guessing a fraction of the
-       viewport and risking a taller-than-fits page. -->
+       enclosing boxes change (Reveal adds a Reference `.panel` below), so
+       Svelte never remounts it and the ink port's "mount() exactly once per
+       instance" holds across a reveal. Each `.row-box` is its own
+       container-query context so the cell can size itself to whatever room
+       is actually left after the header/prompt/footer/grades claim theirs,
+       rather than guessing a fraction of the viewport and risking a
+       taller-than-fits page. -->
   <div
     class="cell-wrap"
     class:cell-wrap--revealed={revealed}
     class:dimmed={frozen}
   >
-    <div class="panel">
+    <div class="panel" class:panel--ink={revealed}>
       {#if revealed}<p class="label" id="yours-label">Yours</p>{/if}
-      <div
-        class="cell"
-        class:cell--locked={revealed || frozen}
-        style={cellBoxStyle}
-        bind:this={cell}
-        role="group"
-        aria-labelledby={revealed ? 'yours-label' : undefined}
-      ></div>
+      <div class="row-box">
+        <div
+          class="cell"
+          class:cell--locked={revealed || frozen}
+          style={cellBoxStyle}
+          bind:this={cell}
+          role="group"
+          aria-labelledby={revealed ? 'yours-label' : undefined}
+        ></div>
+      </div>
     </div>
     {#if revealed}
-      <div class="panel">
+      <div class="panel panel--reference">
         <p class="label" id="reference-label">Reference</p>
-        <div
-          class="reference-row"
-          role="group"
-          aria-labelledby="reference-label"
-          style={cellBoxStyle}
-        >
-          {#each [...card.grapheme] as char, index (index)}
-            <div class="reference-cell">
-              <span class="glyph" class:glyph--small={SMALL_KANA.has(char)}>{char}</span>
-            </div>
-          {/each}
+        <div class="row-box">
+          <div
+            class="reference-row"
+            role="group"
+            aria-labelledby="reference-label"
+            style={cellBoxStyle}
+          >
+            {#each [...card.grapheme] as char, index (index)}
+              <div class="reference-cell">
+                <span class="glyph" class:glyph--small={SMALL_KANA.has(char)}>{char}</span>
+              </div>
+            {/each}
+          </div>
         </div>
       </div>
     {/if}
@@ -532,8 +536,8 @@
        total height can never exceed `.drill`'s, so nothing here forces a
        scroll. `min-height: 0` lets it shrink below its content's natural
        minimum instead of the (larger) automatic default. One `.panel` child
-       normally (the ink cell, centered); Reveal adds a second, equal-width
-       "Reference" panel beside it. */
+       normally (the ink cell, centered); Reveal stacks a second Reference
+       panel below it. */
     flex: 1;
     min-height: 0;
     min-width: 0;
@@ -543,35 +547,53 @@
   }
 
   .cell-wrap--revealed {
+    /* Portrait: stacking Yours over Reference at full width keeps the ink
+       at a useful size where a side-by-side pair would halve it and leave
+       large empty bands above and below. */
+    flex-direction: column;
     gap: var(--spacing-3);
   }
 
+  /* The learner's ink earns the larger share (2:1); the reference is a
+     comparison aid, not the thing being practised. */
+  .cell-wrap--revealed .panel--ink {
+    flex: 2;
+  }
+
+  .cell-wrap--revealed .panel--reference {
+    flex: 1;
+  }
+
   .panel {
-    /* Each panel is its own container-query context, not `.cell-wrap` --
-       `.cell`'s `cqw`/`cqh` sizing must measure the box actually available
-       to IT (half of `.cell-wrap`'s width once Reveal adds a second panel),
-       never the wrapper's full width. With one panel this is identical to
-       measuring `.cell-wrap` directly. */
     flex: 1;
     min-height: 0;
     min-width: 0;
     display: flex;
     flex-direction: column;
+    gap: var(--spacing-1);
+  }
+
+  .row-box {
+    /* The container-query context: the room left under the panel's label,
+       so a row sized by `100cqh` can never push its own label out of the
+       panel. */
+    flex: 1;
+    min-height: 0;
+    container-type: size;
+    display: flex;
     align-items: center;
     justify-content: center;
-    gap: var(--spacing-1);
-    container-type: size;
   }
 
   .cell {
     /* The inline style sizes the box: a row of N square cells (one per
        character), so `toGridRelative` -- x and y normalized independently
        -- never replays stored strokes distorted: the N:1 aspect is fixed
-       per card. `cqw`/`cqh` are relative to `.panel`'s actual box (from the
-       flex layout above), so the row is always the largest that fits the
-       room actually left -- never a guessed fraction of the viewport that
-       could be taller than what's really available. The adapter draws the
-       solid rules between cells on the canvas itself. */
+       per card. `cqw`/`cqh` are relative to `.row-box`'s actual box (from
+       the flex layout above), so the row is always the largest that fits
+       the room actually left -- never a guessed fraction of the viewport
+       that could be taller than what's really available. The adapter draws
+       the solid rules between cells on the canvas itself. */
     border: 1px solid var(--color-grid-guide);
     border-radius: var(--radius-lg);
     background: var(--color-surface-canvas);
@@ -592,12 +614,12 @@
   }
 
   .reference-row {
-    /* Mirrors `.cell`'s box exactly (same inline sizing against the same
-       panel box), so Yours/Reference read as one comparison pair -- one
-       reference cell per character, in the same row the learner wrote in.
-       Tinted `--color-missed-bg` (docs/design.md: the Reveal reference
-       panel uses the missed tint, not the canvas ground -- this is
-       attention, not the writing surface). */
+    /* Mirrors `.cell`'s box (same inline sizing, its own row-box), so
+       Yours/Reference read as one comparison pair -- one reference cell
+       per character, in the same row shape the learner wrote in. Tinted
+       `--color-missed-bg` (docs/design.md: the Reveal reference panel uses
+       the missed tint, not the canvas ground -- this is attention, not the
+       writing surface). */
     display: flex;
     border-radius: var(--radius-lg);
     background: var(--color-missed-bg);
