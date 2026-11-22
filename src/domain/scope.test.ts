@@ -64,6 +64,14 @@ describe('cardsInScope', () => {
     expect(result.every((c) => c.script === 'kanji' && c.set === 'n5')).toBe(true);
   });
 
+  it('narrows to any level the picker can offer, including the whole N5-N1 range', () => {
+    const n1 = cardsInScope(CARDS, { kanji: ['n1'] });
+    expect(n1).toHaveLength(1232);
+    expect(n1.every((c) => c.set === 'n1')).toBe(true);
+    const all = cardsInScope(CARDS, { kanji: ['n5', 'n4', 'n3', 'n2', 'n1'] });
+    expect(all).toHaveLength(2211);
+  });
+
   it('mixes kanji into a kana scope without either widening the other', () => {
     // A kanji JLPT level never widens a kana scope: hiragana base only (71)
     // beside all 79 kanji, and no katakana card can slip in.
@@ -112,8 +120,9 @@ describe('describeScope', () => {
     expect(describeScope({})).toBe('');
   });
 
-  it('reads a kanji scope as its JLPT level', () => {
+  it('reads a kanji scope as its JLPT level, multi-level scopes joined', () => {
     expect(describeScope({ kanji: ['n5'] })).toBe('Kanji N5');
+    expect(describeScope({ kanji: ['n4', 'n3'] })).toBe('Kanji N4+N3');
     expect(describeScope({ hiragana: ['base'], kanji: ['n5'] })).toBe(
       'Hiragana Base · Kanji N5',
     );

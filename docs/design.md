@@ -83,7 +83,7 @@ One screen at a time, single column, no tab bar or drawer, no router: one top-le
 
 ### Scope picker
 
-Script is a multi-select of pill toggles — Hiragana, Katakana and Kanji today. Each selected script gets its own Set row (Base/Yoon for each kana, N5 for kanji), narrowing that script alone. Kanji is an opt-in: the default selection on a fresh load stays kana-only, so a kana learner never meets kanji uninvited. The guard rails are silent: the last selected script cannot be turned off, and a selected script's last Set cannot be deselected, so an empty scope is unreachable. Session size is one of 10, 20, 50 or All cards; a count larger than the scope clamps to the scope at Start. One line sums the scope up — "N cards · M shaky" — recomputed on every change. The selection survives trips to Drill, Settings and History: the composition root holds it while the picker is unmounted.
+Script is a multi-select of pill toggles — Hiragana, Katakana and Kanji today. Each selected script gets its own Set row (Base/Yoon for each kana, N5–N1 for kanji), narrowing that script alone. Kanji is an opt-in: the default selection on a fresh load stays kana-only, so a kana learner never meets kanji uninvited. The guard rails are silent: the last selected script cannot be turned off, and a selected script's last Set cannot be deselected, so an empty scope is unreachable. Session size is one of 10, 20, 50 or All cards; a count larger than the scope clamps to the scope at Start. One line sums the scope up — "N cards · M shaky" — recomputed on every change. The selection survives trips to Drill, Settings and History: the composition root holds it while the picker is unmounted.
 
 ## Components
 

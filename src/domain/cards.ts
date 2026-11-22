@@ -2,7 +2,7 @@
 // (docs/adr/0001-hexagonal-boundary.md).
 //
 // The static catalog: the 208-card kana catalog below plus the generated
-// 79-card JLPT N5 kanji catalog (`domain/kanji.ts`), all compiled into the
+// JLPT N5-N1 kanji catalog (`domain/kanji.ts`), all compiled into the
 // bundle, never an IndexedDB store. `cardId` is the natural key
 // `"<grapheme>:<script>"` -- a yoon card's grapheme is always the full
 // two-character combination (e.g. "きゃ"), never decomposed into its
@@ -37,8 +37,9 @@ export interface KanjiCard {
   cardId: string;
   grapheme: string;
   script: 'kanji';
-  /** One JLPT level today; a future level is a new Set value. */
-  set: 'n5';
+  /** The one JLPT level this kanji is practised at: a kanji appears in a
+   * single Set, never two. */
+  set: 'n5' | 'n4' | 'n3' | 'n2' | 'n1';
   /** The card's first 3 English meanings, in KANJIDIC2's order. */
   meanings: readonly string[];
   /** On'yomi in katakana; kun'yomi in hiragana with the okurigana dot
@@ -210,7 +211,7 @@ function yoonCards(
 
 /** The full static catalog: 71 base hiragana (46 seion + 25
  * dakuten/handakuten) + 71 base katakana + 33 hiragana yoon + 33 katakana
- * yoon + the 79 generated JLPT N5 kanji cards.
+ * yoon + the 2,211 generated JLPT N5-N1 kanji cards.
  *
  * Every card and the array itself are frozen -- `CARDS` is shared module
  * state, so a caller that got a reference to it (or to one of its cards, e.g.

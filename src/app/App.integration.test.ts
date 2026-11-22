@@ -298,11 +298,15 @@ describe('App integration', () => {
     });
     await screen.findByText('What are we testing today?');
 
-    // Kanji is a picker opt-in: turn it on and both kana scripts off, so
-    // the session draws only from the 79-card N5 catalog.
+    // Kanji is a picker opt-in: turn it on (selecting all five levels) and
+    // both kana scripts off, then narrow the Set row to N5 so the session
+    // draws only from the 79-card N5 catalog.
     await fireEvent.click(screen.getByRole('button', { name: 'Kanji' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Hiragana' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Katakana' }));
+    for (const set of ['N4', 'N3', 'N2', 'N1']) {
+      await fireEvent.click(setPill('Kanji', set));
+    }
     expect(await screen.findByText('79 cards · 0 shaky')).toBeTruthy();
     await fireEvent.click(screen.getByRole('radio', { name: '10' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
@@ -355,6 +359,46 @@ describe('App integration', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'History' }));
     expect(await screen.findByText('1 card · Kanji N5')).toBeTruthy();
+  });
+
+  it('offers every kanji level and reads a multi-level scope in Summary and History', async () => {
+    let surface = fakeInkSurface();
+    render(App, {
+      inkSurfaceFactory: () => {
+        surface = fakeInkSurface();
+        return surface;
+      },
+    });
+    await screen.findByText('What are we testing today?');
+
+    // Kanji on, both kana off: the Set row offers all five levels, and
+    // turning the script on selects them all -- the whole 2,211-card catalog.
+    await fireEvent.click(screen.getByRole('button', { name: 'Kanji' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Hiragana' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Katakana' }));
+    for (const set of ['N5', 'N4', 'N3', 'N2', 'N1']) {
+      expect(setPill('Kanji', set)).toBeTruthy();
+    }
+    expect(await screen.findByText('2211 cards · 0 shaky')).toBeTruthy();
+
+    // Narrow to two levels so Summary and History have a joined line to read.
+    await fireEvent.click(setPill('Kanji', 'N5'));
+    await fireEvent.click(setPill('Kanji', 'N3'));
+    await fireEvent.click(setPill('Kanji', 'N2'));
+    expect(await screen.findByText('1398 cards · 0 shaky')).toBeTruthy();
+    await fireEvent.click(screen.getByRole('radio', { name: '10' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
+
+    expect(await screen.findByText(/1 \/ 10/)).toBeTruthy();
+    await surface.landStroke();
+    await fireEvent.click(screen.getByRole('button', { name: 'Missed' }));
+    await tick();
+    await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
+    expect(await screen.findByText('Session summary')).toBeTruthy();
+    expect(screen.getByText('Kanji N4+N1')).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'History' }));
+    expect(await screen.findByText('1 card · Kanji N4+N1')).toBeTruthy();
   });
 
   it('lists stored sessions newest-first with closure chips and a sparkline', async () => {

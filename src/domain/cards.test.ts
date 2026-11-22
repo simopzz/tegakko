@@ -10,9 +10,9 @@ function bucket(script: 'hiragana' | 'katakana', set: 'base' | 'yoon') {
 }
 
 describe('cards', () => {
-  it('holds exactly 208 kana cards plus the 79 generated kanji', () => {
+  it('holds exactly 208 kana cards plus the 2,211 generated kanji', () => {
     expect(KANA).toHaveLength(208);
-    expect(CARDS).toHaveLength(287);
+    expect(CARDS).toHaveLength(2419);
   });
 
   it('has exactly 71 base hiragana, 71 base katakana, 33 hiragana yoon, 33 katakana yoon', () => {

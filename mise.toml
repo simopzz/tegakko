@@ -22,7 +22,7 @@ description = "Regenerate the PWA icons in public/icons (needs a python3 on PATH
 run = "python3 scripts/gen-icons.py"
 
 [tasks.gen-kanji]
-description = "Regenerate the committed N5 kanji catalog in src/domain (needs network + a python3 on PATH)"
+description = "Regenerate the committed N5-N1 kanji catalog in src/domain (needs network + a python3 on PATH)"
 run = "python3 scripts/gen-kanji.py"
 
 [tasks.clean]
