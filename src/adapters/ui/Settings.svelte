@@ -420,7 +420,7 @@
 
     <section class="setting-section">
     <h2 class="heading">Backup</h2>
-    <p class="body">Save your progress, attempts, handwriting and history in one file.</p>
+    <p class="body">Download a local backup with your progress, attempts, handwriting and history.</p>
     <button type="button" class="action" disabled={exporting} onclick={() => void runExport()}>
       {exporting ? 'Preparing backup…' : 'Download backup'}
     </button>

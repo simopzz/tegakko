@@ -55,9 +55,10 @@ describe('SessionSummary', () => {
     expect(screen.queryByText('Session ended by you')).toBeNull();
   });
 
-  it('shows no chip for an inactivity closure', () => {
+  it('explains when inactivity closed the session', () => {
     render(SessionSummary, { summary: fixture({ closureReason: 'inactivity' }), onAgain: vi.fn() });
 
+    expect(screen.getByText('Session closed after inactivity')).toBeTruthy();
     expect(screen.queryByText('Session ended by you')).toBeNull();
   });
 

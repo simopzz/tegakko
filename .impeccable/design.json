@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-22T17:39:48Z",
+  "generatedAt": "2026-11-22T22:22:25Z",
   "title": "Design System: tegakko — The Morning Writing Desk",
   "seededFrom": {
     "id": "seed:a3dac06775443eb1",
@@ -23,7 +23,7 @@
       "accent": { "role": "primary", "displayName": "Desk Green", "canonical": "#385148", "tonalRamp": ["#18221e", "#26352f", "#35483f", "#385148", "#527065", "#739186", "#a0b4a9", "#dce5df"] },
       "accent-strong": { "role": "primary", "displayName": "Deep Desk Green", "canonical": "#293f37", "tonalRamp": ["#141e1a", "#202f29", "#293f37", "#3c5a4e", "#567466", "#789288", "#a8b9b0", "#dfe7e2"] },
       "accent-on-paper": { "role": "neutral", "displayName": "Paper on Green", "canonical": "#fbf6eb", "tonalRamp": ["#2e2c27", "#514c41", "#777061", "#a19884", "#c1b9a7", "#ded6c5", "#f1eadc", "#fbf6eb"] },
-      "mark": { "role": "tertiary", "displayName": "Terracotta Bookmark", "canonical": "#b86d47", "tonalRamp": ["#391f14", "#60351f", "#874b2c", "#a85f3d", "#b86d47", "#ca8966", "#dfaf91", "#f1d7c8"] },
+      "mark": { "role": "tertiary", "displayName": "Terracotta Bookmark", "canonical": "#a95837", "tonalRamp": ["#2e1106", "#4e2210", "#70341b", "#904525", "#a95837", "#b87b63", "#d1a696", "#ecd9d2"] },
       "positive-bg": { "role": "secondary", "displayName": "Soft Sage", "canonical": "#dfe8d8", "tonalRamp": ["#273026", "#3d493b", "#566651", "#70846a", "#91a48a", "#b1c1a9", "#dfe8d8", "#f2f6ef"] },
       "positive-fg": { "role": "secondary", "displayName": "Sage Ink", "canonical": "#344b3d", "tonalRamp": ["#18251e", "#25372d", "#344b3d", "#476653", "#64836f", "#89a08f", "#b3c1b6", "#e0e7e2"] },
       "positive-accent": { "role": "secondary", "displayName": "Sage Accent", "canonical": "#526d59", "tonalRamp": ["#202a23", "#344538", "#526d59", "#698973", "#86a18d", "#a7b9aa", "#cbd5cc", "#e9eee9"] },
@@ -73,7 +73,7 @@
       "name": "Top Navigation",
       "kind": "nav",
       "refersTo": "navigation",
-      "description": "Shared deep-green header with brand, screen context, and available navigation actions.",
+      "description": "Shared deep-green header with brand, screen context, and available navigation actions; History and Settings return to their originating Scope or Summary screen.",
       "html": "<header class=\"ds-nav\"><strong>tegakko</strong><nav><button>History</button><button>Settings</button></nav></header>",
       "css": ".ds-nav { min-height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 10px 24px; background: var(--color-accent); color: var(--color-accent-on-paper); } .ds-nav strong { font-family: var(--font-display); font-size: 1.45rem; font-weight: 600; } .ds-nav button { min-height: 48px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: inherit; font-family: var(--font-body); font-weight: 600; cursor: pointer; } .ds-nav button:hover { background: rgba(251, 246, 235, 0.12); } .ds-nav button:focus-visible { outline: 3px solid var(--color-mark); outline-offset: 3px; }"
     },

@@ -215,7 +215,7 @@
       <strong>{resolveSessionSize(sizeChoice, scopedCards.length)} cards</strong>
     </div>
     <p>{scopedCards.length} available · {shakyCount} with recent misses</p>
-    <p class="summary-note">Recent misses return sooner.</p>
+    <p class="summary-note">Cards missed recently are sampled sooner in future sessions.</p>
   </div>
   </div>
 
