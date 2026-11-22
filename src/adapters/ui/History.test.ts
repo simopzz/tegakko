@@ -15,10 +15,11 @@ describe('History', () => {
       .mockReturnValue(new Promise<Session[]>((resolve) => (resolveList = resolve)));
     render(History, { history: { list } });
 
-    expect(screen.getByText('Loading…')).toBeTruthy();
+    expect(screen.getByText('Loading your history…')).toBeTruthy();
 
     resolveList([]);
-    await vi.waitFor(() => expect(screen.queryByText('Loading…')).toBeNull());
-    expect(screen.getByText('No sessions yet. Finish a drill to see it here.')).toBeTruthy();
+    await vi.waitFor(() => expect(screen.queryByText('Loading your history…')).toBeNull());
+    expect(screen.getByText('No sessions yet')).toBeTruthy();
+    expect(screen.getByText('Complete a practice session and it will be recorded here.')).toBeTruthy();
   });
 });

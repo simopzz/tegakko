@@ -143,12 +143,12 @@ describe('FirstRun', () => {
     expect(screen.getByText('0.50')).toBeTruthy();
   });
 
-  it('never hard-blocks: "Just use it here" dismisses the screen on a successful save', async () => {
+  it('continues without the check after a successful save', async () => {
     const onDismiss = vi.fn();
     const settings = fakeSettings();
     render(FirstRun, { settings, onDismiss });
 
-    await fireEvent.click(screen.getByText('Just use it here'));
+    await fireEvent.click(screen.getByText('Continue without checking'));
     await vi.waitFor(() => expect(onDismiss).toHaveBeenCalledTimes(1));
   });
 
@@ -160,7 +160,7 @@ describe('FirstRun', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     render(FirstRun, { settings, onDismiss });
 
-    await fireEvent.click(screen.getByText('Just use it here'));
+    await fireEvent.click(screen.getByText('Continue without checking'));
 
     const errorNote = await screen.findByText(/Couldn't save that/);
     expect(errorNote.textContent).not.toContain('quota exceeded on put()');
@@ -169,7 +169,7 @@ describe('FirstRun', () => {
 
     // A follow-up tap still gets the learner past the screen -- the failure
     // is surfaced, never a hard block.
-    await fireEvent.click(screen.getByText('Just use it here'));
+    await fireEvent.click(screen.getByText('Continue without checking'));
     await vi.waitFor(() => expect(onDismiss).toHaveBeenCalledTimes(1));
 
     consoleError.mockRestore();
@@ -183,7 +183,7 @@ describe('FirstRun', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     render(FirstRun, { settings, onDismiss });
 
-    await fireEvent.click(screen.getByText('Just use it here'));
+    await fireEvent.click(screen.getByText('Continue without checking'));
 
     const errorNote = await screen.findByText(/Couldn't save that/);
     expect(errorNote.textContent).not.toContain('IndexedDB blocked');
@@ -215,7 +215,7 @@ describe('FirstRun', () => {
       userChoice: Promise.resolve({ outcome: 'accepted', platform: '' }),
     });
 
-    const installButton = await screen.findByText('Install');
+    const installButton = await screen.findByText('Install app');
     await fireEvent.click(installButton);
 
     await vi.waitFor(() =>
@@ -237,7 +237,7 @@ describe('FirstRun', () => {
       userChoice: Promise.resolve({ outcome: 'dismissed', platform: '' }),
     });
 
-    const installButton = await screen.findByText('Install');
+    const installButton = await screen.findByText('Install app');
     await fireEvent.click(installButton);
 
     await screen.findByText(/Couldn't open the install prompt/);
@@ -248,7 +248,7 @@ describe('FirstRun', () => {
     consoleError.mockRestore();
   });
 
-  it('still persists penCheckShown via "Just use it here" after an earlier install-prompt failure', async () => {
+  it('still persists penCheckShown via "Continue without checking" after an earlier install-prompt failure', async () => {
     const onDismiss = vi.fn();
     const settings = fakeSettings();
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -258,15 +258,15 @@ describe('FirstRun', () => {
       prompt: vi.fn().mockRejectedValue(new Error('prompt already used')),
       userChoice: Promise.resolve({ outcome: 'dismissed', platform: '' }),
     });
-    const installButton = await screen.findByText('Install');
+    const installButton = await screen.findByText('Install app');
     await fireEvent.click(installButton);
     await screen.findByText(/Couldn't open the install prompt/);
 
     // The install prompt failing never attempted a save -- a follow-up
-    // "Just use it here" tap must still actually persist penCheckShown,
+    // "Continue without checking" tap must still actually persist penCheckShown,
     // not silently ride the install failure's error note through to
     // dismiss.
-    await fireEvent.click(screen.getByText('Just use it here'));
+    await fireEvent.click(screen.getByText('Continue without checking'));
 
     await vi.waitFor(() =>
       expect(settings.save).toHaveBeenCalledWith(

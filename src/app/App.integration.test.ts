@@ -36,16 +36,21 @@ function historyRows(): HTMLElement[] {
   return [...document.querySelectorAll('.row')] as HTMLElement[];
 }
 
-function sparklineBars(): HTMLElement[] {
+function chartBars(): HTMLElement[] {
   return [...document.querySelectorAll('.bar')] as HTMLElement[];
+}
+
+function findSummaryHeading(): Promise<HTMLElement> {
+  return within(screen.getByRole('main')).findByRole('heading', { name: 'Session summary' });
 }
 
 describe('App integration', () => {
   // The rebuilt Scope picker: scripts are a multi-select, each selected
   // script gets its own Set row, and session sizes are fixed counts.
   function setPill(script: string, set: string): HTMLElement {
-    return within(screen.getByRole('group', { name: `${script} Sets` })).getByRole('button', {
-      name: set,
+    const label = script === 'Kanji' ? `JLPT ${set}` : set === 'Base' ? 'Single kana' : 'Combined sounds';
+    return within(screen.getByRole('group', { name: `${script} groups` })).getByRole('button', {
+      name: new RegExp(`^${label}`),
     });
   }
 
@@ -69,7 +74,7 @@ describe('App integration', () => {
     });
 
     // Scope picker is shown because settings were seeded with penCheckShown.
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
 
     // Narrow to a small, deterministic scope so grading one card and ending
     // is enough to exercise the whole pipeline.
@@ -90,7 +95,7 @@ describe('App integration', () => {
 
     // Session summary appears; wait for the fire-and-forget session write
     // to land before opening History.
-    expect(await screen.findByText('Session summary')).toBeTruthy();
+    expect(await findSummaryHeading()).toBeTruthy();
     expect(screen.getByText('0%')).toBeTruthy();
     // The session's own card count and its scope, so "0%" means something.
     expect(screen.getByText('Cards')).toBeTruthy();
@@ -106,7 +111,7 @@ describe('App integration', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'History' }));
     expect(await screen.findByText('History')).toBeTruthy();
     expect(await screen.findByText('0%')).toBeTruthy();
-    expect(screen.queryByText('No sessions yet. Finish a drill to see it here.')).toBeNull();
+    expect(screen.queryByText('No sessions yet')).toBeNull();
   });
 
   // The drill grade flow: one tap per card -- a grade advances
@@ -121,7 +126,7 @@ describe('App integration', () => {
         return surface;
       },
     });
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('button', { name: 'Katakana' }));
     await fireEvent.click(setPill('Hiragana', 'Base'));
     await fireEvent.click(screen.getByRole('radio', { name: '10' }));
@@ -207,7 +212,7 @@ describe('App integration', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
 
-    expect(await screen.findByText('Session summary')).toBeTruthy();
+    expect(await findSummaryHeading()).toBeTruthy();
     const sessionRepository = new IdbSessionRepository();
     await vi.waitFor(async () => {
       const sessions = await sessionRepository.list();
@@ -233,7 +238,7 @@ describe('App integration', () => {
     expect(cells[1]?.querySelector('.glyph')?.className).toContain('glyph--small');
   });
 
-  it('shows one live "N cards · M shaky" line, from the stored miss counts', async () => {
+  it('announces the available and recently missed counts from stored miss tallies', async () => {
     // One heavily-missed hiragana card: above the average on the full
     // scope, gone entirely once the scope narrows past it.
     const tallyRepository = new IdbTallyRepository();
@@ -244,29 +249,29 @@ describe('App integration', () => {
 
     render(App);
 
-    await screen.findByText('What are we testing today?');
-    const summary = await screen.findByText('208 cards · 1 shaky');
+    await screen.findByText('What would you like to write?');
+    const summary = await screen.findByText('208 available · 1 with recent misses');
     // The line is the announcement: every count change reaches a screen
     // reader too.
-    expect(summary.getAttribute('aria-live')).toBe('polite');
+    expect(summary.parentElement?.getAttribute('aria-live')).toBe('polite');
 
     await fireEvent.click(screen.getByRole('button', { name: 'Hiragana' }));
     // The only miss record dropped out of scope -- nothing is above the
     // average any more.
-    expect(await screen.findByText('104 cards · 0 shaky')).toBeTruthy();
+    expect(await screen.findByText('104 available · 0 with recent misses')).toBeTruthy();
 
     await fireEvent.click(screen.getByRole('button', { name: 'Hiragana' }));
-    expect(await screen.findByText('208 cards · 1 shaky')).toBeTruthy();
+    expect(await screen.findByText('208 available · 1 with recent misses')).toBeTruthy();
   });
 
   it('moves the session-size selection with arrow keys, committing like a tap', async () => {
     render(App);
 
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
 
     // Arrows select and commit, like a native radio group: Left wraps
     // from All back around to 50, focus following the selection.
-    const all = screen.getByRole('radio', { name: 'All' });
+    const all = screen.getByRole('radio', { name: 'All available' });
     all.focus();
     await fireEvent.keyDown(all, { key: 'ArrowLeft' });
     const fifty = screen.getByRole('radio', { name: '50' });
@@ -296,18 +301,18 @@ describe('App integration', () => {
         return surface;
       },
     });
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
 
     // Kanji is a picker opt-in: turn it on (selecting all five levels) and
     // both kana scripts off, then narrow the Set row to N5 so the session
     // draws only from the 79-card N5 catalog.
-    await fireEvent.click(screen.getByRole('button', { name: 'Kanji' }));
+    await fireEvent.click(screen.getByRole('button', { name: /^Kanji/ }));
     await fireEvent.click(screen.getByRole('button', { name: 'Hiragana' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Katakana' }));
     for (const set of ['N4', 'N3', 'N2', 'N1']) {
       await fireEvent.click(setPill('Kanji', set));
     }
-    expect(await screen.findByText('79 cards · 0 shaky')).toBeTruthy();
+    expect(await screen.findByText('79 available · 0 with recent misses')).toBeTruthy();
     await fireEvent.click(screen.getByRole('radio', { name: '10' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
 
@@ -345,10 +350,10 @@ describe('App integration', () => {
     // Summary and History both read the session as a Kanji N5 scope, the
     // graded card among Summary's missed chips.
     await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
-    expect(await screen.findByText('Session summary')).toBeTruthy();
+    expect(await findSummaryHeading()).toBeTruthy();
     expect(screen.getByText('Kanji N5')).toBeTruthy();
     expect(screen.getByText(target.grapheme)).toBeTruthy();
-    expect(screen.getByText(/missed 1/)).toBeTruthy();
+    expect(screen.getByText(/Missed 1/)).toBeTruthy();
 
     const sessionRepository = new IdbSessionRepository();
     await vi.waitFor(async () => {
@@ -369,23 +374,23 @@ describe('App integration', () => {
         return surface;
       },
     });
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
 
     // Kanji on, both kana off: the Set row offers all five levels, and
     // turning the script on selects them all -- the whole 2,211-card catalog.
-    await fireEvent.click(screen.getByRole('button', { name: 'Kanji' }));
+    await fireEvent.click(screen.getByRole('button', { name: /^Kanji/ }));
     await fireEvent.click(screen.getByRole('button', { name: 'Hiragana' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Katakana' }));
     for (const set of ['N5', 'N4', 'N3', 'N2', 'N1']) {
       expect(setPill('Kanji', set)).toBeTruthy();
     }
-    expect(await screen.findByText('2211 cards · 0 shaky')).toBeTruthy();
+    expect(await screen.findByText('2211 available · 0 with recent misses')).toBeTruthy();
 
     // Narrow to two levels so Summary and History have a joined line to read.
     await fireEvent.click(setPill('Kanji', 'N5'));
     await fireEvent.click(setPill('Kanji', 'N3'));
     await fireEvent.click(setPill('Kanji', 'N2'));
-    expect(await screen.findByText('1398 cards · 0 shaky')).toBeTruthy();
+    expect(await screen.findByText('1398 available · 0 with recent misses')).toBeTruthy();
     await fireEvent.click(screen.getByRole('radio', { name: '10' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
 
@@ -394,14 +399,14 @@ describe('App integration', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Missed' }));
     await tick();
     await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
-    expect(await screen.findByText('Session summary')).toBeTruthy();
+    expect(await findSummaryHeading()).toBeTruthy();
     expect(screen.getByText('Kanji N4+N1')).toBeTruthy();
 
     await fireEvent.click(screen.getByRole('button', { name: 'History' }));
     expect(await screen.findByText('1 card · Kanji N4+N1')).toBeTruthy();
   });
 
-  it('lists stored sessions newest-first with closure chips and a sparkline', async () => {
+  it('lists stored sessions newest-first with closure chips and an accuracy chart', async () => {
     const idle = seededSession({
       date: '2026-09-01T00:00:00.000Z',
       closureReason: 'inactivity',
@@ -423,16 +428,16 @@ describe('App integration', () => {
     }
 
     render(App);
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     // No stored miss counts on a fresh database -- the line reads zero shaky.
-    expect(await screen.findByText('208 cards · 0 shaky')).toBeTruthy();
+    expect(await screen.findByText('208 available · 0 with recent misses')).toBeTruthy();
     await fireEvent.click(screen.getByRole('button', { name: 'History' }));
 
     // Focus lands on the History heading on entry.
     await vi.waitFor(() => expect(document.activeElement?.textContent).toBe('History'));
 
     // Reverse-chronological: complete (09-03), explicit (09-02), idle (09-01).
-    await screen.findByText(formatDate(complete.date));
+    await screen.findByRole('heading', { name: 'Sessions' });
     const rows = historyRows();
     expect(rows).toHaveLength(3);
     expect(within(rows[0]!).getByText(formatDate(complete.date))).toBeTruthy();
@@ -449,17 +454,16 @@ describe('App integration', () => {
     expect(within(rows[0]!).getByText('90%').className).not.toContain('dimmed');
     expect(within(rows[1]!).queryByText('Session complete')).toBeNull();
     expect(within(rows[2]!).getByText('Closed on idle').className).toContain('chip--neutral');
-    expect(within(rows[2]!).getByText('60%').className).toContain('dimmed');
+    expect(within(rows[2]!).getByText('60%').closest('.accuracy')?.className).toContain('dimmed');
 
     // One bar per session, the newest always the accent color.
-    const bars = sparklineBars();
+    const bars = chartBars();
     expect(bars).toHaveLength(3);
     expect(bars[2]!.getAttribute('style')).toContain('background-color: var(--color-accent)');
   });
 
-  it('hides the sparkline below 3 sessions but still lists the rows', async () => {
-    // One or two sessions would draw a flat, meaningless line -- the
-    // sparkline waits for a third.
+  it('hides the accuracy chart below 3 sessions but still lists the rows', async () => {
+    // One or two sessions are not enough to show a trend chart.
     const first = seededSession({ date: '2026-09-01T00:00:00.000Z' });
     const second = seededSession({ date: '2026-09-02T00:00:00.000Z' });
     const sessionRepository = new IdbSessionRepository();
@@ -467,21 +471,21 @@ describe('App integration', () => {
     await sessionRepository.add(second);
 
     render(App);
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('button', { name: 'History' }));
 
     expect(await screen.findByText(formatDate(second.date))).toBeTruthy();
     expect(historyRows()).toHaveLength(2);
-    expect(document.querySelector('.sparkline')).toBeNull();
+    expect(document.querySelector('.chart')).toBeNull();
   });
 
   it('shows History\'s empty state on a fresh database', async () => {
     render(App);
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('button', { name: 'History' }));
 
-    expect(await screen.findByText('No sessions yet. Finish a drill to see it here.')).toBeTruthy();
-    expect(document.querySelector('.sparkline')).toBeNull();
+    expect(await screen.findByText('No sessions yet')).toBeTruthy();
+    expect(document.querySelector('.chart')).toBeNull();
   });
 
   it('shows the stored presets in Settings and persists changes to both controls', async () => {
@@ -494,7 +498,7 @@ describe('App integration', () => {
     });
 
     render(App);
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
 
     await screen.findByRole('radiogroup', { name: 'Ink width' });
@@ -535,7 +539,7 @@ describe('App integration', () => {
         return pad;
       },
     });
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
 
     // One page title (the bar's h1 "Settings") with the three sections
@@ -547,7 +551,7 @@ describe('App integration', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Backup' })).toBeTruthy();
     // The page ends with the kanji sources' licence credit line.
     expect(
-      screen.getByText('Kanji data: EDRDG KANJIDIC2 (CC BY-SA), JLPT lists by J. Waller (CC BY)'),
+      screen.getByText('Kanji data: EDRDG KANJIDIC2 (CC BY-SA); JLPT lists by J. Waller (CC BY).'),
     ).toBeTruthy();
 
     // Wait for the stored record to land in the pills before keying them.
@@ -612,10 +616,10 @@ describe('App integration', () => {
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
 
     render(App);
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Download backup' }));
 
     await vi.waitFor(() => expect(blobs).toHaveLength(1));
     expect(screen.queryByText("Couldn't export -- try again.")).toBeNull();
@@ -649,7 +653,7 @@ describe('App integration', () => {
     );
 
     render(App);
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
 
     const input = screen.getByTestId('import-file') as HTMLInputElement;
@@ -700,15 +704,15 @@ describe('App integration', () => {
 
     // The imported session is what History lists.
     await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('button', { name: 'History' }));
     expect(await screen.findByText('50%')).toBeTruthy();
-    expect(screen.queryByText('No sessions yet. Finish a drill to see it here.')).toBeNull();
+    expect(screen.queryByText('No sessions yet')).toBeNull();
   });
 
   it('rejects a file that is not a tegakko backup without changing anything', async () => {
     render(App);
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
 
     const input = screen.getByTestId('import-file') as HTMLInputElement;

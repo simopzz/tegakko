@@ -43,22 +43,22 @@ describe('SessionSummary', () => {
     expect(screen.getByText('Reveals')).toBeTruthy();
   });
 
-  it('shows the "You ended it" chip only for an explicit closure', () => {
+  it('shows the "Session ended by you" chip only for an explicit closure', () => {
     render(SessionSummary, { summary: fixture({ closureReason: 'explicit' }), onAgain: vi.fn() });
 
-    expect(screen.getByText('You ended it')).toBeTruthy();
+    expect(screen.getByText('Session ended by you')).toBeTruthy();
   });
 
   it('shows no chip for a complete closure', () => {
     render(SessionSummary, { summary: fixture({ closureReason: 'complete' }), onAgain: vi.fn() });
 
-    expect(screen.queryByText('You ended it')).toBeNull();
+    expect(screen.queryByText('Session ended by you')).toBeNull();
   });
 
   it('shows no chip for an inactivity closure', () => {
     render(SessionSummary, { summary: fixture({ closureReason: 'inactivity' }), onAgain: vi.fn() });
 
-    expect(screen.queryByText('You ended it')).toBeNull();
+    expect(screen.queryByText('Session ended by you')).toBeNull();
   });
 
   it('renders one missed chip per entry, with its missCount', () => {
@@ -79,21 +79,22 @@ describe('SessionSummary', () => {
     expect(screen.getByText('い')).toBeTruthy();
     // Script is visible text, not a hover-only `title` -- unreachable on the
     // app's touch-only target device.
-    expect(screen.getByText(/Hiragana · missed 3/)).toBeTruthy();
-    expect(screen.getByText(/Hiragana · missed 1/)).toBeTruthy();
+    expect(screen.getAllByText('Hiragana')).toHaveLength(2);
+    expect(screen.getByText('Missed 3 times')).toBeTruthy();
+    expect(screen.getByText('Missed 1 time')).toBeTruthy();
   });
 
-  it('renders no missed chips and no "Missed this time" group for an empty missed list', () => {
+  it('renders no missed rows for an empty missed list', () => {
     render(SessionSummary, { summary: fixture({ missed: [] }), onAgain: vi.fn() });
 
-    expect(screen.queryByText('Missed this time')).toBeNull();
+    expect(screen.queryByText('Cards missed this session')).toBeNull();
   });
 
-  it('calls onAgain when "Another round" is tapped', async () => {
+  it('calls onAgain when "Choose another scope" is tapped', async () => {
     const onAgain = vi.fn();
     render(SessionSummary, { summary: fixture(), onAgain });
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Another round' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Choose another scope' }));
 
     expect(onAgain).toHaveBeenCalledTimes(1);
   });
@@ -111,7 +112,7 @@ describe('SessionSummary', () => {
     );
 
     expect(screen.getByText('0%')).toBeTruthy();
-    expect(screen.queryByText('Missed this time')).toBeNull();
+    expect(screen.queryByText('Cards missed this session')).toBeNull();
   });
 
   it('renders the missed chips as a list so screen readers announce the group', () => {
@@ -128,7 +129,7 @@ describe('SessionSummary', () => {
       },
     );
 
-    const list = screen.getByRole('list', { name: 'Missed cards' });
+    const list = screen.getByRole('list', { name: 'Cards missed this session' });
     expect(list).toBeTruthy();
     expect(list.querySelectorAll(':scope > li').length).toBe(2);
   });

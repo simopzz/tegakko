@@ -11,6 +11,10 @@ Run the app with `mise run dev` (Vite prints the URL). The app's state lives in 
 
 Tools are named `<server>_<tool>`, so `chrome-devtools_get_css_styles`, or `tools.chrome_devtools.get_css_styles(...)` inside Code Mode's `execute`. In Claude Code they are `mcp__chrome-devtools__*`, deferred behind ToolSearch. If they're missing, ask the user to check `/mcps` (OpenCode) or `/mcp` (Claude Code).
 
+## Local screen-state captures
+
+When `playwright-brave` is unavailable, use the repository capture workflow instead of stopping at the default First Run screen. Start the app with `mise run dev`, then run `npm run capture:ui` in another terminal. It launches `/usr/bin/chromium` in isolated browser contexts, seeds only the local practice settings needed to reach the Scope Picker, walks the main screen flow, and saves phone and tablet captures under `.impeccable/review/routes/`. Set `CHROME_PATH` when Chromium lives elsewhere. The workflow does not use or change the user's normal browser profile.
+
 ## chrome-devtools
 
 It launches `/usr/bin/chromium` on its first tool call (`new_page`, `navigate_page`), not before, with a profile kept in `~/.cache/chrome-devtools-mcp/chrome-profile`, so IndexedDB data survives between sessions.

@@ -81,7 +81,7 @@
   let exportNote = $state<string | null>(null);
   // In-flight guard: a second tap while an export is running is a no-op, so
   // exactly one file downloads.
-  let exporting = false;
+  let exporting = $state(false);
 
   // Import. `pending` holds a validated file between the warning
   // toast and Replace/Cancel -- nothing is written until `confirmImport()`.
@@ -246,7 +246,7 @@
       if (!result.ok) {
         console.error('Failed to export progress:', result.error);
         exportNote = "Couldn't export -- try again.";
-      }
+      } else exportNote = 'Backup downloaded.';
     } finally {
       exporting = false;
     }
@@ -327,10 +327,11 @@
   }
 </script>
 
-<ScreenShell inert={pending !== null}>
+<ScreenShell bookmark="Preferences" inert={pending !== null}>
     <!-- No content h1: the top bar's h1 "Settings" is the page title
          (History's pattern), and the three sections sit under it as
          subheadings. -->
+    <section class="setting-section">
     <h2 class="heading">Ink width</h2>
     <p class="body">How much the stroke thickens as you press harder. Applies to your next stroke.</p>
 
@@ -375,9 +376,11 @@
     {#if widthNote}
       <p class="note" role="status" aria-live="polite">{widthNote}</p>
     {/if}
+    </section>
 
+    <section class="setting-section">
     <h2 class="heading">Idle close</h2>
-    <p class="body">How long with no interaction before a session closes on its own.</p>
+    <p class="body">Close a session after you leave it untouched for this long.</p>
 
     {#if loaded}
       <div
@@ -413,16 +416,20 @@
     {#if readNote}
       <p class="note" role="status" aria-live="polite">{readNote}</p>
     {/if}
+    </section>
 
+    <section class="setting-section">
     <h2 class="heading">Backup</h2>
-    <p class="body">Download your miss counts, attempts, handwriting and history as one file.</p>
-    <button type="button" class="action" onclick={() => void runExport()}>Export</button>
+    <p class="body">Save your progress, attempts, handwriting and history in one file.</p>
+    <button type="button" class="action" disabled={exporting} onclick={() => void runExport()}>
+      {exporting ? 'Preparing backup…' : 'Download backup'}
+    </button>
 
     {#if exportNote}
       <p class="note" role="status" aria-live="polite">{exportNote}</p>
     {/if}
 
-    <p class="body">Restore from a backup file. This replaces everything stored here.</p>
+    <p class="body">Restore from a backup file. Importing replaces all progress on this device.</p>
     <button type="button" class="action" onclick={pickImportFile} bind:this={importButton}>
       Import
     </button>
@@ -441,7 +448,8 @@
       <p class="note" role="status" aria-live="polite">{importNote}</p>
     {/if}
 
-    <p class="body">Kanji data: EDRDG KANJIDIC2 (CC BY-SA), JLPT lists by J. Waller (CC BY)</p>
+    <p class="credits">Kanji data: EDRDG KANJIDIC2 (CC BY-SA); JLPT lists by J. Waller (CC BY).</p>
+    </section>
 </ScreenShell>
 
 {#if pending}
@@ -493,18 +501,41 @@
 {/if}
 
 <style>
+  .setting-section {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-2);
+    padding-top: var(--spacing-5);
+    border-top: 1px solid var(--color-paper-line);
+  }
+
+  .setting-section:first-child {
+    padding-top: 0;
+    border-top: 0;
+  }
+
   .action {
     min-height: 56px;
     padding: 0 var(--spacing-3);
-    border: 1px solid var(--color-ink-faint);
+    border: 1px solid var(--color-paper-line);
     border-radius: var(--radius-md);
-    background: transparent;
+    background: var(--color-paper-warm);
     color: var(--color-ink);
     font-family: var(--font-heading);
     font-weight: 600;
     font-size: 1rem;
     cursor: pointer;
     align-self: flex-start;
+  }
+
+  .action:disabled { opacity: 0.6; cursor: wait; }
+
+  .credits {
+    margin: var(--spacing-3) 0 0;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--color-ink-muted);
   }
 
   .heading {
@@ -545,7 +576,7 @@
   }
 
   .pill--active {
-    background: var(--color-accent);
+    background: var(--color-accent-deep);
     color: var(--color-surface-card);
   }
 
@@ -609,9 +640,9 @@
     flex-direction: column;
     gap: var(--spacing-3);
     padding: 30px 34px;
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-md);
     background: var(--color-missed-bg);
-    box-shadow: 0 12px 32px rgba(46, 43, 37, 0.18);
+    box-shadow: 0 12px 32px rgba(46, 43, 37, 0.16);
   }
 
   .toast-headline {

@@ -303,8 +303,14 @@ describe('Drill', () => {
     expect(screen.getByText(promptText(target))).toBeTruthy();
     expect(screen.getByText('Kanji')).toBeTruthy();
     const readings = document.querySelector('.readings')?.textContent ?? '';
-    expect(readings).toContain('·');
-    expect(readings).toContain(target.onyomi[0]!);
+    const availableReading = target.onyomi[0] ?? target.kunyomi[0];
+    expect(availableReading).toBeTruthy();
+    expect(readings).toContain(availableReading);
+    if (target.onyomi.length > 0 && target.kunyomi.length > 0) {
+      expect(readings).toContain('·');
+    } else {
+      expect(readings).not.toContain('·');
+    }
     expect(screen.queryByText(target.grapheme)).toBeNull();
     // One genkouyoushi cell, exactly like a single kana.
     expect(inkSurface.cellCounts).toEqual([1]);

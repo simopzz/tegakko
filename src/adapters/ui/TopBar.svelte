@@ -49,12 +49,15 @@
 </script>
 
 <header class="top-bar" inert={inert}>
-  {#if onBack}
-    <button type="button" class="back" onclick={onBack}>{backLabel}</button>
-  {/if}
-  {#if title}
-    <h1 class="title" tabindex="-1" bind:this={titleEl}>{title}</h1>
-  {/if}
+  <span class="brand" aria-label="tegakko">tegakko</span>
+  <div class="bar-context">
+    {#if onBack}
+      <button type="button" class="back" onclick={onBack}>{backLabel}</button>
+    {/if}
+    {#if title}
+      <h1 class="title" tabindex="-1" bind:this={titleEl}>{title}</h1>
+    {/if}
+  </div>
   {#if progress}
     <div class="progress">
       <p class="counter">{progress.now} / {progress.total}</p>
@@ -86,43 +89,62 @@
   .top-bar {
     display: flex;
     align-items: center;
-    gap: var(--spacing-3);
-    padding: var(--spacing-2) var(--spacing-4);
-    border-bottom: 1px solid var(--color-ink-hairline);
+    gap: var(--spacing-4);
+    min-height: 76px;
+    padding: 10px clamp(16px, 4vw, 40px);
+    background: var(--color-accent);
+    color: var(--color-accent-on-paper);
     flex: none;
   }
 
-  .back {
-    min-height: 56px;
-    padding: 0 var(--spacing-3);
-    border: 1px solid var(--color-ink-faint);
-    border-radius: var(--radius-md);
-    background: transparent;
-    color: var(--color-ink);
-    font-family: var(--font-heading);
+  .brand {
+    flex: none;
+    color: var(--color-accent-on-paper);
+    font-family: var(--font-display);
+    font-size: 1.45rem;
     font-weight: 600;
-    font-size: 1rem;
+    letter-spacing: -0.025em;
+  }
+
+  .bar-context {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+    min-width: 0;
+  }
+
+  .back {
+    min-height: 48px;
+    padding: 0 var(--spacing-2);
+    border: 1px solid rgba(251, 246, 235, 0.42);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-accent-on-paper);
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 0.9rem;
     cursor: pointer;
+    transition: background var(--motion-press), border-color var(--motion-press);
   }
 
   .title {
-    /* Fills the bar so the nav links sit at the far right. */
-    flex: 1;
+    flex: none;
     margin: 0;
-    font-family: var(--font-label);
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    font-size: 0.75rem;
-    color: var(--color-ink-muted);
+    color: rgba(251, 246, 235, 0.78);
+    font-family: var(--font-body);
+    font-weight: 500;
+    font-size: 0.9rem;
   }
 
   .title:focus {
-    outline: none;
+    outline: 3px solid var(--color-paper);
+    outline-offset: 4px;
+    border-radius: var(--radius-sm);
   }
 
   .progress {
     flex: 1;
+    min-width: 90px;
     display: flex;
     flex-direction: column;
     gap: var(--spacing-1);
@@ -131,38 +153,90 @@
   .counter {
     margin: 0;
     font-family: var(--font-body);
-    font-size: 0.95rem;
-    color: var(--color-ink-muted);
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+    color: rgba(251, 246, 235, 0.82);
   }
 
   .bar {
-    height: 6px;
+    height: 4px;
     border-radius: var(--radius-full);
-    background: var(--color-ink-hairline);
+    background: rgba(251, 246, 235, 0.25);
     overflow: hidden;
   }
 
   .bar-fill {
     height: 100%;
     border-radius: var(--radius-full);
-    background: var(--color-accent);
+    background: var(--color-mark);
   }
 
   .links {
     display: flex;
     align-items: center;
-    gap: var(--spacing-2);
+    gap: var(--spacing-3);
+    margin-left: auto;
   }
 
   .link {
-    min-height: 56px;
-    padding: 0 var(--spacing-2);
+    position: relative;
+    min-height: 48px;
+    padding: 0 2px;
     border: none;
     background: transparent;
-    color: var(--color-accent-strong);
-    font-family: var(--font-heading);
+    color: rgba(251, 246, 235, 0.88);
+    font-family: var(--font-body);
     font-weight: 600;
-    font-size: 1rem;
+    font-size: 0.9rem;
     cursor: pointer;
+    transition: color var(--motion-press);
+  }
+
+  .back:hover,
+  .link:hover {
+    color: var(--color-paper);
+  }
+
+  .back:hover {
+    background: rgba(251, 246, 235, 0.08);
+    border-color: rgba(251, 246, 235, 0.7);
+  }
+
+  @media (max-width: 560px) {
+    .top-bar {
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      min-height: 68px;
+      padding: 10px 16px;
+    }
+
+    .brand {
+      font-size: 1.25rem;
+    }
+
+    .bar-context {
+      gap: 10px;
+    }
+
+    .title,
+    .link,
+    .back {
+      font-size: 0.82rem;
+    }
+
+    .progress {
+      order: 3;
+      flex-basis: 100%;
+      flex-direction: row;
+      align-items: center;
+    }
+
+    .progress .bar {
+      flex: 1;
+    }
+
+    .links {
+      gap: 14px;
+    }
   }
 </style>

@@ -1,282 +1,150 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-22T12:15:00Z",
-  "title": "Design System: tegakko",
+  "generatedAt": "2026-11-22T17:39:48Z",
+  "title": "Design System: tegakko — The Morning Writing Desk",
+  "seededFrom": {
+    "id": "seed:a3dac06775443eb1",
+    "name": "The Morning Writing Desk",
+    "source": "User-selected grounded direction; code-led direction round",
+    "reference": ".impeccable/mocks/decision/model-pick.html",
+    "referenceRole": "Composition reference only"
+  },
   "extensions": {
     "colorMeta": {
-      "primary": {
-        "role": "primary",
-        "displayName": "Japanese Persimmon (Kaki)",
-        "canonical": "#c67139",
-        "tonalRamp": [
-          "#341909",
-          "#562a0e",
-          "#7b3d15",
-          "#a1501d",
-          "#c67139",
-          "#d79267",
-          "#e7b597",
-          "#f7ded0"
-        ]
-      },
-      "primary-strong": {
-        "role": "primary",
-        "displayName": "Deep Persimmon",
-        "canonical": "#8c491a",
-        "tonalRamp": [
-          "#261005",
-          "#3f1b0a",
-          "#622d11",
-          "#8c491a",
-          "#b2622d",
-          "#cb7c4b",
-          "#e09f76",
-          "#f3cbb2"
-        ]
-      },
-      "surface-card": {
-        "role": "neutral",
-        "displayName": "Warm Cream Washi",
-        "canonical": "#f5ead8",
-        "tonalRamp": [
-          "#42392c",
-          "#6b5d49",
-          "#958368",
-          "#bfab8c",
-          "#d9c8af",
-          "#e8dcce",
-          "#f5ead8",
-          "#faf5ed"
-        ]
-      },
-      "canvas": {
-        "role": "neutral",
-        "displayName": "Clean Calligraphy Sheet",
-        "canonical": "#f9f4ed",
-        "tonalRamp": [
-          "#403b35",
-          "#686158",
-          "#928a7e",
-          "#bca5a6",
-          "#d8d3cb",
-          "#eae6e0",
-          "#f9f4ed",
-          "#fdfcf9"
-        ]
-      },
-      "ink": {
-        "role": "neutral",
-        "displayName": "Deep Sumi Ink",
-        "canonical": "#201e1d",
-        "tonalRamp": [
-          "#100f0f",
-          "#201e1d",
-          "#3b3836",
-          "#585451",
-          "#76716d",
-          "#96908b",
-          "#b7b2ad",
-          "#dad6d2"
-        ]
-      },
-      "positive-bg": {
-        "role": "secondary",
-        "displayName": "Sage Green",
-        "canonical": "#e1eecc",
-        "tonalRamp": [
-          "#1f2715",
-          "#323e22",
-          "#475730",
-          "#5e7340",
-          "#769151",
-          "#9cb27d",
-          "#c2d4aa",
-          "#e1eecc"
-        ]
-      },
-      "missed-bg": {
-        "role": "secondary",
-        "displayName": "Soft Peach",
-        "canonical": "#ffe1d0",
-        "tonalRamp": [
-          "#4a2614",
-          "#71391d",
-          "#9a4e28",
-          "#c46736",
-          "#e48c5e",
-          "#f2b18e",
-          "#fad0bb",
-          "#ffe1d0"
-        ]
-      }
+      "desk": { "role": "neutral", "displayName": "Warm Desk", "canonical": "#e8d6b9", "tonalRamp": ["#302b24", "#504637", "#74644d", "#9a8568", "#bfa885", "#d5c19f", "#e8d6b9", "#f8efe1"] },
+      "paper": { "role": "neutral", "displayName": "Morning Paper", "canonical": "#fbf6eb", "tonalRamp": ["#2e2c27", "#514c41", "#777061", "#a19884", "#c1b9a7", "#ded6c5", "#f1eadc", "#fbf6eb"] },
+      "paper-warm": { "role": "neutral", "displayName": "Warm Paper", "canonical": "#f3e8d5", "tonalRamp": ["#302b23", "#534735", "#79674b", "#9d8664", "#c0a982", "#d9c39f", "#ead9bd", "#f3e8d5"] },
+      "paper-line": { "role": "neutral", "displayName": "Paper Edge", "canonical": "#d4c4a8", "tonalRamp": ["#2d2922", "#4e4535", "#75664d", "#968365", "#b39e7b", "#c7b392", "#d4c4a8", "#f3eadb"] },
+      "ink": { "role": "neutral", "displayName": "Desk Ink", "canonical": "#25231f", "tonalRamp": ["#25231f", "#3e3b35", "#57534b", "#706b61", "#898477", "#a39e91", "#bdb8aa", "#d8d3c6"] },
+      "ink-muted": { "role": "neutral", "displayName": "Muted Ink", "canonical": "#625b50", "tonalRamp": ["#302c27", "#484239", "#625b50", "#797164", "#908779", "#a9a091", "#c5bcad", "#e1d9ca"] },
+      "ink-soft": { "role": "neutral", "displayName": "Soft Ink", "canonical": "#817666", "tonalRamp": ["#35312a", "#4f493e", "#696153", "#817666", "#988d7c", "#afa493", "#c7bdad", "#e1d9ca"] },
+      "ink-faint": { "role": "neutral", "displayName": "Faint Ink", "canonical": "rgba(37, 35, 31, 0.24)" },
+      "ink-hairline": { "role": "neutral", "displayName": "Hairline Ink", "canonical": "rgba(37, 35, 31, 0.14)" },
+      "accent": { "role": "primary", "displayName": "Desk Green", "canonical": "#385148", "tonalRamp": ["#18221e", "#26352f", "#35483f", "#385148", "#527065", "#739186", "#a0b4a9", "#dce5df"] },
+      "accent-strong": { "role": "primary", "displayName": "Deep Desk Green", "canonical": "#293f37", "tonalRamp": ["#141e1a", "#202f29", "#293f37", "#3c5a4e", "#567466", "#789288", "#a8b9b0", "#dfe7e2"] },
+      "accent-on-paper": { "role": "neutral", "displayName": "Paper on Green", "canonical": "#fbf6eb", "tonalRamp": ["#2e2c27", "#514c41", "#777061", "#a19884", "#c1b9a7", "#ded6c5", "#f1eadc", "#fbf6eb"] },
+      "mark": { "role": "tertiary", "displayName": "Terracotta Bookmark", "canonical": "#b86d47", "tonalRamp": ["#391f14", "#60351f", "#874b2c", "#a85f3d", "#b86d47", "#ca8966", "#dfaf91", "#f1d7c8"] },
+      "positive-bg": { "role": "secondary", "displayName": "Soft Sage", "canonical": "#dfe8d8", "tonalRamp": ["#273026", "#3d493b", "#566651", "#70846a", "#91a48a", "#b1c1a9", "#dfe8d8", "#f2f6ef"] },
+      "positive-fg": { "role": "secondary", "displayName": "Sage Ink", "canonical": "#344b3d", "tonalRamp": ["#18251e", "#25372d", "#344b3d", "#476653", "#64836f", "#89a08f", "#b3c1b6", "#e0e7e2"] },
+      "positive-accent": { "role": "secondary", "displayName": "Sage Accent", "canonical": "#526d59", "tonalRamp": ["#202a23", "#344538", "#526d59", "#698973", "#86a18d", "#a7b9aa", "#cbd5cc", "#e9eee9"] },
+      "missed-bg": { "role": "secondary", "displayName": "Warm Peach", "canonical": "#f3dfd0", "tonalRamp": ["#38251b", "#60412e", "#8b5e42", "#b17c5b", "#ce9d7e", "#e4c2aa", "#f3dfd0", "#faf1e9"] },
+      "missed-fg": { "role": "secondary", "displayName": "Brown Ink", "canonical": "#68432f", "tonalRamp": ["#2b1d15", "#493021", "#68432f", "#875b41", "#a7795c", "#c39b81", "#dfc4b2", "#f1e5dc"] },
+      "grid-guide": { "role": "neutral", "displayName": "Sage Grid Guide", "canonical": "#c9d6bf", "tonalRamp": ["#292e25", "#414b39", "#5d6e51", "#7d936e", "#9eaf92", "#b9c7b0", "#c9d6bf", "#eff3ec"] },
+      "surface-canvas": { "role": "neutral", "displayName": "Canvas Paper", "canonical": "#fffaf1", "tonalRamp": ["#302e28", "#555044", "#7d7564", "#a69c87", "#c9c0ac", "#e2dac9", "#f5eee0", "#fffaf1"] }
     },
     "typographyMeta": {
-      "display": {
-        "displayName": "Display",
-        "purpose": "Hero accuracy metric on Summary screen. At most one per screen."
-      },
-      "headline": {
-        "displayName": "Headline",
-        "purpose": "Screen and milestone headers."
-      },
-      "title": {
-        "displayName": "Title",
-        "purpose": "Section titles, button labels, kanji meanings and readings."
-      },
-      "body": {
-        "displayName": "Body",
-        "purpose": "Sentences, captions, and instructional copy."
-      },
-      "label": {
-        "displayName": "Label",
-        "purpose": "Micro-labels over grouped controls, uppercase with tracking."
-      }
+      "display": { "displayName": "Display", "purpose": "Brand wordmark and prominent readouts, sized by their component styles." },
+      "heading": { "displayName": "Heading", "purpose": "Screen titles, section headings, prompts, and action labels." },
+      "body": { "displayName": "Body", "purpose": "Explanations, helper text, and descriptive control content." },
+      "label": { "displayName": "Label", "purpose": "Group labels and compact status text." },
+      "glyph-ink": { "displayName": "Glyph Ink", "purpose": "Authentic Japanese graphemes in reference and missed-glyph summaries only." }
     },
     "shadows": [
-      {
-        "name": "lifted-toast",
-        "value": "0 12px 32px rgba(32, 30, 29, 0.12)",
-        "purpose": "Soft, sumi-tinted ambient shadow for floating overlays lifted off the desk."
-      }
+      { "name": "grade-feedback", "value": "0 12px 32px rgba(46, 43, 37, 0.18)", "purpose": "Separates the transient peach grade toast from the writing surface." },
+      { "name": "import-confirmation", "value": "0 12px 32px rgba(46, 43, 37, 0.16)", "purpose": "Separates the blocking Settings import dialog from the page." }
     ],
     "motion": [
-      {
-        "name": "ease-stationery",
-        "value": "cubic-bezier(0.2, 0, 0, 1)",
-        "purpose": "Direct, calm transitions without bounce or overshoot."
-      },
-      {
-        "name": "duration-fast",
-        "value": "150ms",
-        "purpose": "Immediate mechanical press and state feedback."
-      },
-      {
-        "name": "duration-normal",
-        "value": "250ms",
-        "purpose": "Toast entries and screen transitions."
-      }
+      { "name": "press", "value": "120ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Brief feedback for pressing actions." },
+      { "name": "state", "value": "180ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Calm transitions between selected and unselected states." }
     ],
     "breakpoints": [
-      {
-        "name": "tablet-portrait",
-        "value": "800px"
-      }
+      { "name": "compact-shell", "value": "520px" },
+      { "name": "compact-drill-and-navigation", "value": "560px" }
     ]
   },
   "components": [
     {
-      "name": "Primary Button",
+      "name": "Primary Action",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "Primary affirmative action button (Correct, Start writing).",
-      "html": "<button class=\"ds-btn-primary\">Correct</button>",
-      "css": ".ds-btn-primary { background: #c67139; color: #f5ead8; font-family: 'Noto Serif JP', serif; font-size: 1.25rem; font-weight: 600; min-height: 88px; padding: 16px 24px; border: none; border-radius: 12px; cursor: pointer; transition: background 150ms ease, transform 150ms ease; } .ds-btn-primary:hover { background: #8c491a; } .ds-btn-primary:active { transform: scale(0.98); background: #8c491a; }"
+      "description": "Primary action for starting or continuing a practice flow.",
+      "html": "<button class=\"ds-btn-primary\">Start writing</button>",
+      "css": ".ds-btn-primary { min-height: 88px; padding: 0 24px; border: 0; border-radius: 6px; background: var(--color-accent); color: var(--color-accent-on-paper); font-family: var(--font-heading); font-size: 1.15rem; font-weight: 600; cursor: pointer; transition: background-color var(--motion-press), transform var(--motion-press); } .ds-btn-primary:hover { background: var(--color-accent-strong); } .ds-btn-primary:active { transform: scale(0.99); } .ds-btn-primary:focus-visible { outline: 3px solid var(--color-mark); outline-offset: 3px; }"
     },
     {
-      "name": "Secondary Button",
+      "name": "Secondary Action",
       "kind": "button",
       "refersTo": "button-secondary",
-      "description": "Secondary drill action (Reveal, Missed) with transparent fill.",
-      "html": "<button class=\"ds-btn-secondary\">Missed</button>",
-      "css": ".ds-btn-secondary { background: transparent; color: #201e1d; font-family: 'Noto Serif JP', serif; font-size: 1.25rem; font-weight: 600; min-height: 88px; padding: 16px 24px; border: 1px solid rgba(32, 30, 29, 0.16); border-radius: 12px; cursor: pointer; transition: background 150ms ease, transform 150ms ease; } .ds-btn-secondary:hover { background: rgba(32, 30, 29, 0.04); } .ds-btn-secondary:active { transform: scale(0.98); background: rgba(32, 30, 29, 0.08); }"
+      "description": "Quiet action with a paper edge, used for secondary choices and controls.",
+      "html": "<button class=\"ds-btn-secondary\">Check pressure</button>",
+      "css": ".ds-btn-secondary { min-height: 88px; padding: 0 24px; border: 1px solid var(--color-paper-line); border-radius: 6px; background: transparent; color: var(--color-ink); font-family: var(--font-heading); font-weight: 600; cursor: pointer; transition: background-color var(--motion-press), transform var(--motion-press); } .ds-btn-secondary:hover { background: var(--color-paper-warm); } .ds-btn-secondary:active { transform: scale(0.99); } .ds-btn-secondary:focus-visible { outline: 3px solid var(--color-mark); outline-offset: 3px; }"
     },
     {
-      "name": "Positive Chip",
+      "name": "Top Navigation",
+      "kind": "nav",
+      "refersTo": "navigation",
+      "description": "Shared deep-green header with brand, screen context, and available navigation actions.",
+      "html": "<header class=\"ds-nav\"><strong>tegakko</strong><nav><button>History</button><button>Settings</button></nav></header>",
+      "css": ".ds-nav { min-height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 10px 24px; background: var(--color-accent); color: var(--color-accent-on-paper); } .ds-nav strong { font-family: var(--font-display); font-size: 1.45rem; font-weight: 600; } .ds-nav button { min-height: 48px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: inherit; font-family: var(--font-body); font-weight: 600; cursor: pointer; } .ds-nav button:hover { background: rgba(251, 246, 235, 0.12); } .ds-nav button:focus-visible { outline: 3px solid var(--color-mark); outline-offset: 3px; }"
+    },
+    {
+      "name": "Paper Sheet",
+      "kind": "card",
+      "refersTo": "sheet",
+      "description": "Responsive content sheet framed by the warm desk ground.",
+      "html": "<section class=\"ds-sheet\"><span class=\"ds-bookmark\">Today's scope</span><h2>What would you like to write?</h2></section>",
+      "css": ".ds-sheet { position: relative; width: min(100%, 880px); margin: auto; padding: clamp(28px, 5vw, 52px) clamp(22px, 5vw, 52px); border: 1px solid var(--color-paper-line); border-radius: 6px; background: var(--color-paper); color: var(--color-ink); } .ds-bookmark { position: absolute; top: -1px; right: 24px; padding: 9px 14px 11px; border-radius: 0 0 5px 5px; background: var(--color-mark); color: var(--color-accent-on-paper); font-family: var(--font-label); font-size: .75rem; font-weight: 700; }"
+    },
+    {
+      "name": "Selected Scope Option",
+      "kind": "custom",
+      "refersTo": "sheet",
+      "description": "Selected writing-system or group control, shown with a green fill and paper text.",
+      "html": "<button class=\"ds-option\" aria-pressed=\"true\"><span>Hiragana</span><small>Base forms and voiced kana</small></button>",
+      "css": ".ds-option { min-height: 62px; padding: 10px 12px; border: 1px solid var(--color-accent); border-radius: 6px; background: var(--color-accent); color: var(--color-accent-on-paper); font-family: var(--font-body); font-weight: 600; text-align: left; cursor: pointer; } .ds-option small { display: block; margin-top: 3px; color: rgba(251, 246, 235, .86); font-size: .75rem; font-weight: 400; } .ds-option:focus-visible { outline: 3px solid var(--color-mark); outline-offset: 3px; }"
+    },
+    {
+      "name": "Status Chip",
       "kind": "chip",
       "refersTo": "chip-positive",
-      "description": "Read-only affirmative status badge (Stylus found, Session complete).",
-      "html": "<span class=\"ds-chip-positive\">Stylus found</span>",
-      "css": ".ds-chip-positive { display: inline-flex; align-items: center; background: #e1eecc; color: #3d472b; font-family: 'Figtree', sans-serif; font-size: 0.875rem; font-weight: 600; padding: 4px 12px; border-radius: 10px; }"
+      "description": "Positive state paired with readable status text.",
+      "html": "<span class=\"ds-chip-positive\">Stylus pressure detected</span>",
+      "css": ".ds-chip-positive { display: inline-flex; align-items: center; border-radius: 6px; padding: 9px 13px; background: var(--color-positive-bg); color: var(--color-positive-fg); font-family: var(--font-label); font-size: .85rem; font-weight: 700; letter-spacing: .02em; }"
     },
     {
-      "name": "Missed Chip",
-      "kind": "chip",
-      "refersTo": "chip-missed",
-      "description": "Attention-framing miss count chip for shaky cards.",
-      "html": "<span class=\"ds-chip-missed\">Missed 3 times</span>",
-      "css": ".ds-chip-missed { display: inline-flex; align-items: center; background: #ffe1d0; color: #643312; font-family: 'Figtree', sans-serif; font-size: 0.875rem; font-weight: 600; padding: 4px 12px; border-radius: 10px; }"
-    },
-    {
-      "name": "Genkouyoushi Cell",
+      "name": "Blank Recall Canvas",
       "kind": "custom",
-      "refersTo": "card",
-      "description": "The pristine writing sheet canvas cell with dashed cross guides.",
-      "html": "<div class=\"ds-cell\"><div class=\"ds-cell-guide-h\"></div><div class=\"ds-cell-guide-v\"></div><div class=\"ds-cell-dot\"></div></div>",
-      "css": ".ds-cell { position: relative; width: 180px; height: 180px; background: #f9f4ed; border: 1px solid rgba(32, 30, 29, 0.1); border-radius: 14px; box-sizing: border-box; overflow: hidden; } .ds-cell-guide-h { position: absolute; top: 50%; left: 0; right: 0; border-top: 1px dashed #ccdbb2; } .ds-cell-guide-v { position: absolute; left: 50%; top: 0; bottom: 0; border-left: 1px dashed #ccdbb2; } .ds-cell-dot { position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; background: #ccdbb2; border-radius: 50%; }"
+      "refersTo": "recall-canvas",
+      "description": "Paper writing surface with faint center guides and no reference glyph or decoration.",
+      "html": "<div class=\"ds-canvas\" aria-label=\"Blank writing canvas\"><span></span></div>",
+      "css": ".ds-canvas { position: relative; width: 100%; aspect-ratio: 1; border: 1px solid var(--color-paper-line); border-radius: 6px; background: var(--color-surface-canvas); touch-action: none; } .ds-canvas::before, .ds-canvas::after { position: absolute; content: ''; pointer-events: none; background: var(--color-grid-guide); opacity: .8; } .ds-canvas::before { top: 0; bottom: 0; left: 50%; width: 1px; } .ds-canvas::after { top: 50%; right: 0; left: 0; height: 1px; }"
     },
     {
-      "name": "Segmented Pill Group",
+      "name": "Grade Feedback Toast",
       "kind": "custom",
-      "refersTo": "card",
-      "description": "Segmented track for single-choice and multi-choice scopes.",
-      "html": "<div class=\"ds-pill-group\"><button class=\"ds-pill ds-pill-active\">Hiragana</button><button class=\"ds-pill\">Katakana</button><button class=\"ds-pill\">Kanji</button></div>",
-      "css": ".ds-pill-group { display: inline-flex; background: #ebddc5; padding: 4px; border-radius: 12px; gap: 4px; } .ds-pill { background: transparent; border: none; color: #201e1d; font-family: 'Figtree', sans-serif; font-size: 0.875rem; font-weight: 600; padding: 8px 16px; border-radius: 10px; cursor: pointer; transition: background 150ms ease, color 150ms ease; } .ds-pill-active { background: #c67139; color: #f5ead8; }"
-    },
-    {
-      "name": "Grade Toast",
-      "kind": "custom",
-      "refersTo": "card",
-      "description": "Floating feedback banner with undo action.",
-      "html": "<div class=\"ds-toast\"><span class=\"ds-toast-text\">き · hiragana — missed 3 times</span><button class=\"ds-toast-undo\">Undo</button></div>",
-      "css": ".ds-toast { display: inline-flex; align-items: center; justify-content: space-between; gap: 16px; background: #ffe1d0; color: #643312; font-family: 'Figtree', sans-serif; font-size: 0.875rem; font-weight: 500; padding: 14px 20px; border-radius: 18px; box-shadow: 0 12px 32px rgba(32, 30, 29, 0.12); } .ds-toast-undo { background: transparent; border: none; color: #8c491a; font-family: 'Figtree', sans-serif; font-size: 0.875rem; font-weight: 700; cursor: pointer; text-decoration: underline; padding: 0; }"
+      "refersTo": "button-secondary",
+      "description": "Transient peach feedback with miss context and a time-bounded Undo action.",
+      "html": "<div class=\"ds-toast\"><span>き · missed 3 times now</span><button>Undo</button></div>",
+      "css": ".ds-toast { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 12px 18px; border-radius: 8px; background: var(--color-missed-bg); color: var(--color-missed-fg); box-shadow: 0 12px 32px rgba(46, 43, 37, .18); } .ds-toast button { min-height: 48px; border: 0; background: transparent; color: var(--color-accent-strong); font-family: var(--font-heading); font-weight: 600; text-decoration: underline; cursor: pointer; } .ds-toast button:focus-visible { outline: 3px solid var(--color-mark); outline-offset: 3px; }"
     }
   ],
   "narrative": {
-    "northStar": "The Morning Sumi Notebook",
-    "overview": "tegakko is designed as an unhurried, tactile morning stationery ritual rather than an engagement product. It opens like a fine physical notebook: a prompt, a blank genkouyoushi cell, and warm sumi brush ink. The interface is grounded in the material sensibility of Japanese washi paper, natural mineral pigments, and calligraphy craftsmanship. Every element feels deliberate, permanent, and quiet.\n\nThe system rejects the hyperactivity of modern language software. There are no cartoon mascots, no celebratory confetti, no guilt-tripping streak counters, and no loud gamification gimmicks. Instead, the design fosters quiet confidence and honest self-appraisal: errors are not punished with red alerts, and successes are met with calm acknowledgment rather than patronizing praise.",
+    "northStar": "The Morning Writing Desk",
+    "overview": "The interface is a clear, well-kept writing desk for a quiet practice ritual. Warm paper sheets sit against a darker desk ground; deep green organizes the interface and terracotta acts as a small bookmark-like mark. Familiar controls stay legible and direct, while a restrained sheet frame gives secondary screens a sense of place.\n\nThe Drill screen brings the prompt and blank writing cell forward. The cell remains a working surface: no texture or decoration enters it. Japanese glyphs can use the expressive Yuji Syuku face where they are actual graphemes; labels, readings, explanations, and actions remain easy to read.",
     "keyCharacteristics": [
-      "Tactile Paper Surfaces: Warm cream washi grounds the entire viewport; there is no harsh digital white or synthetic gray.",
-      "Physical Restraint: Controls behave with physical weight and subtle debossed press feedback rather than bouncy micro-animations.",
-      "Single Chromatic Accent: Earthy Japanese Persimmon (kaki) used with extreme discipline, behaving like an artist's personal seal.",
-      "Sacred Brushwork: Brushed calligraphy typography (Yuji Syuku) is reserved strictly for genuine Japanese graphemes."
+      "Desk and paper: warm desk ground, pale paper sheets, and quiet paper-line borders.",
+      "Green structure: deep green anchors navigation and selected or primary actions.",
+      "Terracotta marker: terracotta identifies the active page bookmark and selected accuracy emphasis.",
+      "Recall first: the writing canvas stays blank apart from its faint center guides."
     ],
     "rules": [
-      {
-        "name": "The Persimmon Rarity Rule",
-        "body": "Japanese Persimmon (#c67139) must occupy ≤5% of any rendered viewport. Its visual power stems entirely from rarity. It is never applied to large surface fills, headers, or decorative borders.",
-        "section": "colors"
-      },
-      {
-        "name": "The No-Red Rule",
-        "body": "True red (#ff0000 or saturated crimson) is banned from the product. Missed characters and destructive warnings use Soft Peach (#ffe1d0) with rich brown text (#643312) to communicate attention and reflection rather than alarm or failure.",
-        "section": "colors"
-      },
-      {
-        "name": "The Sacred Brush Rule",
-        "body": "Yuji Syuku is reserved strictly for genuine Japanese graphemes (kana and kanji reference glyphs). It must never be applied to romaji prompts, English definitions, UI labels, or button text.",
-        "section": "typography"
-      },
-      {
-        "name": "The Structural Voice Rule",
-        "body": "All numbers, grades, and structural headers speak in Noto Serif JP 600. Explanatory sentences and instructional captions speak in Figtree 400.",
-        "section": "typography"
-      },
-      {
-        "name": "The Paper Plane Rule",
-        "body": "Screens and cards represent the paper itself. They sit flush at rest without elevation shadows or border bevels. Depth is conveyed through tonal layering.",
-        "section": "elevation"
-      },
-      {
-        "name": "The Mechanical Press Rule",
-        "body": "Buttons and interactive tiles do not elevate on hover. Upon press (:active), they exhibit tactile mechanical debossing: a slight downward scale (transform: scale(0.98)) and tonal deepening.",
-        "section": "elevation"
-      }
+      { "name": "The Blank Recall Rule", "body": "Keep the active writing canvas free of reference glyphs, texture, and ornament; comparison appears only after the learner chooses Reveal.", "section": "colors" },
+      { "name": "The Glyph Boundary Rule", "body": "Yuji Syuku is reserved for actual Japanese graphemes, never romaji, English meanings, readings, labels, or button text.", "section": "typography" }
     ],
     "dos": [
-      "Do lock screens firmly to 100dvh in portrait orientation (~800×1280px).",
-      "Do preserve the Warm Cream Washi ground (#f5ead8) across every screen.",
-      "Do pair every status color chip with descriptive text; never communicate state by color alone.",
-      "Do maintain a minimum 88px button height for drill grading actions to prevent mis-taps with a stylus.",
-      "Do reserve Yuji Syuku tilted at -1.2deg solely for authentic Japanese graphemes.",
-      "Do allow Undo on grading only while the grade toast is active or on the frozen final card."
+      "Do use the actual CSS custom properties in src/app/theme.css as the color source of truth.",
+      "Do keep deep green for primary structure and actions, terracotta for bookmark and selected emphasis, and warm paper for the sheet surfaces.",
+      "Do keep the writing area blank during recall and show references separately after Reveal.",
+      "Do preserve the existing self-grading, Undo, sampling, backup, and accessible status-announcement behavior when changing screens.",
+      "Do reserve Yuji Syuku for actual Japanese glyphs.",
+      "Do keep status meaning legible in text as well as color and preserve visible keyboard focus."
     ],
     "donts": [
-      "Don't use saturated red (#ff0000, #e53e3e) anywhere in the application.",
-      "Don't use pure digital black (#000000) or cold digital grays; always use Deep Sumi Ink (#201e1d).",
-      "Don't introduce gamification tropes: no streak fire icons, XP points, confetti animations, or push nudges.",
-      "Don't overlay reference stroke templates inside the active genkouyoushi cell; recall must remain unguided.",
-      "Don't apply full-pill border radius (9999px) to action buttons or content cards.",
-      "Don't add audio sound effects, celebratory chimes, or buzzer sounds on grading."
+      "Don't bring back the previous persimmon-only palette or warm cream full-viewport ground; the implemented system uses green structure and paper sheets on a desk ground.",
+      "Don't add texture or decoration to the active writing cell.",
+      "Don't turn the experience into a generic card dashboard or decorative notebook scene.",
+      "Don't add streaks, pressure notifications, cloud accounts, tracking, or new learning claims.",
+      "Don't use Yuji Syuku for romaji, English copy, readings, labels, or controls."
     ]
   }
 }

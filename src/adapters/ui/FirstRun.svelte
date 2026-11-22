@@ -146,7 +146,7 @@
       // surface it like a persist failure instead of leaving the Install
       // button silently gone behind an unhandled rejection.
       console.error('Install prompt failed:', cause);
-      dismissError = 'Couldn\'t open the install prompt -- tap "Just use it here" to continue.';
+      dismissError = 'Couldn\'t open the install prompt -- choose “Continue without checking” to continue.';
     }
   }
 
@@ -162,11 +162,11 @@
   });
 </script>
 
-<ScreenShell>
+<ScreenShell bookmark="First visit">
   <h1 class="heading">Check your stylus</h1>
     <p class="body">
-      Touch the pad below with your pen. This app is built around handwriting recall, so it's
-      worth confirming pressure comes through before you start.
+      Try the pad with your stylus to check pressure. This check is optional; you can continue
+      without it.
     </p>
 
     <!-- Live region: a pen-status change is an outcome worth hearing, not
@@ -196,12 +196,12 @@
 
     <div class="actions">
       {#if deferredInstallPrompt}
-        <button type="button" class="btn btn--primary" onclick={() => void handleInstall()}>
-          Install
+        <button type="button" class="btn btn--neutral" onclick={() => void handleInstall()}>
+          Install app
         </button>
       {/if}
-      <button type="button" class="btn btn--neutral" onclick={handleJustUseItHere}>
-        Just use it here
+      <button type="button" class="btn btn--primary" onclick={handleJustUseItHere}>
+        Continue without checking
       </button>
     </div>
 </ScreenShell>
@@ -211,8 +211,9 @@
     margin: 0;
     font-family: var(--font-heading);
     font-weight: 600;
-    letter-spacing: -0.02em;
-    font-size: 2rem;
+    letter-spacing: -0.025em;
+    font-size: clamp(1.8rem, 4vw, 2.5rem);
+    line-height: 1.15;
     color: var(--color-ink);
   }
 
@@ -222,19 +223,20 @@
     font-weight: 400;
     color: var(--color-ink-muted);
     line-height: 1.5;
+    max-width: 52ch;
   }
 
   .chip {
     align-self: flex-start;
     border-radius: var(--radius-sm);
-    padding: var(--spacing-1) var(--spacing-2);
+    padding: 9px 13px;
     font-family: var(--font-label);
     font-weight: 700;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     letter-spacing: 0.02em;
   }
   .chip--idle {
-    background: rgba(32, 30, 29, 0.07);
+    background: var(--color-paper-warm);
     color: var(--color-ink);
   }
   .chip--positive {
@@ -242,7 +244,7 @@
     color: var(--color-positive-fg);
   }
   .chip--neutral {
-    background: rgba(32, 30, 29, 0.07);
+    background: var(--color-paper-warm);
     color: var(--color-ink);
   }
 
@@ -255,10 +257,11 @@
   }
 
   .pad {
-    height: 220px;
-    border-radius: var(--radius-lg);
+    position: relative;
+    height: clamp(180px, 26vh, 260px);
+    border-radius: var(--radius-sm);
     background: var(--color-surface-canvas);
-    border: 1px solid var(--color-grid-guide);
+    border: 1px solid var(--color-paper-line);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -267,9 +270,36 @@
     user-select: none;
   }
 
+  .pad::before,
+  .pad::after {
+    position: absolute;
+    content: '';
+    pointer-events: none;
+    background: var(--color-grid-guide);
+    opacity: 0.8;
+  }
+
+  .pad::before {
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 1px;
+  }
+
+  .pad::after {
+    right: 0;
+    left: 0;
+    top: 50%;
+    height: 1px;
+  }
+
   .pad-hint {
     font-family: var(--font-body);
-    color: var(--color-ink-faint);
+    position: relative;
+    z-index: 1;
+    color: var(--color-ink-muted);
+    background: var(--color-surface-canvas);
+    padding: 4px 8px;
     font-size: 1rem;
     pointer-events: none;
   }
@@ -283,29 +313,55 @@
 
   .actions {
     display: flex;
-    gap: var(--spacing-2);
+    gap: var(--spacing-3);
     margin-top: var(--spacing-2);
+    flex-wrap: wrap;
   }
 
   .btn {
     flex: 1;
     min-height: 88px;
-    border-radius: var(--radius-md);
+    min-width: 180px;
+    border-radius: var(--radius-sm);
     font-family: var(--font-heading);
     font-weight: 600;
-    font-size: 1.1rem;
+    font-size: 1rem;
     cursor: pointer;
+    transition: background-color var(--motion-press), transform var(--motion-press);
   }
 
   .btn--primary {
     background: var(--color-accent);
-    color: var(--color-surface-card);
+    color: var(--color-accent-on-paper);
     border: none;
   }
 
   .btn--neutral {
     background: transparent;
     color: var(--color-ink);
-    border: 1px solid var(--color-ink-faint);
+    border: 1px solid var(--color-paper-line);
+  }
+
+  .btn--primary:hover {
+    background: var(--color-accent-strong);
+  }
+
+  .btn--neutral:hover {
+    background: var(--color-paper-warm);
+  }
+
+  .btn:active {
+    transform: scale(0.99);
+  }
+
+  @media (max-width: 520px) {
+    .actions {
+      flex-direction: column-reverse;
+    }
+
+    .btn {
+      width: 100%;
+      min-width: 0;
+    }
   }
 </style>
