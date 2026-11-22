@@ -1,59 +1,47 @@
 ---
-name: tegakko
-description: A tactile, unhurried Japanese handwriting recall ritual on washi paper with sumi brush ink.
+name: tegakko — The Morning Writing Desk
+description: A calm Japanese handwriting recall practice, set on warm paper with deep green ink.
 colors:
-  primary: "#c67139"
-  primary-strong: "#8c491a"
-  primary-deep: "#b2622d"
-  primary-on-peach: "#643312"
-  surface-card: "#f5ead8"
-  surface-card-secondary: "#ebddc5"
-  canvas: "#f9f4ed"
-  ink: "#201e1d"
-  ink-muted: "rgba(32, 30, 29, 0.55)"
-  ink-faint: "rgba(32, 30, 29, 0.16)"
-  ink-hairline: "rgba(32, 30, 29, 0.1)"
-  positive-bg: "#e1eecc"
-  positive-fg: "#3d472b"
-  positive-accent: "#56633f"
-  missed-bg: "#ffe1d0"
-  missed-fg: "#643312"
-  grid-guide: "#ccdbb2"
+  desk: "#e8d6b9"
+  paper: "#fbf6eb"
+  paper-warm: "#f3e8d5"
+  paper-line: "#d4c4a8"
+  ink: "#25231f"
+  ink-muted: "#625b50"
+  ink-soft: "#817666"
+  ink-faint: "rgba(37, 35, 31, 0.24)"
+  ink-hairline: "rgba(37, 35, 31, 0.14)"
+  accent: "#385148"
+  accent-strong: "#293f37"
+  accent-on-paper: "#fbf6eb"
+  mark: "#b86d47"
+  positive-bg: "#dfe8d8"
+  positive-fg: "#344b3d"
+  positive-accent: "#526d59"
+  missed-bg: "#f3dfd0"
+  missed-fg: "#68432f"
+  grid-guide: "#c9d6bf"
+  surface-canvas: "#fffaf1"
 typography:
   display:
-    fontFamily: "Noto Serif JP, serif"
-    fontSize: "3.5rem"
+    fontFamily: "Noto Serif JP, Yu Mincho, serif"
     fontWeight: 600
-    lineHeight: 1.1
-    letterSpacing: "-0.02em"
-  headline:
-    fontFamily: "Noto Serif JP, serif"
-    fontSize: "1.75rem"
+  heading:
+    fontFamily: "Noto Serif JP, Yu Mincho, serif"
     fontWeight: 600
-    lineHeight: 1.2
-    letterSpacing: "-0.01em"
-  title:
-    fontFamily: "Noto Serif JP, serif"
-    fontSize: "1.25rem"
-    fontWeight: 600
-    lineHeight: 1.3
   body:
-    fontFamily: "Figtree, sans-serif"
-    fontSize: "1rem"
+    fontFamily: "Figtree, Hiragino Kaku Gothic ProN, sans-serif"
     fontWeight: 400
-    lineHeight: 1.5
   label:
-    fontFamily: "Figtree, sans-serif"
-    fontSize: "0.75rem"
+    fontFamily: "Figtree, Hiragino Kaku Gothic ProN, sans-serif"
     fontWeight: 700
-    lineHeight: 1.2
-    letterSpacing: "0.1em"
+  glyph-ink:
+    fontFamily: "Yuji Syuku, Yu Mincho, serif"
 rounded:
-  sm: "10px"
-  md: "12px"
-  lg: "14px"
-  xl: "18px"
-  squircle: "34px"
+  sm: "6px"
+  md: "8px"
+  lg: "12px"
+  xl: "16px"
   full: "9999px"
 spacing:
   "1": "8px"
@@ -66,182 +54,166 @@ spacing:
   "8": "72px"
 components:
   button-primary:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.surface-card}"
-    rounded: "{rounded.md}"
-    padding: "16px 24px"
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.accent-on-paper}"
+    rounded: "{rounded.sm}"
+    height: "88px"
   button-primary-hover:
-    backgroundColor: "{colors.primary-strong}"
+    backgroundColor: "{colors.accent-strong}"
   button-secondary:
     backgroundColor: "transparent"
     textColor: "{colors.ink}"
-    rounded: "{rounded.md}"
-    padding: "16px 24px"
+    rounded: "{rounded.sm}"
+    height: "88px"
   chip-positive:
     backgroundColor: "{colors.positive-bg}"
     textColor: "{colors.positive-fg}"
     rounded: "{rounded.sm}"
-    padding: "4px 12px"
-  chip-missed:
-    backgroundColor: "{colors.missed-bg}"
-    textColor: "{colors.missed-fg}"
+    padding: "9px 13px"
+  sheet:
+    backgroundColor: "{colors.paper}"
+    textColor: "{colors.ink}"
     rounded: "{rounded.sm}"
-    padding: "4px 12px"
-  card:
-    backgroundColor: "{colors.surface-card}"
-    rounded: "{rounded.lg}"
-    padding: "24px"
+    padding: "clamp(28px, 5vw, 52px) clamp(22px, 5vw, 52px)"
+  recall-canvas:
+    backgroundColor: "{colors.surface-canvas}"
+    rounded: "{rounded.sm}"
+  navigation:
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.accent-on-paper}"
+    height: "76px"
 ---
 
-# Design System: tegakko
+# Design System: tegakko — The Morning Writing Desk
 
 ## Overview
 
-**Creative North Star: "The Morning Sumi Notebook"**
+**Creative North Star: "The Morning Writing Desk"**
 
-tegakko is designed as an unhurried, tactile morning stationery ritual rather than an engagement product. It opens like a fine physical notebook: a prompt, a blank genkouyoushi cell, and warm sumi brush ink. The interface is grounded in the material sensibility of Japanese washi paper, natural mineral pigments, and calligraphy craftsmanship. Every element feels deliberate, permanent, and quiet.
+The interface is a clear, well-kept writing desk for a quiet practice ritual. Warm paper sheets sit against a darker desk ground; deep green organizes the interface and terracotta acts as a small bookmark-like mark. Familiar controls stay legible and direct, while a restrained sheet frame gives secondary screens a sense of place.
 
-The system rejects the hyperactivity of modern language software. There are no cartoon mascots, no celebratory confetti, no guilt-tripping streak counters, and no loud gamification gimmicks. Instead, the design fosters quiet confidence and honest self-appraisal: errors are not punished with red alerts, and successes are met with calm acknowledgment rather than patronizing praise.
+The Drill screen brings the prompt and blank writing cell forward. The cell remains a working surface: no texture or decoration enters it. Japanese glyphs can use the expressive Yuji Syuku face where they are actual graphemes; labels, readings, explanations, and actions remain easy to read.
 
 **Key Characteristics:**
-- **Tactile Paper Surfaces:** Warm cream washi grounds the entire viewport; there is no harsh digital white or synthetic gray.
-- **Physical Restraint:** Controls behave with physical weight and subtle debossed press feedback rather than bouncy micro-animations.
-- **Single Chromatic Accent:** Earthy Japanese Persimmon (kaki) used with extreme discipline, behaving like an artist's personal seal.
-- **Sacred Brushwork:** Brushed calligraphy typography (Yuji Syuku) is reserved strictly for genuine Japanese graphemes.
+- **Desk and paper:** warm desk ground, pale paper sheets, and quiet paper-line borders.
+- **Green structure:** deep green anchors navigation and selected or primary actions.
+- **Terracotta marker:** terracotta identifies the active page bookmark and selected accuracy emphasis.
+- **Recall first:** the writing canvas stays blank apart from its faint center guides.
 
 ## Colors
 
-The palette draws inspiration from traditional Japanese papercraft and ink painting: warm paper neutrals, earthy sumi carbon, and vegetable/mineral tints.
+The palette pairs warm paper and ink neutrals with deep green, a terracotta marker, and muted sage and peach status colors.
 
 ### Primary
-- **Japanese Persimmon (Kaki)** (`#c67139`): The single chromatic accent. Reserved exclusively for primary forward momentum (the "Correct" grade button, primary start CTA, progress fill, and current session bar).
-- **Deep Persimmon** (`#8c491a`): Hover and pressed state for primary controls, secondary text links (Back, History, Settings), and the toast's action link.
-- **Terracotta Earth** (`#b2622d`): Dedicated strictly to primary numeric readouts (Summary accuracy percentage and History row accuracy).
-- **Warm Persimmon on Peach** (`#643312`): High-contrast text color paired with peach backgrounds.
+- **Desk Green** (`#385148`): Navigation, selected scope controls, and primary actions.
+- **Deep Desk Green** (`#293f37`): Hover and emphasis state for primary green controls.
 
 ### Secondary
-- **Sage Green Background** (`#e1eecc`): Calm, organic green tint for non-urgent positive statuses (stylus confirmed, session complete chip, script tags).
-- **Sage Green Foreground** (`#3d472b`): Deep olive-slate text paired with Sage Green backgrounds for accessible contrast.
-- **Sage Accent** (`#56633f`): Mid-tone green used for positive accuracy sparkline gradients.
-- **Soft Peach Background** (`#ffe1d0`): Attention-framing peach for missed-card chips, the Reveal reference panel, and the grade toast. Frames misses as neutral opportunities for review.
-- **Soft Peach Foreground** (`#643312`): Rich dark brown text for peach surfaces. Meets WCAG AA contrast (4.5:1).
+- **Terracotta Bookmark** (`#b86d47`): The page bookmark and selected accuracy values; it marks context without taking over the surface.
+- **Soft Sage** (`#dfe8d8`): Positive status background, paired with **Sage Ink** (`#344b3d`).
+- **Warm Peach** (`#f3dfd0`): Miss and attention background, paired with **Brown Ink** (`#68432f`).
 
 ### Neutral
-- **Warm Cream Washi** (`#f5ead8`): The main paper surface. Fills the entire visible viewport (`100dvh`); there is no separate background ground canvas.
-- **Warm Secondary Paper** (`#ebddc5`): One shade warmer than cream washi; used for grouped segmented control tracks, stat cards, and nested tiles.
-- **Clean Calligraphy Sheet** (`#f9f4ed`): The lightest paper surface, reserved solely for the active genkouyoushi drawing cell to read as pristine paper.
-- **Deep Sumi Ink** (`#201e1d`): Warm carbon sumi ink; text and handwritten ink strokes. Pure #000000 is strictly forbidden.
-- **Sumi Muted** (`rgba(32, 30, 29, 0.55)`): Secondary explanatory copy, captions, and scope subtitles.
-- **Sumi Faint** (`rgba(32, 30, 29, 0.16)`): Borders, card dividers, and inactive control outlines.
-- **Sumi Hairline** (`rgba(32, 30, 29, 0.1)`): Unfilled progress tracks and thin structural dividers.
-- **Grid Guide Green** (`#ccdbb2`): Delicate dashed cross guidelines and border inside the genkouyoushi cell; lowest step on the accuracy sparkline.
+- **Desk** (`#e8d6b9`): Outer ground around framed sheets.
+- **Paper** (`#fbf6eb`): Main sheet and interface surface.
+- **Warm Paper** (`#f3e8d5`): Secondary paper tone for grouped controls and quiet neutral states.
+- **Paper Line** (`#d4c4a8`): Sheet edges, dividers, and guide boundaries.
+- **Ink** (`#25231f`): Main text and written ink.
+- **Muted Ink** (`#625b50`) and **Soft Ink** (`#817666`): Supporting text and low-priority details.
+- **Faint Ink** (`rgba(37, 35, 31, 0.24)`) and **Hairline Ink** (`rgba(37, 35, 31, 0.14)`): Light outlines and separators.
+- **Canvas Paper** (`#fffaf1`): Blank writing and stylus-check surfaces.
+- **Grid Guide** (`#c9d6bf`): Faint center guides within the writing surface.
 
 ### Named Rules
-**The Persimmon Rarity Rule.** Japanese Persimmon (`#c67139`) must occupy ≤5% of any rendered viewport. Its visual power stems entirely from rarity. It is never applied to large surface fills, headers, or decorative borders.
-**The No-Red Rule.** True red (`#ff0000` or saturated crimson) is banned from the product. Missed characters and destructive warnings use Soft Peach (`#ffe1d0`) with rich brown text (`#643312`) to communicate attention and reflection rather than alarm or failure.
+**The Blank Recall Rule.** Keep the active writing canvas free of reference glyphs, texture, and ornament; comparison appears only after the learner chooses Reveal.
 
 ## Typography
 
-**Display Font:** Noto Serif JP 600 (with serif fallback)  
-**Body Font:** Figtree 400 (with sans-serif fallback)  
-**Label Font:** Figtree 700 (with sans-serif fallback)  
-**Glyph Ink Font:** Yuji Syuku (with serif fallback)
+**Display Font:** Noto Serif JP 600 (with Yu Mincho and serif fallbacks)
 
-**Character:** A harmonious dialogue between a classical Japanese serif with confident chiseling (Noto Serif JP), an elegant geometric sans for modern readability (Figtree), and an expressive cursive brush face (Yuji Syuku).
+**Body Font:** Figtree 400 (with Hiragino Kaku Gothic ProN and sans-serif fallbacks)
+
+**Label Font:** Figtree 700 (with Hiragino Kaku Gothic ProN and sans-serif fallbacks)
+
+**Glyph Ink Font:** Yuji Syuku (with Yu Mincho and serif fallbacks)
+
+**Character:** Noto Serif JP gives headings and numeric readouts a calm, book-like structure. Figtree keeps instructions, labels, and controls clear at a glance.
 
 ### Hierarchy
-- **Display** (SemiBold 600, `3.5rem` / 56px, line-height 1.1, letter-spacing `-0.02em`): The single hero metric on a screen (e.g. Session Summary accuracy percentage). Restricted to at most one instance per view.
-- **Headline** (SemiBold 600, `1.75rem` / 28px, line-height 1.2, letter-spacing `-0.01em`): Screen titles and major milestone headers.
-- **Title** (SemiBold 600, `1.25rem` / 20px, line-height 1.3): Section headers, button labels, kanji meaning prompts, and numeric data tiles.
-- **Body** (Regular 400, `1rem` / 16px, line-height 1.5): Explanatory sentences, prompt guidelines, and descriptive paragraphs. Line length capped at 65ch.
-- **Label** (Bold 700, `0.75rem` / 12px, line-height 1.2, letter-spacing `0.1em`, uppercase): Group headers, status micro-labels ("SCRIPT", "YOURS", "REFERENCE").
-- **Glyph Ink** (Regular 400, scaled dynamically, tilted `-1.2deg`): The reference character rendered in authentic brush ink.
+- **Display** (Noto Serif JP 600): Brand wordmark and prominent readouts; sizes follow their component styles.
+- **Heading** (Noto Serif JP 600): Screen titles, section headings, prompts, and action labels; responsive screen headings use `clamp()` where present.
+- **Body** (Figtree 400): Explanations, helper text, status detail, and control content, generally at 1rem with 1.5 line-height for longer copy.
+- **Label** (Figtree 700): Compact group labels and status text; uppercase labels use `0.75rem` and `0.1em` tracking.
+- **Glyph Ink** (Yuji Syuku): Actual Japanese graphemes in the Reveal reference and missed-glyph summaries only. Keep romanization, meanings, readings, labels, and interface copy in the normal heading or body faces.
 
 ### Named Rules
-**The Sacred Brush Rule.** Yuji Syuku is reserved strictly for genuine Japanese graphemes (kana and kanji reference glyphs). It must never be applied to romaji prompts, English definitions, UI labels, or button text.
-**The Structural Voice Rule.** All numbers, grades, and structural headers speak in Noto Serif JP 600. Explanatory sentences and instructional captions speak in Figtree 400.
+**The Glyph Boundary Rule.** Yuji Syuku is reserved for actual Japanese graphemes, never romaji, English meanings, readings, labels, or button text.
 
 ## Layout
 
-tegakko is calibrated for a single device class: a Chromium-based Android tablet held in portrait (~800×1280 CSS px) with an active stylus. It operates as an installed fullscreen PWA without responsive mobile breakpoints.
+The application uses a responsive shell. A shared top bar anchors the brand and navigation; it is 76px tall at regular widths and compacts at narrow widths. Secondary screens sit on a warm desk ground inside a paper sheet up to 880px wide, with content constrained to 680px. The shell reduces outer and sheet padding below 520px and supports a 320px minimum viewport.
 
-- **Viewport Frame:** The application shell (`.app`) locks firmly to `100dvh`. Nothing scrolls at the viewport level. The top navigation bar occupies its fixed height, and the active screen fills the remainder.
-- **Scrollable Screens:** Secondary views (Scope Picker, Summary, History, Settings) share `ScreenShell.svelte`, which centers content horizontally (max-width `640px`) and vertically (`margin: auto`). Stacked elements maintain an `18px` (`--spacing-3`) spatial rhythm.
-- **Drill Layout:** The Drill view does not scroll; the genkouyoushi canvas expands to fill available vertical space while action controls lock to the bottom edge.
-- **Spacing Scale:**
-  - `--spacing-1` (`8px`) / `--spacing-2` (`12px`): Internal control padding and micro-gaps.
-  - `--spacing-3` (`18px`) / `--spacing-4` (`24px`): Rhythm between stacked elements and cards.
-  - `--spacing-5` (`32px`) / `--spacing-6` (`40px`): Section gaps and container padding.
-  - `--spacing-7` (`56px`) / `--spacing-8` (`72px`): Major screen gutters and header margins.
+The six screens are First Run, Scope Picker, Drill, Session Summary, History, and Settings. First Run explains that the stylus pressure check is optional and lets the learner continue without checking; installation is a separate action when available. Scope Picker groups writing systems, available sets or JLPT levels, session size, a selected-scope recap, and the Start writing action in one column. It keeps at least one script and one set selected, with the existing all-available session size as the default. The bookmark identifies the current sheet. Drill uses the available viewport for the prompt and writing cell, with controls kept reachable at the bottom and narrow-screen adjustments below 560px. History and Settings remain scrollable within the screen shell.
+
+The shared spacing rhythm is 8, 12, 18, 24, 32, 40, 56, and 72px. Screens and controls adapt at 520px and 560px breakpoints; shell width and padding use fluid `min()` and `clamp()` values.
 
 ## Elevation & Depth
 
-Depth in tegakko is tactile and physical, resembling sheets of handmade paper arranged on a wooden desk. Surfaces are flat at rest, achieving hierarchy solely through warm tonal paper shifts (`#f5ead8` → `#ebddc5` → `#f9f4ed`).
-
-Floating elements cast soft, ink-tinted ambient shadows, evoking paper lifted momentarily off the surface. Interactive controls communicate state through mechanical debossing and subtle scale changes rather than synthetic drop shadows.
+Most surfaces are flat, and depth comes from the contrast between desk ground, paper sheets, and nested warm paper. Floating feedback and the Settings import confirmation use restrained shadows to distinguish temporary overlays from the page.
 
 ### Shadow Vocabulary
-- **Lifted Paper Ambient** (`box-shadow: 0 12px 32px rgba(32, 30, 29, 0.12)`): Applied exclusively to the floating Grade Toast and modal confirmation dialogs. A wide, diffuse dispersion tinted with carbon sumi ink.
-
-### Named Rules
-**The Paper Plane Rule.** Screens and cards represent the paper itself. They sit flush at rest without elevation shadows or border bevels. Depth is conveyed through tonal layering.
-**The Mechanical Press Rule.** Buttons and interactive tiles do not elevate on hover. Upon press (`:active`), they exhibit tactile mechanical debossing: a slight downward scale (`transform: scale(0.98)`) and tonal deepening.
+- **Grade feedback:** `0 12px 32px rgba(46, 43, 37, 0.18)` on the peach grade toast.
+- **Import confirmation:** `0 12px 32px rgba(46, 43, 37, 0.16)` on the Settings dialog.
 
 ## Shapes
 
-tegakko employs warm, approachable rounded rectangles that evoke cleanly trimmed stationery cards.
-
-- **Radius Scale:**
-  - `--radius-sm` (`10px`): Small chips, status tags, and inline badges.
-  - `--radius-md` (`12px`): Interactive buttons, segmented pill toggle items, and text inputs.
-  - `--radius-lg` (`14px`): Genkouyoushi drawing cells, stat tiles, and content containers.
-  - `--radius-xl` (`18px`): Floating grade toast and modal cards.
-  - `--radius-squircle` (`34px`): App home-screen launcher icon.
-  - `--radius-full` (`9999px`): Dedicated strictly to progress meter tracks and sparkline bars.
-- **Form Geometry:** Full pill rounding (`9999px`) is never applied to action buttons or cards. Buttons maintain confident rectangular integrity (`12px` radius) with ample height (`min-height: 88px` on drill actions) for stylus stability.
+The form language uses modest rounded rectangles rather than pill-shaped cards or controls. The source radius scale is 6px, 8px, 12px, and 16px, with full rounding (`9999px`) reserved for progress tracks and bar ends. Paper sheets have a fine paper-line edge; buttons and options use the smaller radius. The bookmark has square top corners and softly rounded lower corners.
 
 ## Components
 
-Every interactive component is optimized for stylus-first precision, meeting or exceeding Android's `48dp` touch target specification.
+### Navigation
+- The deep green bar carries the tegakko wordmark, available back or screen context, and History or Settings links where the screen supports them.
+- The Drill bar uses queue position and a progress bar, with “I'm done” as an explicit session closure action.
+- Controls keep at least a 48px target where shared navigation and text links are used.
 
 ### Buttons
-- **Shape:** Rounded rectangle (`12px` radius, `min-height: 88px` on drill buttons, `56px` on standard buttons).
-- **Primary ("Correct" / "Start writing"):** Japanese Persimmon fill (`#c67139`), Warm Cream Washi text (`#f5ead8`), font Noto Serif JP 600.
-- **Secondary / Action ("Reveal" / "Missed"):** Transparent background, hairline border (`1px solid rgba(32, 30, 29, 0.16)`), Deep Sumi Ink text (`#201e1d`). Dimmed to 40% opacity when inactive.
-- **Tactile State:** `:hover` deepens the primary fill to Deep Persimmon (`#8c491a`); `:active` triggers physical deboss (`transform: scale(0.98)`).
+- **Primary:** Deep green fill, paper text, Noto Serif JP label, 88px minimum height on major actions (72px on narrow Scope Picker and First Run layouts).
+- **Secondary:** Transparent or warm-paper fill with an understated paper-line border and ink text.
+- **State:** Green primary actions darken on hover. Press feedback uses a slight `scale(0.99)` transition; controls use the global 3px terracotta focus-visible outline with 3px offset. Focused top-bar screen titles use a 3px paper outline with 4px offset.
 
-### Chips
-- **Shape:** Compact rounded pill (`10px` radius, padding `4px 12px`, Figtree 600 `0.875rem`).
-- **Positive Chip ("Stylus found", "Session complete"):** Sage Green background (`#e1eecc`), Sage Foreground text (`#3d472b`). Always pairs color with text.
-- **Missed Chip ("Miss count"):** Soft Peach background (`#ffe1d0`), Peach Foreground text (`#643312`). Shows lifetime misses; never framed as an error.
+### Sheets and Bookmark
+- Secondary screens share a paper sheet with a 1px paper-line border, 6px radius, and responsive padding. The content column is capped at 680px.
+- A terracotta tab at the sheet's upper edge names the current context, such as “Today's scope” or “Practice history”.
 
-### Genkouyoushi Writing Cell
-- **Surface:** Clean Calligraphy Sheet (`#f9f4ed`), `14px` border-radius.
-- **Guides:** Faint outer border (`1px solid rgba(32, 30, 29, 0.1)`), dashed cross center guides (`#ccdbb2`), single center dot at rest.
-- **Layout:** One cell per character (single kana/kanji: 1 cell; compound yoon: 2 horizontal cells).
+### Scope Options
+- Writing-system and set options are bordered paper controls; selected options become deep green with paper text.
+- Session-size choices form a compact radio group. Script and set choices remain independently toggleable, with the existing minimum-selection behavior preserved.
 
-### Pill Segmented Controls
-- **Track:** Warm Secondary Paper (`#ebddc5`), `12px` radius.
-- **Segments:** Equal-width tiles. Inactive segments show Deep Sumi Ink text; active segment receives Japanese Persimmon fill (`#c67139`) with Cream Washi text (`#f5ead8`). Single-choice controls use radio semantics; multi-choice (Scope Picker) toggles independently.
+### Recall Canvas and Reveal
+- The active cell uses canvas paper, a quiet line, faint center guides, and no reference shape. It expands to the available writing area and accepts pressure-sensitive strokes.
+- Reveal presents the reference glyph separately from the active writing surface. The learner remains responsible for self-grading.
 
-### Grade Toast
-- **Structure:** Floating capsule (`18px` radius, Soft Peach fill `#ffe1d0`, Lifted Paper Ambient shadow `0 12px 32px rgba(32, 30, 29, 0.12)`).
-- **Content:** Announcements in Peach Foreground (`#643312`); action link ("Undo") in Deep Persimmon (`#8c491a`) without background fill or border.
+### Status and Session Feedback
+- Positive states use sage and missed states use peach, with descriptive text so color is not the sole signal.
+- The grade toast reports the outcome and miss context; Undo is available only within the existing grading window, including the frozen final card.
+- First Run's optional stylus check reports pressure as a factual readout. “Continue without checking” remains available; “Install app” appears when an install prompt is available. Summary presents session results and missed items; History shows past sessions and an accuracy trend when at least three sessions exist.
+
+### Settings and Data Actions
+- Writing feel, idle close, and backup actions remain separate groups. Import shows a blocking confirmation before replacing local progress; export and import preserve the existing local-only backup semantics.
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** lock screens firmly to `100dvh` in portrait orientation (`~800×1280px`).
-- **Do** preserve the Warm Cream Washi ground (`#f5ead8`) across every screen.
-- **Do** pair every status color chip with descriptive text; never communicate state by color alone.
-- **Do** maintain a minimum `88px` button height for drill grading actions to prevent mis-taps with a stylus.
-- **Do** reserve Yuji Syuku tilted at `-1.2deg` solely for authentic Japanese graphemes.
-- **Do** allow Undo on grading only while the grade toast is active or on the frozen final card.
+- **Do** use the actual CSS custom properties in `src/app/theme.css` as the color source of truth.
+- **Do** keep deep green for primary structure and actions, terracotta for bookmark and selected emphasis, and warm paper for the sheet surfaces.
+- **Do** keep the writing area blank during recall and show references separately after Reveal.
+- **Do** preserve the existing self-grading, Undo, sampling, backup, and accessible status-announcement behavior when changing screens.
+- **Do** reserve Yuji Syuku for actual Japanese glyphs.
+- **Do** keep status meaning legible in text as well as color and preserve visible keyboard focus.
 
 ### Don't:
-- **Don't** use saturated red (`#ff0000`, `#e53e3e`) anywhere in the application.
-- **Don't** use pure digital black (`#000000`) or cold digital grays; always use Deep Sumi Ink (`#201e1d`).
-- **Don't** introduce gamification tropes: no streak fire icons, XP points, confetti animations, or push nudges.
-- **Don't** overlay reference stroke templates inside the active genkouyoushi cell; recall must remain unguided.
-- **Don't** apply full-pill border radius (`9999px`) to action buttons or content cards.
-- **Don't** add audio sound effects, celebratory chimes, or buzzer sounds on grading.
+- **Don't** bring back the previous persimmon-only palette or warm cream full-viewport ground; the implemented system uses green structure and paper sheets on a desk ground.
+- **Don't** add texture or decoration to the active writing cell.
+- **Don't** turn the experience into a generic card dashboard or decorative notebook scene.
+- **Don't** add streaks, pressure notifications, cloud accounts, tracking, or new learning claims.
+- **Don't** use Yuji Syuku for romaji, English copy, readings, labels, or controls.

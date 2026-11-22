@@ -1,11 +1,8 @@
 <script lang="ts">
-  // Scope picker screen (docs/design.md): script is a multi-select, each
-  // selected script gets its own Set row, session size is a fixed count
-  // clamped to the scope, and one "N cards · M shaky" line sums the scope
-  // up. Scripts and their Sets derive from the catalog, so a third script
-  // slots into the same layout when its cards land in `CARDS`.
+  // Script and Set choices are derived from the catalog. The writing desk
+  // keeps every choice explicit while describing the groups in plain language.
   import { onMount, untrack } from 'svelte';
-  import { cardsInScope, FULL_SCOPE } from '../../domain/scope';
+  import { cardsInScope, FULL_SCOPE, resolveSessionSize } from '../../domain/scope';
   import type { Scope, SessionSizeChoice } from '../../domain/scope';
   import { countShaky, type Tally } from '../../domain/tally';
   import { CARDS, type CardSet, type Script } from '../../domain/cards';
@@ -14,6 +11,16 @@
 
   function capitalize(value: string): string {
     return value.charAt(0).toUpperCase() + value.slice(1);
+  }
+
+  function setLabel(script: Script, set: CardSet): string {
+    if (script === 'kanji') return `JLPT ${set.toUpperCase()}`;
+    return set === 'base' ? 'Single kana' : 'Combined sounds';
+  }
+
+  function setDetail(script: Script, set: CardSet): string {
+    if (script === 'kanji') return 'Kanji in this level';
+    return set === 'base' ? 'Base forms and voiced kana' : 'Two kana written together';
   }
 
   interface Props {
@@ -134,21 +141,24 @@
   }
 </script>
 
-<ScreenShell>
-  <h1 class="heading">What are we testing today?</h1>
+<ScreenShell bookmark="Today's scope">
+  <div class="scope-layout">
+  <h1 class="heading">What would you like to write?</h1>
+  <p class="intro">Choose a writing system, then set the size of your session.</p>
 
   <div class="group">
-    <p class="group-label">Script</p>
-    <div class="pill-group" role="group" aria-label="Script">
+    <p class="group-label">Writing systems</p>
+    <div class="option-row" role="group" aria-label="Writing systems">
       {#each scripts as script (script)}
         <button
           type="button"
-          class="pill"
-          class:pill--active={scope[script] !== undefined}
+          class="option"
+          class:option--active={scope[script] !== undefined}
           aria-pressed={scope[script] !== undefined}
           onclick={() => toggleScript(script)}
         >
-          {capitalize(script)}
+          <span>{capitalize(script)}</span>
+          {#if script === 'kanji'}<small>JLPT levels</small>{/if}
         </button>
       {/each}
     </div>
@@ -156,17 +166,18 @@
 
   {#each selectedScripts as script (script)}
     <div class="group">
-      <p class="group-label">{capitalize(script)} Sets</p>
-      <div class="pill-group" role="group" aria-label="{capitalize(script)} Sets">
+      <p class="group-label">{capitalize(script)} groups</p>
+      <div class="option-row option-row--sets" role="group" aria-label="{capitalize(script)} groups">
         {#each setsByScript.get(script) ?? [] as set (set)}
           <button
             type="button"
-            class="pill"
-            class:pill--active={scope[script]?.includes(set) === true}
+            class="option option--set"
+            class:option--active={scope[script]?.includes(set) === true}
             aria-pressed={scope[script]?.includes(set) === true}
             onclick={() => toggleSet(script, set)}
           >
-            {capitalize(set)}
+            <span>{setLabel(script, set)}</span>
+            <small>{setDetail(script, set)}</small>
           </button>
         {/each}
       </div>
@@ -174,7 +185,7 @@
   {/each}
 
   <div class="group">
-    <p class="group-label">Session size</p>
+    <p class="group-label">How many cards?</p>
     <div
       class="pill-group"
       role="radiogroup"
@@ -185,34 +196,54 @@
       {#each SIZE_CHOICES as choice (choice)}
         <button
           type="button"
-          class="pill"
-          class:pill--active={sizeChoice === choice}
+          class="size-choice"
+          class:size-choice--active={sizeChoice === choice}
           role="radio"
           aria-checked={sizeChoice === choice}
           tabindex={sizeChoice === choice ? 0 : -1}
           onclick={() => (sizeChoice = choice)}
         >
-          {choice === 'all' ? 'All' : choice}
+          {choice === 'all' ? 'All available' : choice}
         </button>
       {/each}
     </div>
   </div>
 
-  <!-- One line, live: the scope's size and how many shaky cards it holds.
-       A count preset larger than the scope clamps silently at Start. -->
-  <p class="summary" aria-live="polite">{scopedCards.length} cards · {shakyCount} shaky</p>
+  <div class="summary" aria-live="polite">
+    <div class="summary-main">
+      <span>Session</span>
+      <strong>{resolveSessionSize(sizeChoice, scopedCards.length)} cards</strong>
+    </div>
+    <p>{scopedCards.length} available · {shakyCount} with recent misses</p>
+    <p class="summary-note">Recent misses return sooner.</p>
+  </div>
+  </div>
 
-  <button type="button" class="btn btn--primary" onclick={handleStart}> Start writing </button>
+  <button type="button" class="btn btn--primary" onclick={handleStart}>Start writing</button>
 </ScreenShell>
 
 <style>
+  .scope-layout {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-4);
+  }
+
   .heading {
     margin: 0;
     font-family: var(--font-heading);
     font-weight: 600;
-    letter-spacing: -0.02em;
-    font-size: 2rem;
+    letter-spacing: -0.025em;
+    font-size: clamp(1.7rem, 4vw, 2.35rem);
+    line-height: 1.14;
     color: var(--color-ink);
+  }
+
+  .intro {
+    margin: -8px 0 4px;
+    max-width: 48ch;
+    color: var(--color-ink-muted);
+    line-height: 1.5;
   }
 
   .group {
@@ -231,52 +262,167 @@
     color: var(--color-ink-muted);
   }
 
-  .pill-group {
+  .option-row {
     display: flex;
-    gap: var(--spacing-1);
-    background: var(--color-surface-card-secondary);
-    border-radius: var(--radius-sm);
-    padding: var(--spacing-1);
+    gap: 10px;
   }
 
-  .pill {
+  .option {
     flex: 1;
-    min-height: 56px;
-    border: none;
-    border-radius: var(--radius-md);
+    min-width: 0;
+    min-height: 62px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-paper-line);
+    border-radius: var(--radius-sm);
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 3px;
+    text-align: left;
+    transition: background-color var(--motion-state), border-color var(--motion-state), color var(--motion-state);
+  }
+
+  .option small {
+    color: var(--color-ink-muted);
+    font-size: 0.75rem;
+    font-weight: 400;
+    line-height: 1.25;
+  }
+
+  .option--active {
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+    color: var(--color-accent-on-paper);
+  }
+
+  .option--active small {
+    color: rgba(251, 246, 235, 0.86);
+  }
+
+  .option-row--sets {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  }
+
+  .option--set {
+    min-height: 68px;
+  }
+
+  .size-choice {
+    flex: 1;
+    min-width: 0;
+    min-height: 52px;
+    padding: 8px 10px;
+    border: 1px solid var(--color-paper-line);
+    border-radius: var(--radius-sm);
     background: transparent;
     color: var(--color-ink);
-    font-family: var(--font-heading);
+    font-family: var(--font-body);
+    font-size: 0.9rem;
     font-weight: 600;
-    font-size: 1rem;
     cursor: pointer;
+    transition: background-color var(--motion-state), border-color var(--motion-state), color var(--motion-state);
   }
 
-  .pill--active {
+  .size-choice--active {
+    border-color: var(--color-accent);
     background: var(--color-accent);
-    color: var(--color-surface-card);
+    color: var(--color-accent-on-paper);
   }
 
   .summary {
-    margin: 0;
-    font-family: var(--font-heading);
-    font-weight: 600;
-    font-size: 1.25rem;
+    margin: 2px 0 0;
+    padding: var(--spacing-3) 0 0;
+    border-top: 1px solid var(--color-paper-line);
+  }
+
+  .summary-main {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-2);
+    color: var(--color-ink-muted);
+  }
+
+  .summary-main strong {
     color: var(--color-ink);
+    font-family: var(--font-heading);
+    font-size: 1.2rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .summary p {
+    margin: 0;
+    padding-top: 5px;
+    color: var(--color-ink-muted);
+    font-size: 0.9rem;
   }
 
   .btn {
     min-height: 88px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-sm);
     font-family: var(--font-heading);
     font-weight: 600;
-    font-size: 1.1rem;
+    font-size: 1.15rem;
     cursor: pointer;
+    transition: background-color var(--motion-press), transform var(--motion-press);
   }
 
   .btn--primary {
     background: var(--color-accent);
-    color: var(--color-surface-card);
+    color: var(--color-accent-on-paper);
     border: none;
+  }
+
+  .btn--primary:hover {
+    background: var(--color-accent-strong);
+  }
+
+  .btn--primary:active {
+    transform: scale(0.99);
+  }
+
+  @media (max-width: 520px) {
+    .scope-layout {
+      gap: 10px;
+    }
+
+    .option-row {
+      gap: 7px;
+    }
+
+    .option {
+      padding: 9px 8px;
+      font-size: 0.82rem;
+    }
+
+    .option small {
+      font-size: 0.68rem;
+    }
+
+    .option-row--sets {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .option--set {
+      min-height: 62px;
+    }
+
+    .size-choice {
+      padding-inline: 4px;
+      font-size: 0.77rem;
+    }
+
+    .btn {
+      min-height: 72px;
+    }
   }
 </style>

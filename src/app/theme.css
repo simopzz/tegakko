@@ -1,42 +1,47 @@
-/* The design tokens (docs/design.md) as CSS custom properties, named
-   --color-*, --font-*, --radius-*. */
+/* The Morning Writing Desk: calm paper around a working ink surface. */
 
 :root {
-  /* colors */
-  --color-surface-card: #f5ead8;
-  --color-surface-card-secondary: #ebddc5;
-  --color-surface-canvas: #f9f4ed;
-  --color-ink: #201e1d;
-  --color-ink-muted: rgba(32, 30, 29, 0.55);
-  --color-ink-faint: rgba(32, 30, 29, 0.16);
-  --color-ink-hairline: rgba(32, 30, 29, 0.1);
-  --color-accent: #c67139;
-  --color-accent-strong: #8c491a;
-  --color-accent-deep: #b2622d;
-  --color-accent-on-peach: #643312;
-  --color-positive-bg: #e1eecc;
-  --color-positive-fg: #3d472b;
-  --color-positive-accent: #56633f;
-  --color-missed-bg: #ffe1d0;
-  --color-missed-fg: #643312;
-  --color-grid-guide: #ccdbb2;
+  color-scheme: light;
 
-  /* typography */
-  --font-display: 'Noto Serif JP', serif;
-  --font-heading: 'Noto Serif JP', serif;
-  --font-glyph-ink: 'Yuji Syuku', serif;
-  --font-body: 'Figtree', sans-serif;
-  --font-label: 'Figtree', sans-serif;
+  --color-desk: #e8d6b9;
+  --color-paper: #fbf6eb;
+  --color-paper-warm: #f3e8d5;
+  --color-paper-line: #d4c4a8;
+  --color-ink: #25231f;
+  --color-ink-muted: #625b50;
+  --color-ink-soft: #817666;
+  --color-ink-faint: rgba(37, 35, 31, 0.24);
+  --color-ink-hairline: rgba(37, 35, 31, 0.14);
+  --color-accent: #385148;
+  --color-accent-strong: #293f37;
+  --color-accent-on-paper: #fbf6eb;
+  --color-mark: #b86d47;
+  --color-positive-bg: #dfe8d8;
+  --color-positive-fg: #344b3d;
+  --color-positive-accent: #526d59;
+  --color-missed-bg: #f3dfd0;
+  --color-missed-fg: #68432f;
+  --color-grid-guide: #c9d6bf;
 
-  /* radii */
-  --radius-sm: 10px;
-  --radius-md: 12px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
-  --radius-squircle: 34px;
+  /* Component aliases keep stateful UI adapters on the same semantic roles. */
+  --color-surface-card: var(--color-paper);
+  --color-surface-card-secondary: var(--color-paper-warm);
+  --color-surface-canvas: #fffaf1;
+  --color-accent-deep: var(--color-accent-strong);
+  --color-accent-on-peach: var(--color-missed-fg);
+
+  --font-display: 'Noto Serif JP', 'Yu Mincho', serif;
+  --font-heading: 'Noto Serif JP', 'Yu Mincho', serif;
+  --font-glyph-ink: 'Yuji Syuku', 'Yu Mincho', serif;
+  --font-body: 'Figtree', 'Hiragino Kaku Gothic ProN', sans-serif;
+  --font-label: 'Figtree', 'Hiragino Kaku Gothic ProN', sans-serif;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
   --radius-full: 9999px;
 
-  /* spacing */
   --spacing-1: 8px;
   --spacing-2: 12px;
   --spacing-3: 18px;
@@ -45,18 +50,36 @@
   --spacing-6: 40px;
   --spacing-7: 56px;
   --spacing-8: 72px;
+
+  --motion-press: 120ms cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-state: 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 html,
 body {
   margin: 0;
   padding: 0;
-  /* The cream paper itself -- no tan ground anywhere: each screen fills
-     the viewport (docs/design.md). */
-  background: var(--color-surface-card);
+  min-width: 320px;
+  min-height: 100%;
+  background: var(--color-desk);
   color: var(--color-ink);
   font-family: var(--font-body);
   -webkit-tap-highlight-color: transparent;
+  caret-color: var(--color-accent);
+}
+
+body {
+  scrollbar-color: var(--color-ink-soft) var(--color-paper-warm);
+}
+
+::selection {
+  color: var(--color-ink);
+  background: #d6dfca;
+}
+
+*:focus-visible {
+  outline: 3px solid var(--color-mark);
+  outline-offset: 3px;
 }
 
 * {

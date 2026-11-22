@@ -348,7 +348,9 @@
 
   {#if !revealed && !frozen}
     <div class="cell-footer">
-      <p class="disclaimer">Your call — nothing is checking the shape</p>
+      {#if !graded}
+        <p class="disclaimer">Your call — nothing is checking the shape</p>
+      {/if}
       {#if hasInk}
         <button type="button" class="clear" onclick={handleClear}>Clear</button>
       {/if}
@@ -425,9 +427,7 @@
         <p class="toast-detail">
           {queue[graded.index]!.grapheme} · {scriptLabel[queue[graded.index]!.script]}
           {#if graded.missCount !== null}
-            — missed {graded.missCount}
-            {graded.missCount === 1 ? 'time' : 'times'} now, so it'll come round
-            sooner.
+            · missed {graded.missCount}; returns sooner
           {/if}
         </p>
       </div>
@@ -456,6 +456,7 @@
     flex: 1;
     min-height: 0;
     overflow: hidden;
+    background: var(--color-paper);
     padding: var(--spacing-5) var(--spacing-4);
   }
 
@@ -464,7 +465,8 @@
     flex-direction: column;
     align-items: center;
     gap: var(--spacing-1);
-    padding: var(--spacing-3) 0;
+    padding: var(--spacing-2) 0 var(--spacing-3);
+    border-bottom: 1px solid var(--color-paper-line);
   }
 
   .label {
@@ -570,7 +572,7 @@
        that could be taller than what's really available. The adapter draws
        the solid rules between cells on the canvas itself. */
     border: 1px solid var(--color-grid-guide);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-sm);
     background: var(--color-surface-canvas);
     overflow: hidden;
     touch-action: none;
@@ -692,7 +694,7 @@
   }
 
   .btn--primary {
-    background: var(--color-accent);
+    background: var(--color-accent-deep);
     color: var(--color-surface-card);
     border: none;
   }
@@ -725,8 +727,8 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--spacing-3);
-    padding: 30px 34px;
-    border-radius: var(--radius-xl);
+    padding: 16px 22px;
+    border-radius: var(--radius-md);
     background: var(--color-missed-bg);
     box-shadow: 0 12px 32px rgba(46, 43, 37, 0.18);
   }
@@ -742,7 +744,7 @@
     margin: 0;
     font-family: var(--font-heading);
     font-weight: 600;
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     color: var(--color-accent-on-peach);
   }
 
@@ -771,6 +773,33 @@
   .toast-undo:disabled {
     opacity: 0.5;
     cursor: default;
+  }
+
+  @media (max-width: 560px) {
+    .toast {
+      left: 16px;
+      right: 16px;
+      gap: 8px;
+      padding: 12px 14px;
+    }
+
+    .toast-copy {
+      gap: 2px;
+    }
+
+    .toast-headline {
+      font-size: 1rem;
+    }
+
+    .toast-detail {
+      font-size: 0.82rem;
+      line-height: 1.3;
+    }
+
+    .toast-undo {
+      padding: 0 12px;
+      font-size: 0.95rem;
+    }
   }
 
   /* The closing grade dims and locks the last card -- its ink stays

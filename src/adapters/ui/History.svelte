@@ -1,10 +1,4 @@
 <script lang="ts">
-  // History screen: reverse-chronological session rows plus an
-  // up-to-10-session accuracy sparkline. Reads only -- no writes, no
-  // editing/deleting rows. The list arrives from the composition root's
-  // use-case in unspecified order, so `sortSessionsDescending` always
-  // imposes History's own order before anything renders. The top bar
-  // (title, Back) is rendered by the composition root.
   import { onMount } from 'svelte';
   import type { Session } from '../../domain/session';
   import { formatDate } from './format-date';
@@ -18,20 +12,13 @@
   import ScreenShell from './ScreenShell.svelte';
 
   interface Props {
-    /** The composition root's use-case: the stored session list, fail-open
-     * to empty -- the use-case folds and logs the failure. Order is
-     * unspecified there, so `sortSessionsDescending` below always imposes
-     * History's own order before anything renders. */
     history: { list(): Promise<Session[]> };
   }
 
   const { history }: Props = $props();
-
   let sessions = $state<Session[]>([]);
   let loaded = $state(false);
 
-  // One-shot fetch, same pattern as `Settings.svelte`'s `onMount` -- no
-  // live re-fetch/poll while History is mounted.
   onMount(() => {
     void history.list().then((listed) => {
       sessions = sortSessionsDescending(listed);
@@ -39,73 +26,175 @@
     });
   });
 
-  const sparkline = $derived(sparklineSessions(sessions));
+  const recentSessions = $derived(sparklineSessions(sessions));
 </script>
 
-<ScreenShell>
-    {#if loaded}
-      {#if sessions.length > 0}
-        {#if sessions.length >= 3}
-          <div class="sparkline" aria-hidden="true">
-          {#each sparkline as entry, i (entry.id)}
-            <div
-              class="bar"
-              style={`height: ${Math.round(entry.accuracy * 100)}%; background-color: ${
-                i === sparkline.length - 1 ? 'var(--color-accent)' : rampColorForAccuracy(entry.accuracy)
-              };`}
-            ></div>
-          {/each}
+<ScreenShell bookmark="Practice history">
+  {#if loaded}
+    {#if sessions.length > 0}
+      {#if sessions.length >= 3}
+        <section class="history-trend" aria-labelledby="trend-title">
+          <div>
+            <h2 class="section-title" id="trend-title">Recent session accuracy</h2>
+            <p class="trend-caption">Last {recentSessions.length} sessions, oldest to newest</p>
           </div>
-        {/if}
+          <div class="chart" role="group" aria-label="Recent session accuracy chart">
+            <div class="y-axis" aria-hidden="true"><span>100%</span><span>50%</span><span>0%</span></div>
+            <div class="chart-columns">
+              {#each recentSessions as entry, i (entry.id)}
+                <div
+                  class="chart-column"
+                  role="img"
+                  aria-label="{formatDate(entry.date)}: {Math.round(entry.accuracy * 100)} percent accuracy"
+                >
+                  <span class="bar-value">{Math.round(entry.accuracy * 100)}%</span>
+                  <div class="bar-track">
+                    <div
+                      class="bar"
+                      class:bar--latest={i === recentSessions.length - 1}
+                      style={`height: ${Math.round(entry.accuracy * 100)}%; background-color: ${
+                        i === recentSessions.length - 1 ? 'var(--color-accent)' : rampColorForAccuracy(entry.accuracy)
+                      };`}
+                    ></div>
+                  </div>
+                  <span class="chart-date">{formatDate(entry.date)}</span>
+                </div>
+              {/each}
+            </div>
+          </div>
+        </section>
+      {/if}
 
+      <section class="history-list" aria-labelledby="sessions-title">
+        <h2 class="section-title" id="sessions-title">Sessions</h2>
         <ul class="rows">
           {#each sessions as sessionItem (sessionItem.id)}
             {@const variant = closureChipVariant(sessionItem.closureReason)}
             <li class="row">
-              <div class="row-left">
-                <div class="row-head">
-                  <p class="date">{formatDate(sessionItem.date)}</p>
-                  <p class="meta">
-                    {sessionItem.cardsAttempted}
-                    {sessionItem.cardsAttempted === 1 ? 'card' : 'cards'} · {describeScope(
-                      sessionItem.scope,
-                    )}
-                  </p>
-                </div>
+              <div class="row-head">
+                <p class="date">{formatDate(sessionItem.date)}</p>
+                <p class="meta">
+                  {sessionItem.cardsAttempted}
+                  {sessionItem.cardsAttempted === 1 ? 'card' : 'cards'} · {describeScope(sessionItem.scope)}
+                </p>
                 {#if variant === 'positive'}
                   <span class="chip chip--positive">Session complete</span>
                 {:else if variant === 'neutral'}
                   <span class="chip chip--neutral">Closed on idle</span>
                 {/if}
               </div>
-              <p class="accuracy" class:dimmed={sessionItem.closureReason === 'inactivity'}>
-                {Math.round(sessionItem.accuracy * 100)}%
-              </p>
+              <div class="accuracy" class:dimmed={sessionItem.closureReason === 'inactivity'}>
+                <span class="accuracy-value">{Math.round(sessionItem.accuracy * 100)}%</span>
+                <span class="accuracy-label">accuracy</span>
+              </div>
             </li>
           {/each}
         </ul>
-      {:else}
-        <p class="empty">No sessions yet. Finish a drill to see it here.</p>
-      {/if}
+      </section>
     {:else}
-      <p class="empty">Loading…</p>
+      <div class="empty-state">
+        <h2 class="section-title">No sessions yet</h2>
+        <p>Complete a practice session and it will be recorded here.</p>
+      </div>
     {/if}
+  {:else}
+    <p class="loading" role="status" aria-live="polite">Loading your history…</p>
+  {/if}
 </ScreenShell>
 
 <style>
-  .sparkline {
+  .history-trend,
+  .history-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+  }
+
+  .section-title {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: 1.35rem;
+    line-height: 1.2;
+    font-weight: 600;
+    color: var(--color-ink);
+  }
+
+  .trend-caption {
+    margin: 5px 0 0;
+    color: var(--color-ink-muted);
+    font-size: 0.88rem;
+  }
+
+  .chart {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 8px;
+    height: 180px;
+    padding: 12px 0 2px;
+  }
+
+  .y-axis {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 0 0 22px;
+    color: var(--color-ink-muted);
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .chart-columns {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 7px;
+    min-width: 0;
+    border-bottom: 1px solid var(--color-paper-line);
+  }
+
+  .chart-column {
+    flex: 1;
+    min-width: 0;
+    display: grid;
+    grid-template-rows: 18px 1fr 22px;
+    justify-items: center;
+    color: var(--color-ink-muted);
+  }
+
+  .bar-value {
+    font-size: 0.68rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .bar-track {
+    width: min(100%, 28px);
+    height: 100%;
+    min-height: 1px;
     display: flex;
     align-items: flex-end;
-    gap: var(--spacing-1);
-    height: 96px;
-    padding: 0 var(--spacing-1);
+    border-bottom: 1px solid var(--color-paper-line);
   }
 
   .bar {
-    flex: 1;
-    border-radius: var(--radius-full);
-    min-width: 8px;
-    min-height: 4px;
+    width: 100%;
+    min-height: 3px;
+    border-radius: 3px 3px 0 0;
+    opacity: 0.82;
+  }
+
+  .bar--latest {
+    opacity: 1;
+  }
+
+  .chart-date {
+    width: 100%;
+    overflow: hidden;
+    padding-top: 4px;
+    font-size: 0.65rem;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .rows {
@@ -121,30 +210,24 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--spacing-3);
-    padding: var(--spacing-4) var(--spacing-1);
+    padding: 16px 0;
+    border-bottom: 1px solid var(--color-paper-line);
   }
 
-  .row:not(:last-child) {
-    border-bottom: 1px solid var(--color-ink-faint);
-  }
-
-  .row-left {
+  .row-head {
     display: flex;
-    align-items: center;
-    gap: var(--spacing-2);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+    min-width: 0;
   }
 
   .date {
     margin: 0;
     font-family: var(--font-body);
     font-weight: 600;
+    font-variant-numeric: tabular-nums;
     color: var(--color-ink);
-  }
-
-  .row-head {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-1);
   }
 
   .meta {
@@ -154,24 +237,35 @@
   }
 
   .accuracy {
-    margin: 0;
-    font-family: var(--font-heading);
-    font-weight: 600;
-    font-size: 1.25rem;
-    color: var(--color-accent-deep);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    flex: none;
+    color: var(--color-accent);
   }
 
-  .accuracy.dimmed {
+  .accuracy-value {
+    font-family: var(--font-heading);
+    font-size: 1.2rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .accuracy-label {
+    color: var(--color-ink-muted);
+    font-size: 0.72rem;
+  }
+
+  .accuracy.dimmed .accuracy-value {
     color: var(--color-ink-muted);
   }
 
   .chip {
     border-radius: var(--radius-sm);
-    padding: var(--spacing-1) var(--spacing-2);
+    padding: 6px 9px;
     font-family: var(--font-label);
     font-weight: 700;
-    font-size: 0.8rem;
-    letter-spacing: 0.02em;
+    font-size: 0.75rem;
   }
 
   .chip--positive {
@@ -180,15 +274,40 @@
   }
 
   .chip--neutral {
-    background: rgba(32, 30, 29, 0.07);
+    background: var(--color-paper-warm);
     color: var(--color-ink);
   }
 
-  .empty {
-    margin: 0;
-    text-align: center;
-    font-family: var(--font-body);
-    color: var(--color-ink-muted);
+  .empty-state {
     padding: var(--spacing-4) 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+  }
+
+  .empty-state p,
+  .loading {
+    margin: 0;
+    color: var(--color-ink-muted);
+    line-height: 1.5;
+  }
+
+  @media (max-width: 520px) {
+    .chart {
+      grid-template-columns: 34px minmax(0, 1fr);
+    }
+
+    .chart-columns {
+      gap: 3px;
+    }
+
+    .bar-value,
+    .chart-date {
+      font-size: 0.58rem;
+    }
+
+    .row {
+      align-items: flex-start;
+    }
   }
 </style>

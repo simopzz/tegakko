@@ -35,104 +35,76 @@
   }
 </script>
 
-<ScreenShell>
-  <div class="hero">
-      <p class="accuracy">{Math.round(summary.accuracy * 100)}%</p>
-      <p class="accuracy-label">Accuracy</p>
-      <p class="scope-line">{describeScope(summary.scope)}</p>
+<ScreenShell bookmark="Session notes">
+  <h1 class="heading">Session summary</h1>
+  <p class="scope-line">{describeScope(summary.scope)}</p>
+
+  {#if summary.closureReason === 'explicit'}
+    <span class="chip chip--positive">Session ended by you</span>
+  {/if}
+
+  <div class="stats" aria-label="Session details">
+    <div class="stat">
+      <p class="stat-label">Cards</p>
+      <p class="stat-value">{summary.cardsAttempted}</p>
     </div>
-
-    {#if summary.closureReason === 'explicit'}
-      <div class="chips">
-        <span class="chip chip--positive">You ended it</span>
-      </div>
-    {/if}
-
-    <div class="stats">
-      <div class="stat-tile">
-        <p class="stat-label">Cards</p>
-        <p class="stat-value">{summary.cardsAttempted}</p>
-      </div>
-      <div class="stat-tile">
-        <p class="stat-label">Time</p>
-        <p class="stat-value">{formatTime(summary.timeMs)}</p>
-      </div>
-      <div class="stat-tile">
-        <p class="stat-label">Reveals</p>
-        <p class="stat-value">{summary.revealCount}</p>
-      </div>
+    <div class="stat">
+      <p class="stat-label">Time</p>
+      <p class="stat-value">{formatTime(summary.timeMs)}</p>
     </div>
+    <div class="stat">
+      <p class="stat-label">Reveals</p>
+      <p class="stat-value">{summary.revealCount}</p>
+    </div>
+    <div class="stat stat--accuracy">
+      <p class="stat-label">Accuracy</p>
+      <p class="stat-value">{Math.round(summary.accuracy * 100)}%</p>
+    </div>
+  </div>
 
-    {#if summary.missed.length > 0}
-      <div class="missed">
-        <p class="group-label">Missed this time</p>
-        <ul class="missed-chips" aria-label="Missed cards">
-          {#each summary.missed as chip (chip.cardId)}
-            <li class="chip chip--missed">
-              <span class="chip-glyph">{chip.grapheme}</span>
-              <span class="chip-count">
-                {scriptLabel[chip.script] ?? chip.script} · missed {chip.missCount}
-              </span>
-            </li>
-          {/each}
-        </ul>
-      </div>
-    {/if}
+  {#if summary.missed.length > 0}
+    <section class="missed" aria-labelledby="missed-title">
+      <h2 class="group-label" id="missed-title">Cards missed this session</h2>
+      <ul class="missed-list" aria-label="Cards missed this session">
+        {#each summary.missed as chip (chip.cardId)}
+          <li class="missed-row">
+            <span class="chip-glyph">{chip.grapheme}</span>
+            <span>{scriptLabel[chip.script] ?? chip.script}</span>
+            <span class="miss-count">Missed {chip.missCount} {chip.missCount === 1 ? 'time' : 'times'}</span>
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
 
-    <button type="button" class="btn btn--primary" onclick={onAgain}>Another round</button>
+  <button type="button" class="btn btn--primary" onclick={onAgain}>Choose another scope</button>
 </ScreenShell>
 
 <style>
-  .hero {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--spacing-1);
-    padding: var(--spacing-3) 0;
-  }
-
-  .accuracy {
+  .heading {
     margin: 0;
-    font-family: var(--font-display);
+    font-family: var(--font-heading);
     font-weight: 600;
-    letter-spacing: -0.02em;
-    font-size: 4.5rem;
-    line-height: 1;
-    color: var(--color-accent-deep);
-  }
-
-  .accuracy-label {
-    margin: 0;
-    font-family: var(--font-label);
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    font-size: 0.75rem;
-    color: var(--color-ink-muted);
+    letter-spacing: -0.025em;
+    font-size: clamp(1.8rem, 4vw, 2.35rem);
+    line-height: 1.14;
+    color: var(--color-ink);
   }
 
   .scope-line {
     margin: 0;
-    font-family: var(--font-body);
     color: var(--color-ink-muted);
-  }
-
-  .chips {
-    display: flex;
-    justify-content: center;
-    gap: var(--spacing-1);
+    font-size: 1rem;
   }
 
   .chip {
     display: inline-flex;
     align-items: center;
-    gap: var(--spacing-1);
     border-radius: var(--radius-sm);
-    padding: var(--spacing-1) var(--spacing-2);
+    padding: 8px 12px;
     font-family: var(--font-label);
     font-weight: 700;
-    font-size: 0.8rem;
-    letter-spacing: 0.02em;
+    font-size: 0.85rem;
   }
 
   .chip--positive {
@@ -140,39 +112,37 @@
     color: var(--color-positive-fg);
   }
 
-  .chip--missed {
-    background: var(--color-missed-bg);
-    color: var(--color-missed-fg);
-  }
-
-  .chip-glyph {
-    font-family: var(--font-glyph-ink);
-    font-size: 1.1rem;
-    line-height: 1;
-  }
-
   .stats {
     display: flex;
-    gap: var(--spacing-2);
+    flex-wrap: wrap;
+    padding: var(--spacing-3) 0;
+    border-top: 1px solid var(--color-paper-line);
+    border-bottom: 1px solid var(--color-paper-line);
   }
 
-  .stat-tile {
+  .stat {
     flex: 1;
-    background: var(--color-surface-card-secondary);
-    border-radius: var(--radius-lg);
-    padding: var(--spacing-3);
+    min-width: 100px;
+    padding: 4px var(--spacing-2);
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-1);
+    gap: 5px;
+    border-right: 1px solid var(--color-paper-line);
+  }
+
+  .stat:first-child {
+    padding-left: 0;
+  }
+
+  .stat:last-child {
+    border-right: 0;
   }
 
   .stat-label {
     margin: 0;
     font-family: var(--font-label);
     font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     color: var(--color-ink-muted);
   }
 
@@ -180,8 +150,13 @@
     margin: 0;
     font-family: var(--font-heading);
     font-weight: 600;
-    font-size: 1.5rem;
+    font-size: 1.25rem;
+    font-variant-numeric: tabular-nums;
     color: var(--color-ink);
+  }
+
+  .stat--accuracy .stat-value {
+    color: var(--color-mark);
   }
 
   .missed {
@@ -200,27 +175,84 @@
     color: var(--color-ink-muted);
   }
 
-  .missed-chips {
+  .missed-list {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-1);
+    flex-direction: column;
     list-style: none;
     margin: 0;
     padding: 0;
   }
 
+  .missed-row {
+    display: grid;
+    grid-template-columns: minmax(48px, auto) minmax(100px, 1fr) auto;
+    align-items: center;
+    gap: var(--spacing-2);
+    padding: 11px 0;
+    border-bottom: 1px solid var(--color-paper-line);
+  }
+
+  .missed-row:first-child {
+    border-top: 1px solid var(--color-paper-line);
+  }
+
+  .chip-glyph {
+    width: 46px;
+    min-height: 44px;
+    display: grid;
+    place-items: center;
+    background: var(--color-missed-bg);
+    color: var(--color-missed-fg);
+    font-family: var(--font-glyph-ink);
+    font-size: 1.45rem;
+    line-height: 1;
+  }
+
+  .miss-count {
+    color: var(--color-ink-muted);
+    font-size: 0.9rem;
+    text-align: right;
+  }
+
   .btn {
     min-height: 88px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-sm);
     font-family: var(--font-heading);
     font-weight: 600;
-    font-size: 1.1rem;
+    font-size: 1rem;
     cursor: pointer;
+    transition: background-color var(--motion-press), transform var(--motion-press);
   }
 
   .btn--primary {
     background: var(--color-accent);
-    color: var(--color-surface-card);
+    color: var(--color-accent-on-paper);
     border: none;
+  }
+
+  .btn--primary:hover {
+    background: var(--color-accent-strong);
+  }
+
+  .btn--primary:active {
+    transform: scale(0.99);
+  }
+
+  @media (max-width: 520px) {
+    .stat {
+      flex-basis: calc(50% - 1px);
+      border-right: 0;
+      padding: 8px 10px;
+    }
+
+    .missed-row {
+      grid-template-columns: 44px 1fr;
+    }
+
+    .miss-count {
+      grid-column: 2;
+      text-align: left;
+      margin-top: -8px;
+    }
   }
 </style>

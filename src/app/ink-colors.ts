@@ -6,8 +6,8 @@
 // recolouring the writing surface.
 
 export const INK_COLORS = Object.freeze({
-  ink: '#201E1D', // --color-ink
-  guide: '#CCDBB2', // --color-grid-guide
-  dot: '#E1EECC', // --color-positive-bg
-  canvas: '#F9F4ED', // --color-surface-canvas
+  ink: '#25231F', // --color-ink
+  guide: '#C9D6BF', // --color-grid-guide
+  dot: '#DFE8D8', // --color-positive-bg
+  canvas: '#FFFAF1', // --color-surface-canvas
 });

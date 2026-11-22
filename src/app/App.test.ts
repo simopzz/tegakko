@@ -36,8 +36,9 @@ describe('App', () => {
   // The rebuilt Scope picker: scripts are a multi-select, each selected
   // script gets its own Set row, and session sizes are fixed counts.
   function setPill(script: string, set: string): HTMLElement {
-    return within(screen.getByRole('group', { name: `${script} Sets` })).getByRole('button', {
-      name: set,
+    const label = script === 'Kanji' ? `JLPT ${set}` : set === 'Base' ? 'Single kana' : 'Combined sounds';
+    return within(screen.getByRole('group', { name: `${script} groups` })).getByRole('button', {
+      name: new RegExp(`^${label}`),
     });
   }
 
@@ -62,7 +63,7 @@ describe('App', () => {
 
     render(App);
 
-    expect(await screen.findByText('What are we testing today?')).toBeTruthy();
+    expect(await screen.findByText('What would you like to write?')).toBeTruthy();
     expect(screen.queryByText('Check your stylus')).toBeNull();
   });
 
@@ -93,7 +94,7 @@ describe('App', () => {
 
     render(App);
 
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
 
     // The counter's N *is* the scoped card list's length -- the whole
@@ -119,7 +120,7 @@ describe('App', () => {
 
     render(App);
 
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
 
     // The drill still starts -- `sampleSessionCards` falls back to its uniform floor
@@ -143,7 +144,7 @@ describe('App', () => {
 
     render(App);
 
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
 
     // The drill still starts -- a rejected `listAll()` never leaves
@@ -171,7 +172,7 @@ describe('App', () => {
 
     render(App);
 
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     const startButton = screen.getByRole('button', { name: 'Start writing' });
     await fireEvent.click(startButton);
     await fireEvent.click(startButton);
@@ -195,7 +196,7 @@ describe('App', () => {
 
     render(App);
 
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('radio', { name: '20' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
 
@@ -207,7 +208,7 @@ describe('App', () => {
 
     render(App);
 
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     // Hiragana yoon only: a 33-card scope.
     await fireEvent.click(screen.getByRole('button', { name: 'Katakana' }));
     await fireEvent.click(setPill('Hiragana', 'Base'));
@@ -223,23 +224,23 @@ describe('App', () => {
 
     render(App);
 
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     // Narrow katakana to yoon only.
     await fireEvent.click(setPill('Katakana', 'Base'));
-    expect(await screen.findByText('137 cards · 0 shaky')).toBeTruthy();
+    expect(await screen.findByText('137 available · 0 with recent misses')).toBeTruthy();
 
     // Katakana's last Set (yoon) cannot be deselected.
     await fireEvent.click(setPill('Katakana', 'Yoon'));
     expect(setPill('Katakana', 'Yoon').getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByText('137 cards · 0 shaky')).toBeTruthy();
+    expect(screen.getByText('137 available · 0 with recent misses')).toBeTruthy();
 
     // Drop hiragana entirely; katakana is then the last selected script
     // and cannot be deselected either.
     await fireEvent.click(screen.getByRole('button', { name: 'Hiragana' }));
-    expect(await screen.findByText('33 cards · 0 shaky')).toBeTruthy();
+    expect(await screen.findByText('33 available · 0 with recent misses')).toBeTruthy();
     await fireEvent.click(screen.getByRole('button', { name: 'Katakana' }));
     expect(screen.getByRole('button', { name: 'Katakana' }).getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByText('33 cards · 0 shaky')).toBeTruthy();
+    expect(screen.getByText('33 available · 0 with recent misses')).toBeTruthy();
   });
 
   it('carries a narrowed scope forward into the drill', async () => {
@@ -247,7 +248,7 @@ describe('App', () => {
 
     render(App);
 
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('button', { name: 'Katakana' }));
     await fireEvent.click(setPill('Hiragana', 'Yoon'));
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
@@ -260,7 +261,7 @@ describe('App', () => {
 
     render(App);
 
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('button', { name: 'Hiragana' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
     await screen.findByText('1 / 104');
@@ -268,14 +269,14 @@ describe('App', () => {
     // summary, not directly back on the Scope picker.
     await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
 
-    expect(await screen.findByRole('button', { name: 'Another round' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Choose another scope' })).toBeTruthy();
     // The drill's canvas went with it -- the adapter was destroyed.
     expect(document.querySelectorAll('canvas')).toHaveLength(0);
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Another round' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Choose another scope' }));
 
-    await screen.findByText('What are we testing today?');
-    expect(screen.getByText('104 cards · 0 shaky')).toBeTruthy();
+    await screen.findByText('What would you like to write?');
+    expect(screen.getByText('104 available · 0 with recent misses')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Katakana' }).getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByRole('button', { name: 'Hiragana' }).getAttribute('aria-pressed')).toBe('false');
   });
@@ -285,19 +286,21 @@ describe('App', () => {
 
     render(App);
 
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
     await screen.findByText('1 / 208');
     await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
 
     // Focus lands on the bar's title on entry -- the bar outlives the
     // screen below it, so the entry focus lives there, not in Summary.
-    expect(await screen.findByText('Session summary')).toBeTruthy();
+    expect(
+      await within(screen.getByRole('main')).findByRole('heading', { name: 'Session summary' }),
+    ).toBeTruthy();
     await vi.waitFor(() => expect(document.activeElement?.textContent).toBe('Session summary'));
 
     await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
 
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
   });
 
   it('offers Settings from the summary bar, and Back returns to the Scope picker', async () => {
@@ -305,19 +308,19 @@ describe('App', () => {
 
     render(App);
 
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
     await screen.findByText('1 / 208');
     await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
 
-    await screen.findByText('Session summary');
+    await within(screen.getByRole('main')).findByRole('heading', { name: 'Session summary' });
     await fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
 
     expect(await screen.findByRole('radiogroup', { name: 'Ink width' })).toBeTruthy();
 
     await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
 
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
   });
 
   it('navigates from the Session summary\'s "History" link to the History screen', async () => {
@@ -325,22 +328,22 @@ describe('App', () => {
 
     render(App);
 
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('button', { name: 'Hiragana' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
     await screen.findByText('1 / 104');
     await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
 
-    await screen.findByRole('button', { name: 'Another round' });
+    await screen.findByRole('button', { name: 'Choose another scope' });
     await fireEvent.click(screen.getByRole('button', { name: 'History' }));
 
-    expect(await screen.findByText('No sessions yet. Finish a drill to see it here.')).toBeTruthy();
+    expect(await screen.findByText('No sessions yet')).toBeTruthy();
 
     // "Back" from History always returns to the Scope picker, even when
     // History was opened from the Session summary.
     await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
 
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
   });
 
   it('reaches Settings from the Scope-picker header and back again, selection intact', async () => {
@@ -348,7 +351,7 @@ describe('App', () => {
 
     render(App);
 
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     // Both scripts narrowed to yoon only: each script's Set row narrows on
     // its own terms.
     await fireEvent.click(setPill('Hiragana', 'Base'));
@@ -359,8 +362,8 @@ describe('App', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
 
-    await screen.findByText('What are we testing today?');
-    expect(screen.getByText('66 cards · 0 shaky')).toBeTruthy();
+    await screen.findByText('What would you like to write?');
+    expect(screen.getByText('66 available · 0 with recent misses')).toBeTruthy();
     expect(setPill('Hiragana', 'Yoon').getAttribute('aria-pressed')).toBe('true');
     expect(setPill('Katakana', 'Yoon').getAttribute('aria-pressed')).toBe('true');
   });
@@ -370,7 +373,7 @@ describe('App', () => {
 
     render(App);
 
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('radio', { name: '20' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
 
@@ -378,8 +381,8 @@ describe('App', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
 
-    await screen.findByText('What are we testing today?');
-    expect(screen.getByRole('radio', { name: '20' }).className).toContain('pill--active');
+    await screen.findByText('What would you like to write?');
+    expect(screen.getByRole('radio', { name: '20' }).className).toContain('size-choice--active');
   });
 
   it('applies a preset chosen in Settings to the next drill entry', async () => {
@@ -392,12 +395,12 @@ describe('App', () => {
 
     render(App);
 
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     await screen.findByRole('radiogroup', { name: 'Ink width' });
     await fireEvent.click(screen.getByRole('radio', { name: 'Calligraphy' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
     await screen.findByText('1 / 208');
 
@@ -412,13 +415,13 @@ describe('App', () => {
 
     render(App);
 
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
     await screen.findByText('1 / 208');
     await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
-    await screen.findByRole('button', { name: 'Another round' });
-    await fireEvent.click(screen.getByRole('button', { name: 'Another round' }));
-    await screen.findByText('What are we testing today?');
+    await screen.findByRole('button', { name: 'Choose another scope' });
+    await fireEvent.click(screen.getByRole('button', { name: 'Choose another scope' }));
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
     await screen.findByText('1 / 208');
 
@@ -435,7 +438,7 @@ describe('App', () => {
 
     render(App);
 
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
     await screen.findByText('1 / 208');
 
@@ -447,17 +450,17 @@ describe('App', () => {
 
     render(App);
 
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(setPill('Hiragana', 'Base'));
     await fireEvent.click(setPill('Katakana', 'Base'));
     await fireEvent.click(screen.getByRole('button', { name: 'History' }));
 
-    expect(await screen.findByText('No sessions yet. Finish a drill to see it here.')).toBeTruthy();
+    expect(await screen.findByText('No sessions yet')).toBeTruthy();
 
     await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
 
-    await screen.findByText('What are we testing today?');
-    expect(screen.getByText('66 cards · 0 shaky')).toBeTruthy();
+    await screen.findByText('What would you like to write?');
+    expect(screen.getByText('66 available · 0 with recent misses')).toBeTruthy();
     expect(setPill('Hiragana', 'Yoon').getAttribute('aria-pressed')).toBe('true');
     expect(setPill('Katakana', 'Yoon').getAttribute('aria-pressed')).toBe('true');
   });
@@ -473,7 +476,7 @@ describe('App', () => {
 
     render(App);
 
-    await screen.findByText('What are we testing today?');
+    await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
     await screen.findByText('1 / 208');
 
@@ -485,6 +488,6 @@ describe('App', () => {
     document.dispatchEvent(new Event('visibilitychange'));
     await tick();
 
-    expect(screen.getByRole('button', { name: 'Another round' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Choose another scope' })).toBeTruthy();
   });
 });
