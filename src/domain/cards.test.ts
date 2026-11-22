@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { CARDS } from './cards';
+import { CARDS, type KanaCard } from './cards';
+
+// The kana half of the catalog; the generated kanji half has its own suite
+// (kanji.test.ts).
+const KANA = CARDS.filter((card): card is KanaCard => card.script !== 'kanji');
 
 function bucket(script: 'hiragana' | 'katakana', set: 'base' | 'yoon') {
   return CARDS.filter((card) => card.script === script && card.set === set);
 }
 
 describe('cards', () => {
-  it('holds exactly 208 cards', () => {
-    expect(CARDS).toHaveLength(208);
+  it('holds exactly 208 kana cards plus the 79 generated kanji', () => {
+    expect(KANA).toHaveLength(208);
+    expect(CARDS).toHaveLength(287);
   });
 
   it('has exactly 71 base hiragana, 71 base katakana, 33 hiragana yoon, 33 katakana yoon', () => {
@@ -101,9 +106,9 @@ describe('cards', () => {
     }
   });
 
-  // The drill prompt is romaji + script name, so every card needs a reading.
-  it('gives every card a non-empty romaji reading', () => {
-    for (const card of CARDS) {
+  // The drill prompt is romaji + script name, so every kana card needs a reading.
+  it('gives every kana card a non-empty romaji reading', () => {
+    for (const card of KANA) {
       expect(card.romaji.length).toBeGreaterThan(0);
     }
   });
@@ -134,7 +139,7 @@ describe('cards', () => {
       キャ: 'kya',
     };
     for (const [grapheme, romaji] of Object.entries(expected)) {
-      const card = CARDS.find((c) => c.grapheme === grapheme);
+      const card = KANA.find((c) => c.grapheme === grapheme);
       expect(card?.romaji).toBe(romaji);
     }
   });
@@ -161,10 +166,10 @@ describe('cards', () => {
     ];
     expect(gojuon).toHaveLength(46);
     for (const [hiragana, katakana, romaji] of gojuon) {
-      expect(CARDS.find((c) => c.grapheme === hiragana && c.script === 'hiragana')?.romaji).toBe(
+      expect(KANA.find((c) => c.grapheme === hiragana && c.script === 'hiragana')?.romaji).toBe(
         romaji,
       );
-      expect(CARDS.find((c) => c.grapheme === katakana && c.script === 'katakana')?.romaji).toBe(
+      expect(KANA.find((c) => c.grapheme === katakana && c.script === 'katakana')?.romaji).toBe(
         romaji,
       );
     }
@@ -183,8 +188,8 @@ describe('cards', () => {
     ];
     expect(dakuten).toHaveLength(25);
     for (const [hiragana, katakana, romaji] of dakuten) {
-      const hiraganaCard = CARDS.find((c) => c.grapheme === hiragana && c.script === 'hiragana');
-      const katakanaCard = CARDS.find((c) => c.grapheme === katakana && c.script === 'katakana');
+      const hiraganaCard = KANA.find((c) => c.grapheme === hiragana && c.script === 'hiragana');
+      const katakanaCard = KANA.find((c) => c.grapheme === katakana && c.script === 'katakana');
       expect(hiraganaCard?.romaji).toBe(romaji);
       expect(hiraganaCard?.set).toBe('base');
       expect(katakanaCard?.romaji).toBe(romaji);
@@ -204,13 +209,13 @@ describe('cards', () => {
       ['ヅ', 'katakana', 'du'],
     ];
     for (const [grapheme, script, writtenRomaji] of disambiguated) {
-      const card = CARDS.find((c) => c.grapheme === grapheme && c.script === script);
+      const card = KANA.find((c) => c.grapheme === grapheme && c.script === script);
       expect(card?.writtenRomaji).toBe(writtenRomaji);
     }
     const disambiguatedIds = new Set(
       disambiguated.map(([grapheme, script]) => `${grapheme}:${script}`),
     );
-    for (const card of CARDS) {
+    for (const card of KANA) {
       if (disambiguatedIds.has(card.cardId)) continue;
       expect(card.writtenRomaji).toBeUndefined();
     }
@@ -218,7 +223,7 @@ describe('cards', () => {
 
   it('never doubles the i of shi/chi/ji into a yoon reading', () => {
     // しゅ is `shu`, never `shyu`; じょ is `jo`, never `jyo`.
-    const readings = new Set(CARDS.map((card) => card.romaji));
+    const readings = new Set(KANA.map((card) => card.romaji));
     for (const bad of ['shya', 'shyu', 'shyo', 'chya', 'chyu', 'chyo', 'jya', 'jyu', 'jyo']) {
       expect(readings.has(bad)).toBe(false);
     }
@@ -227,8 +232,8 @@ describe('cards', () => {
   it('reads a hiragana card and its katakana counterpart identically', () => {
     // Same position in the gojuon order -> same sound, regardless of script:
     // あ/ア are both "a", きゃ/キャ both "kya".
-    const hiragana = CARDS.filter((card) => card.script === 'hiragana');
-    const katakana = CARDS.filter((card) => card.script === 'katakana');
+    const hiragana = KANA.filter((card) => card.script === 'hiragana');
+    const katakana = KANA.filter((card) => card.script === 'katakana');
     expect(hiragana).toHaveLength(katakana.length);
     for (const [index, card] of hiragana.entries()) {
       expect(katakana[index]?.romaji).toBe(card.romaji);

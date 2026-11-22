@@ -288,6 +288,75 @@ describe('App integration', () => {
     expect(await screen.findByText(/1 \/ 20/)).toBeTruthy();
   });
 
+  it('practises an N5 kanji end to end: pick, prompt, reveal, grade, Summary and History', async () => {
+    let surface = fakeInkSurface();
+    render(App, {
+      inkSurfaceFactory: () => {
+        surface = fakeInkSurface();
+        return surface;
+      },
+    });
+    await screen.findByText('What are we testing today?');
+
+    // Kanji is a picker opt-in: turn it on and both kana scripts off, so
+    // the session draws only from the 79-card N5 catalog.
+    await fireEvent.click(screen.getByRole('button', { name: 'Kanji' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Hiragana' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Katakana' }));
+    expect(await screen.findByText('79 cards · 0 shaky')).toBeTruthy();
+    await fireEvent.click(screen.getByRole('radio', { name: '10' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Start writing' }));
+
+    // Drill on a kanji card: the prompt is meanings and readings, and one
+    // genkouyoushi cell.
+    expect(await screen.findByText(/1 \/ 10/)).toBeTruthy();
+    expect(screen.getByText('Kanji')).toBeTruthy();
+    const kanji = CARDS.filter((card) => card.script === 'kanji');
+    const displayed = document.querySelector('.romaji')?.textContent ?? '';
+    const target = kanji.find((card) => card.script === 'kanji' && card.meanings.join(', ') === displayed);
+    expect(target).toBeDefined();
+    if (!target) throw new Error('no kanji card matches the prompt');
+    const readings = document.querySelector('.readings')?.textContent ?? '';
+    expect(readings).toContain('·');
+    expect(readings).toContain(target.onyomi[0]!);
+    expect(surface.cellCounts).toEqual([1]);
+
+    // Reveal shows the kanji in the reference font, in one cell.
+    await fireEvent.click(screen.getByRole('button', { name: 'Reveal' }));
+    const referenceCells = document.querySelectorAll('.reference-cell');
+    expect(referenceCells).toHaveLength(1);
+    expect(referenceCells[0]?.textContent).toBe(target.grapheme);
+
+    // Miss counts work for kanji unchanged: a Missed grade increments the
+    // card's lifetime tally.
+    await surface.landStroke();
+    await fireEvent.click(screen.getByRole('button', { name: 'Missed' }));
+    await tick();
+    const tallyRepository = new IdbTallyRepository();
+    await vi.waitFor(async () => {
+      const tallies = await tallyRepository.getAll();
+      expect(tallies.ok && tallies.value).toEqual([{ cardId: target.cardId, missCount: 1 }]);
+    });
+
+    // Summary and History both read the session as a Kanji N5 scope, the
+    // graded card among Summary's missed chips.
+    await fireEvent.click(screen.getByRole('button', { name: "I'm done" }));
+    expect(await screen.findByText('Session summary')).toBeTruthy();
+    expect(screen.getByText('Kanji N5')).toBeTruthy();
+    expect(screen.getByText(target.grapheme)).toBeTruthy();
+    expect(screen.getByText(/missed 1/)).toBeTruthy();
+
+    const sessionRepository = new IdbSessionRepository();
+    await vi.waitFor(async () => {
+      const sessions = await sessionRepository.list();
+      expect(sessions.ok && sessions.value).toHaveLength(1);
+      expect(sessions.ok && sessions.value[0]?.scope).toEqual({ kanji: ['n5'] });
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'History' }));
+    expect(await screen.findByText('1 card · Kanji N5')).toBeTruthy();
+  });
+
   it('lists stored sessions newest-first with closure chips and a sparkline', async () => {
     const idle = seededSession({
       date: '2026-09-01T00:00:00.000Z',
@@ -432,6 +501,10 @@ describe('App integration', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Ink width' })).toBeTruthy();
     expect(screen.getByRole('heading', { level: 2, name: 'Idle close' })).toBeTruthy();
     expect(screen.getByRole('heading', { level: 2, name: 'Backup' })).toBeTruthy();
+    // The page ends with the kanji sources' licence credit line.
+    expect(
+      screen.getByText('Kanji data: EDRDG KANJIDIC2 (CC BY-SA), JLPT lists by J. Waller (CC BY)'),
+    ).toBeTruthy();
 
     // Wait for the stored record to land in the pills before keying them.
     await vi.waitFor(() =>

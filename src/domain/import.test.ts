@@ -168,6 +168,20 @@ describe('validateImport', () => {
     expect(result.value.data.tallies[0]!.cardId).toBe('が:hiragana');
   });
 
+  it('accepts kanji progress: a kanji cardId and an n5 scope entry', () => {
+    const env = envelope();
+    (env.tallies as Record<string, unknown>[])[0]!.cardId = '日:kanji';
+    attempts(env)[0]!.cardId = '日:kanji';
+    sessions(env)[0]!.scope = { kanji: ['n5'] };
+
+    const result = validateImport(env);
+    if (!result.ok) throw result.error;
+
+    expect(result.value.data.tallies[0]!.cardId).toBe('日:kanji');
+    expect(result.value.data.attempts[0]!.cardId).toBe('日:kanji');
+    expect(result.value.data.sessions[0]!.scope).toEqual({ kanji: ['n5'] });
+  });
+
   describe('rejects', () => {
     it('a non-object', () => {
       expectRejected(null, 'file');

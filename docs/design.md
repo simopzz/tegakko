@@ -7,7 +7,7 @@ How tegakko looks and behaves. Terms are as defined in [`GLOSSARY.md`](../GLOSSA
 - **One device class.** A Chromium-based Android tablet held portrait (~800×1280 CSS px) with a stylus, using the app as an installed PWA. No phone layout, no iPad/Safari, no responsive breakpoints. Delegated Ink Trails is Chromium-only, so this boundary holds until the tablet in use changes.
 - **Web, not native**, for the pressure range: see [ADR-0002](adr/0002-ink-adapter-owns-its-canvas.md).
 - **HTTPS origin.** Delegated Ink Trails and PWA install both need a secure context; the app is served from Cloudflare's `*.workers.dev` origin.
-- **Offline after install.** Drill, History and Settings make no network calls. A new build takes over silently on next load; there is no update prompt.
+- **Offline after install.** Drill, History and Settings make no network calls. The reference fonts load from Google Fonts, which the service worker caches cache-first at runtime — a glyph whose font slice was never loaded online falls back to a system font offline. A new build takes over silently on next load; there is no update prompt.
 - **Local-only, single learner.** No accounts, no sync, no multi-user data. Export/import is the only way data leaves the device ([ADR-0003](adr/0003-import-replaces-never-merges.md)).
 - **Mouse and touch still work** for development: Pointer Events reports a fixed pressure for non-pen input, so the drill stays usable without a stylus, just not at full fidelity.
 
@@ -27,6 +27,7 @@ Examples of the voice, not all of them literal app copy:
 | "き · hiragana — missed 3 times now, so it'll come round sooner." | Streaks, encouragement, exclamation marks |
 | "Importing replaces everything here — miss counts, attempts, history." | Soft-pedalling a destructive action |
 | Prompt is romaji + script name; ぢ/づ/ヂ/ヅ, whose Hepburn romaji collides with another card's, add their written-form romaji in parentheses | Mnemonics, example words or any memory-aid copy |
+| Prompt is meanings + readings for a kanji ("day, sun" over "ニチ ジツ · ひ"), never the grapheme itself | Showing the answer in the prompt, or ON/KUN labels |
 
 ## Colour
 
@@ -54,7 +55,7 @@ Every load-bearing text/background pair meets WCAG AA (4.5:1 body, 3:1 large hea
 
 | Token | Face | Use |
 |---|---|---|
-| `--font-heading` | Noto Serif JP 600 (−0.02em on titles) | Screen and section titles, every button label, every numeric readout. The structural voice. |
+| `--font-heading` | Noto Serif JP 600 (−0.02em on titles) | Screen and section titles, every button label, every numeric readout, the kanji prompt's meanings and its readings line. The structural voice. |
 | `--font-display` | Noto Serif JP 600 | The single largest number on a screen (Summary accuracy). At most one per screen. |
 | `--font-glyph-ink` | Yuji Syuku, tilted −1.2° | Only an actual grapheme, rendered as brushed ink: the reference glyph, sized to fill its cell, and missed-card chips. Never UI text, never romaji, so its appearance always means "a real grapheme". |
 | `--font-body` | Figtree 400 | Sentences, captions. |
@@ -78,20 +79,20 @@ One screen at a time, single column, no tab bar or drawer, no router: one top-le
 | Drill | Scope picker → "Start writing" | The prompt → write → (reveal) → self-grade loop. |
 | Summary | Any closure | Accuracy over the session's scope and card count, time, reveal count, this session's misses. |
 | History | Bar links on Scope picker and Summary | Past sessions, newest first, accuracy trend. |
-| Settings | Bar links on Scope picker and Summary | One page title (the bar's h1 "Settings") over three sections: ink width with a try pad for feeling a preset, idle-close threshold, export/import. |
+| Settings | Bar links on Scope picker and Summary | One page title (the bar's h1 "Settings") over three sections: ink width with a try pad for feeling a preset, idle-close threshold, export/import. The page ends with the kanji sources' credit line ("Kanji data: EDRDG KANJIDIC2 (CC BY-SA), JLPT lists by J. Waller (CC BY)"). |
 
 ### Scope picker
 
-Script is a multi-select of pill toggles — Hiragana and Katakana today, a third script slots into the same row when kanji lands. Each selected script gets its own Set row (Base/Yoon for each kana), narrowing that script alone. The guard rails are silent: the last selected script cannot be turned off, and a selected script's last Set cannot be deselected, so an empty scope is unreachable. Session size is one of 10, 20, 50 or All cards; a count larger than the scope clamps to the scope at Start. One line sums the scope up — "N cards · M shaky" — recomputed on every change. The selection survives trips to Drill, Settings and History: the composition root holds it while the picker is unmounted.
+Script is a multi-select of pill toggles — Hiragana, Katakana and Kanji today. Each selected script gets its own Set row (Base/Yoon for each kana, N5 for kanji), narrowing that script alone. Kanji is an opt-in: the default selection on a fresh load stays kana-only, so a kana learner never meets kanji uninvited. The guard rails are silent: the last selected script cannot be turned off, and a selected script's last Set cannot be deselected, so an empty scope is unreachable. Session size is one of 10, 20, 50 or All cards; a count larger than the scope clamps to the scope at Start. One line sums the scope up — "N cards · M shaky" — recomputed on every change. The selection survives trips to Drill, Settings and History: the composition root holds it while the picker is unmounted.
 
 ## Components
 
 | Component | Look | Behaviour |
 |---|---|---|
 | Top bar | Thin strip on the paper, hairline bottom rule; micro-label title in `--font-label`; Back as a bordered button; History/Settings as accent-strong text links at the far right | One instance per screen, rendered by the composition root (Drill renders its own with the progress readout). Back is absent on First run and Scope picker; links appear only where that screen offers them. Focus moves onto the title on History and Summary entry. Inert while the import warning is open. |
-| Genkouyoushi cell | Canvas surface, one cell per character of the grapheme in a row (two for a yoon like チョ, one for a single kana; a kanji later gets one), solid rule between cells, dashed cross inside each, `-lg` | Centre dot in each cell only while the row is empty. Once ink exists, Clear appears next to "Your call — nothing is checking the shape". Clearing never advances or grades; it dims Missed/Correct again (the row is blank) while Reveal stays live. |
+| Genkouyoushi cell | Canvas surface, one cell per character of the grapheme in a row (two for a yoon like チョ, one for a single kana or a kanji), solid rule between cells, dashed cross inside each, `-lg` | Centre dot in each cell only while the row is empty. Once ink exists, Clear appears next to "Your call — nothing is checking the shape". Clearing never advances or grades; it dims Missed/Correct again (the row is blank) while Reveal stays live. |
 | Grade buttons | Correct: accent fill. Reveal, Missed: transparent with faint border. 88px min height, `-md`, equal widths in a row under the cell | Reveal is live from the moment the prompt shows. Missed and Correct are dimmed (40% opacity, not a different colour) until there is a stroke or Reveal was tapped. A blank revealed cell can be graded; a blank unrevealed one can't. |
-| Reveal | Yours above Reference, the ink taking the larger share (2:1), both at full width in portrait; reference on peach, one reference cell per character in the same row shape the learner wrote in, grid-guide rule between cells; a small kana (the ョ in チョ) renders about half size in its own cell | Never overlaid, never replacing your strokes, never side by side in portrait (that halves both cells and leaves empty bands). Doesn't grade; Missed/Correct stay required. Whether Reveal was used is recorded on the attempt. |
+| Reveal | Yours above Reference, the ink taking the larger share (2:1), both at full width in portrait; reference on peach, one reference cell per character in the same row shape the learner wrote in (a kanji renders full-size in its one cell), grid-guide rule between cells; a small kana (the ョ in チョ) renders about half size in its own cell | Never overlaid, never replacing your strokes, never side by side in portrait (that halves both cells and leaves empty bands). Doesn't grade; Missed/Correct stay required. Whether Reveal was used is recorded on the attempt. |
 | Pill toggle group | Secondary-surface track; active segments accent fill | Equal-width segments, commits on tap. Single-choice groups (Settings presets, session size) keep exactly one active segment with radio semantics: arrow keys select, commit and move focus (Home/End jump; wraps at the ends). Toggle groups (the picker's scripts and Sets) keep any number active. Each tap on the picker recomputes the scope summary. |
 | Try pad | One genkouyoushi cell, the same canvas surface the drill writes on, under the ink-width pills | A fresh ink surface per Settings mount: draw on it to feel the active preset without starting a session; tapping a preset changes the width of the next stroke; Clear wipes it. |
 | Chip | `-sm`; positive, missed or neutral tint, always with text | Read-only. Positive or neutral for status; missed where a count is inherently negative (miss count). The Scope picker uses no chips: its pills and one summary line already say what a chip would echo. |

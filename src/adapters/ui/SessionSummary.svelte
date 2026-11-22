@@ -22,6 +22,7 @@
   const scriptLabel: Record<string, string> = {
     hiragana: 'Hiragana',
     katakana: 'Katakana',
+    kanji: 'Kanji',
   };
 
   // `M:SS`, floored to the whole second -- no centisecond precision needed
