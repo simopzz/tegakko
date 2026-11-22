@@ -182,6 +182,16 @@ describe('validateImport', () => {
     expect(result.value.data.sessions[0]!.scope).toEqual({ kanji: ['n5'] });
   });
 
+  it('accepts every kanji Set the catalog offers, not just n5', () => {
+    for (const set of ['n5', 'n4', 'n3', 'n2', 'n1'] as const) {
+      const env = envelope();
+      sessions(env)[0]!.scope = { kanji: [set] };
+      const result = validateImport(env);
+      if (!result.ok) throw result.error;
+      expect(result.value.data.sessions[0]!.scope).toEqual({ kanji: [set] });
+    }
+  });
+
   describe('rejects', () => {
     it('a non-object', () => {
       expectRejected(null, 'file');

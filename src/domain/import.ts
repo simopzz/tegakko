@@ -53,7 +53,7 @@ const SELF_GRADES: readonly SelfGrade[] = ['correct', 'incorrect'];
 const CLOSURE_REASONS: readonly ClosureReason[] = ['explicit', 'complete', 'inactivity'];
 const WIDTH_PRESETS: readonly WidthPreset[] = ['subtle', 'expressive', 'calligraphy'];
 const SCRIPTS: readonly Script[] = ['hiragana', 'katakana', 'kanji'];
-const CARD_SETS: readonly CardSet[] = ['base', 'yoon', 'n5'];
+const CARD_SETS: readonly CardSet[] = ['base', 'yoon', 'n5', 'n4', 'n3', 'n2', 'n1'];
 const CARD_IDS: ReadonlySet<string> = new Set(CARDS.map((card) => card.cardId));
 
 /** Thrown only inside this module and caught by `validateImport` -- never
