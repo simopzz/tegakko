@@ -93,12 +93,6 @@ Fonts: Noto Serif JP (display, heading); Figtree (body, label); Yuji Syuku (glyp
 Spacing: 1 8px, 2 12px, 3 18px, 4 24px, 5 32px, 6 40px, 7 56px, 8 72px
 Radius: sm 6px, md 8px, lg 12px, xl 16px, full 9999px
 North Star: "The Morning Writing Desk"
-Rules:
-- The Blank Recall Rule. Keep the active writing canvas free of reference glyphs, texture, and ornament; comparison appears only after the learner chooses Reveal.
-- The Glyph Boundary Rule. Yuji Syuku is reserved for actual Japanese graphemes, never romaji, English meanings, readings, labels, or button text.
-Elevation:
-- Grade feedback: 0 12px 32px rgba(46, 43, 37, 0.18)
-- Import confirmation: 0 12px 32px rgba(46, 43, 37, 0.16)
 Don't:
 - Don't bring back the previous persimmon-only palette or warm cream full-viewport ground; the implemented system uses green structure and paper sheets on a desk ground.
 - Don't add texture or decoration to the active writing cell.
