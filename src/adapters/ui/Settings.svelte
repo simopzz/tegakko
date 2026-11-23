@@ -368,8 +368,11 @@
       <!-- The try pad: draw here to feel the preset before committing to
            it in a session. Clear wipes it for a clean comparison. -->
       <div class="try">
+        <div class="try-tools">
+          <span class="hint">Try the selected width</span>
+          <button type="button" class="text-action" onclick={() => pad?.clear()}>Clear</button>
+        </div>
         <div class="try-pad" bind:this={padNode} role="group" aria-label="Try the ink width"></div>
-        <button type="button" class="action" onclick={() => pad?.clear()}>Clear</button>
       </div>
     {/if}
 
@@ -420,19 +423,19 @@
 
     <section class="setting-section">
     <h2 class="heading">Backup</h2>
-    <p class="body">Download a local backup with your progress, attempts, handwriting and history.</p>
-    <button type="button" class="action" disabled={exporting} onclick={() => void runExport()}>
-      {exporting ? 'Preparing backup…' : 'Download backup'}
-    </button>
+    <p class="body">Save your progress, attempts, handwriting and history, or restore them from a file. Importing replaces all progress on this device.</p>
+    <div class="backup-actions">
+      <button type="button" class="action" disabled={exporting} onclick={() => void runExport()}>
+        {exporting ? 'Preparing…' : 'Download'}
+      </button>
+      <button type="button" class="action" onclick={pickImportFile} bind:this={importButton}>
+        Import
+      </button>
+    </div>
 
     {#if exportNote}
       <p class="note" role="status" aria-live="polite">{exportNote}</p>
     {/if}
-
-    <p class="body">Restore from a backup file. Importing replaces all progress on this device.</p>
-    <button type="button" class="action" onclick={pickImportFile} bind:this={importButton}>
-      Import
-    </button>
     <input
       bind:this={fileInput}
       class="file-input"
@@ -573,6 +576,7 @@
     font-weight: 600;
     font-size: 1rem;
     cursor: pointer;
+    white-space: nowrap;
   }
 
   .pill--active {
@@ -593,19 +597,42 @@
   }
 
   .try {
+    width: 100%;
     display: flex;
-    align-items: stretch;
+    flex-direction: column;
+    gap: var(--spacing-1);
+  }
+
+  .try-tools {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: var(--spacing-2);
   }
 
   .try-pad {
-    flex: 1;
     min-width: 0;
-    height: 160px;
+    width: 100%;
+    height: 240px;
+    border: 1px solid var(--color-paper-line);
+    border-radius: var(--radius-md);
+    background: var(--color-paper-warm);
   }
 
-  .try .action {
-    align-self: flex-end;
+  .text-action {
+    min-height: 44px;
+    padding: 0 var(--spacing-2);
+    border: 0;
+    background: transparent;
+    color: var(--color-accent-deep);
+    font: 600 0.95rem var(--font-body);
+    cursor: pointer;
+  }
+
+  .backup-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2);
   }
 
   .note {

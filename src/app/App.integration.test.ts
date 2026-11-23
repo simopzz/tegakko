@@ -326,8 +326,8 @@ describe('App integration', () => {
     expect(target).toBeDefined();
     if (!target) throw new Error('no kanji card matches the prompt');
     const readings = document.querySelector('.readings')?.textContent ?? '';
-    expect(readings).toContain('·');
     expect(readings).toContain(target.onyomi[0]!);
+    expect(readings.includes('·')).toBe(target.onyomi.length > 0 && target.kunyomi.length > 0);
     expect(surface.cellCounts).toEqual([1]);
 
     // Reveal shows the kanji in the reference font, in one cell.
@@ -619,7 +619,7 @@ describe('App integration', () => {
     await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Download backup' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Download' }));
 
     await vi.waitFor(() => expect(blobs).toHaveLength(1));
     expect(screen.queryByText("Couldn't export -- try again.")).toBeNull();
