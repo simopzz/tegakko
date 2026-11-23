@@ -4,6 +4,8 @@
 
 *Tegakko* is a quiet Japanese handwriting-recall practice app. It prompts you with a kana, you write it from memory with a pen, then judge your own attempt. Characters you miss come round more often.
 
+Created by [Simone Pedrazzi](https://simopzz.com/).
+
 ## Idea
 
 - **Recall, then write.** Prompts give kana in romaji and identify the script; there is no tracing guide or answer shown under your ink.
