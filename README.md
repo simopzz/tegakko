@@ -4,6 +4,8 @@
 
 *Tegakko* is a quiet Japanese handwriting-recall practice app. It prompts you with a kana, you write it from memory with a pen, then judge your own attempt. Characters you miss come round more often.
 
+Created by [Simone Pedrazzi](https://simopzz.com/).
+
 ## Idea
 
 - **Recall, then write.** Prompts give kana in romaji and identify the script; there is no tracing guide or answer shown under your ink.
@@ -22,6 +24,8 @@ The app is a local-first PWA for handwriting practice, with scope selection, dri
 
 TypeScript, Svelte 5 and Vite, with IndexedDB via [idb](https://github.com/jakearchibald/idb). The PWA is hosted on Cloudflare Workers.
 
+Kanji readings and meanings are adapted from KANJIDIC2 (© James William Breen and EDRDG, CC BY-SA 4.0). JLPT levels use Jonathan Waller's lists (CC BY), via the [JLPT Vocabulary mirror](https://github.com/Bluskyo/JLPT_Vocabulary). Full acknowledgments and license links are available in the app under Settings → Sources.
+
 ## Running it
 
 Tools are managed with [mise](https://mise.jdx.dev).
@@ -33,3 +37,7 @@ mise run dev           # serves the app locally
 ```
 
 Other tasks: `mise run check` runs lint, typecheck and tests; `mise run build` builds the PWA into `dist/`.
+
+## License
+
+Original project materials, including source code, documentation and artwork, are © 2026 Simone Pedrazzi and licensed under the GNU General Public License, version 3 only. See [LICENSE](LICENSE). Third-party materials retain their own licenses. The license does not grant permission to use the Tegakko name or branding as someone else's identity.

@@ -49,6 +49,9 @@ HEADER = """\
 //
 // Source data and licences -- the ShareAlike term of the first applies to
 // this derived catalog:
+// - This adapted catalog is distributed under GPL-3.0-only, a licence
+//   compatible with CC BY-SA 4.0; upstream KANJIDIC2 copyright and licence
+//   terms continue to apply to its data.
 // - KANJIDIC2, (c) EDRDG, CC BY-SA 4.0
 //   (https://www.edrdg.org/kanjidic/kanjidic2.xml.gz,
 //   licence https://www.edrdg.org/edrdg/licence.html): meanings and
