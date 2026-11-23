@@ -542,17 +542,14 @@ describe('App integration', () => {
     await screen.findByText('What would you like to write?');
     await fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
 
-    // One page title (the bar's h1 "Settings") with the three sections
+    // One page title (the bar's h1 "Settings") with the settings sections
     // as subheadings under it.
     expect(await screen.findByRole('heading', { level: 1, name: 'Settings' })).toBeTruthy();
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(screen.getByRole('heading', { level: 2, name: 'Ink width' })).toBeTruthy();
     expect(screen.getByRole('heading', { level: 2, name: 'Idle close' })).toBeTruthy();
     expect(screen.getByRole('heading', { level: 2, name: 'Backup' })).toBeTruthy();
-    // The page ends with the kanji sources' licence credit line.
-    expect(
-      screen.getByText('Kanji data: EDRDG KANJIDIC2 (CC BY-SA); JLPT lists by J. Waller (CC BY).'),
-    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'View data sources' })).toBeTruthy();
 
     // Wait for the stored record to land in the pills before keying them.
     await vi.waitFor(() =>
@@ -591,6 +588,13 @@ describe('App integration', () => {
         penCheckShown: true,
       });
     });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'View data sources' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Sources' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Kanji readings and meanings' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'KANJIDIC2 project' })).toBeTruthy();
+    await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Settings' })).toBeTruthy();
   });
 
   it('exports a backup file containing the stored progress', async () => {

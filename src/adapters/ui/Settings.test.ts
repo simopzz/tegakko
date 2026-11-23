@@ -86,6 +86,7 @@ function renderSettings(settings: FakeSettings, backup: FakeBackup = fakeBackup(
     settings,
     backup,
     onPresetChange: vi.fn(),
+    onSources: vi.fn(),
     inkSurfaceFactory: () => fakeInkSurface(),
   });
 }
@@ -110,6 +111,7 @@ describe('Settings', () => {
       settings,
       backup: fakeBackup(),
       onPresetChange,
+      onSources: vi.fn(),
       inkSurfaceFactory: () => fakeInkSurface(),
     });
 
@@ -133,6 +135,7 @@ describe('Settings', () => {
       settings,
       backup: fakeBackup(),
       onPresetChange,
+      onSources: vi.fn(),
       inkSurfaceFactory: () => fakeInkSurface(),
     });
 

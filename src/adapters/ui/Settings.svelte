@@ -1,8 +1,7 @@
 <script lang="ts">
   // Settings screen: one page title -- the shared top bar's h1
-  // "Settings" -- over three sections: the ink-width pill toggle with a
-  // try pad, the idle-close threshold toggle, and Backup/Export plus
-  // Import with its confirm-before-replace warning toast.
+  // "Settings" -- over four sections: ink width, idle close, backup, and
+  // data-source acknowledgments.
   //
   // Reuses ScopePicker.svelte's `.pill`/`.pill--active` markup and its
   // radiogroup semantics: exactly one active segment, commits immediately,
@@ -34,6 +33,7 @@
       apply(pending: PendingImport): Promise<Result<void>>;
     };
     onPresetChange: (preset: WidthPreset) => void;
+    onSources: () => void;
     /** Fresh ink surface for the try pad, one per Settings mount -- the
      * composition root injects the factory the same way it does for the
      * drill, so this screen never imports the ink adapter
@@ -45,7 +45,7 @@
     onModalChange?: (open: boolean) => void;
   }
 
-  const { settings, backup, onPresetChange, onModalChange, inkSurfaceFactory }: Props = $props();
+  const { settings, backup, onPresetChange, onSources, onModalChange, inkSurfaceFactory }: Props = $props();
 
   const PRESETS: Array<{ value: WidthPreset; label: string; hint: string }> = [
     { value: 'subtle', label: 'Subtle', hint: 'Even line, slight taper' },
@@ -329,8 +329,7 @@
 
 <ScreenShell bookmark="Preferences" inert={pending !== null}>
     <!-- No content h1: the top bar's h1 "Settings" is the page title
-         (History's pattern), and the three sections sit under it as
-         subheadings. -->
+         (History's pattern), and the sections sit under it as subheadings. -->
     <section class="setting-section">
     <h2 class="heading">Ink width</h2>
     <p class="body">How much the stroke thickens as you press harder. Applies to your next stroke.</p>
@@ -451,7 +450,12 @@
       <p class="note" role="status" aria-live="polite">{importNote}</p>
     {/if}
 
-    <p class="credits">Kanji data: EDRDG KANJIDIC2 (CC BY-SA); JLPT lists by J. Waller (CC BY).</p>
+    </section>
+
+    <section class="setting-section">
+      <h2 class="heading">Sources</h2>
+      <p class="body">Acknowledgments and licenses for the kanji data.</p>
+      <button type="button" class="text-action" onclick={onSources}>View data sources</button>
     </section>
 </ScreenShell>
 
@@ -533,13 +537,6 @@
   }
 
   .action:disabled { opacity: 0.6; cursor: wait; }
-
-  .credits {
-    margin: var(--spacing-3) 0 0;
-    font-size: 0.8rem;
-    line-height: 1.5;
-    color: var(--color-ink-muted);
-  }
 
   .heading {
     margin: 0;

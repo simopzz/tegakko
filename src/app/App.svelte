@@ -10,6 +10,7 @@
   import ScopePicker from '../adapters/ui/ScopePicker.svelte';
   import Drill from '../adapters/ui/Drill.svelte';
   import Settings from '../adapters/ui/Settings.svelte';
+  import Sources from '../adapters/ui/Sources.svelte';
   import SessionSummary from '../adapters/ui/SessionSummary.svelte';
   import History from '../adapters/ui/History.svelte';
   import TopBar from '../adapters/ui/TopBar.svelte';
@@ -194,14 +195,22 @@
     screen = 'settings';
   }
 
+  function handleOpenSources(): void {
+    screen = 'sources';
+  }
+
   function handleOpenHistory(): void {
     secondaryReturnScreen = screen === 'summary' ? 'summary' : 'scope-picker';
     screen = 'history';
   }
 
-  // History and Settings return to the screen that opened them. Those links
-  // are available only from Scope and Summary, so the origin stays small.
+  // History and Settings return to the screen that opened them. Sources is
+  // opened from Settings and returns there.
   function handleBarBack(): void {
+    if (screen === 'sources') {
+      screen = 'settings';
+      return;
+    }
     screen = secondaryReturnScreen === 'summary' && summary ? 'summary' : 'scope-picker';
   }
 
@@ -238,9 +247,11 @@
           }
         : screen === 'history'
           ? { title: 'History', onBack: handleBarBack, focusTitle: true }
-          : screen === 'settings'
-            ? { title: 'Settings', onBack: handleBarBack }
-            : { title: 'First run' },
+          : screen === 'sources'
+            ? { title: 'Sources', onBack: handleBarBack, focusTitle: true }
+            : screen === 'settings'
+              ? { title: 'Settings', onBack: handleBarBack }
+              : { title: 'First run' },
   );
 
   // Settings' import warning is that screen's own modal, but the bar sits
@@ -271,9 +282,12 @@
         settings={settingsStore}
         {backup}
         onPresetChange={handlePresetChange}
+        onSources={handleOpenSources}
         onModalChange={(open) => (settingsModal = open)}
         inkSurfaceFactory={inkSurfaceFactory}
       />
+    {:else if screen === 'sources'}
+      <Sources />
     {:else if screen === 'drill' && drillSession && inkSurface}
       <Drill {drillSession} {inkSurface} />
     {:else if screen === 'summary' && summary}
