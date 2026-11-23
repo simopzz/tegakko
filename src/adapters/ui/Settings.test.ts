@@ -331,7 +331,7 @@ describe('Settings', () => {
       );
       renderWith(backup);
 
-      const button = screen.getByRole('button', { name: 'Download backup' });
+      const button = screen.getByRole('button', { name: 'Download' });
       await fireEvent.click(button);
       await fireEvent.click(button);
       expect(backup.export).toHaveBeenCalledTimes(1);
@@ -348,11 +348,11 @@ describe('Settings', () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       renderWith(backup);
 
-      await fireEvent.click(screen.getByRole('button', { name: 'Download backup' }));
+      await fireEvent.click(screen.getByRole('button', { name: 'Download' }));
       expect(await screen.findByText("Couldn't export -- try again.")).toBeTruthy();
 
       backup.export.mockResolvedValueOnce(ok(undefined));
-      await fireEvent.click(screen.getByRole('button', { name: 'Download backup' }));
+      await fireEvent.click(screen.getByRole('button', { name: 'Download' }));
       // Let the second export() settle, so a success path that re-set the
       // note would be caught.
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -516,7 +516,7 @@ describe('Settings', () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       renderWith(backup);
 
-      await fireEvent.click(screen.getByRole('button', { name: 'Download backup' }));
+      await fireEvent.click(screen.getByRole('button', { name: 'Download' }));
       expect(await screen.findByText("Couldn't export -- try again.")).toBeTruthy();
 
       await pick();
@@ -524,7 +524,7 @@ describe('Settings', () => {
       expect(await screen.findByText('Imported. Your progress now matches the file.')).toBeTruthy();
       expect(screen.queryByText("Couldn't export -- try again.")).toBeNull();
 
-      await fireEvent.click(screen.getByRole('button', { name: 'Download backup' }));
+      await fireEvent.click(screen.getByRole('button', { name: 'Download' }));
       expect(await screen.findByText("Couldn't export -- try again.")).toBeTruthy();
       expect(screen.queryByText('Imported. Your progress now matches the file.')).toBeNull();
     });
