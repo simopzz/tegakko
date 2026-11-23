@@ -33,6 +33,14 @@
       <li><a href="https://github.com/Bluskyo/JLPT_Vocabulary#readme">Repository mirror and source attribution</a></li>
     </ul>
   </section>
+
+  <section class="source-section" aria-labelledby="project-title">
+    <h2 class="section-title" id="project-title">Project</h2>
+    <p class="body">
+      Tegakko was created by
+      <a href="https://simopzz.com/" target="_blank" rel="noopener noreferrer">Simone Pedrazzi</a>.
+    </p>
+  </section>
 </ScreenShell>
 
 <style>
