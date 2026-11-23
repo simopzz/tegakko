@@ -5,9 +5,8 @@
   // History/Settings links plus "Another round", all owned by the
   // composition root.
   //
-  // Idle and complete closures render identically here: only an explicit
-  // close ever carries the positive "You ended it" chip -- the
-  // idle/complete distinction is History's concern.
+  // Closure chips distinguish learner-ended and idle-ended sessions. Queue
+  // completion needs no extra message because the finished card count shows it.
   import type { SessionSummaryView } from '../../domain/session';
   import { describeScope } from '../../domain/scope';
   import ScreenShell from './ScreenShell.svelte';
@@ -41,6 +40,8 @@
 
   {#if summary.closureReason === 'explicit'}
     <span class="chip chip--positive">Session ended by you</span>
+  {:else if summary.closureReason === 'inactivity'}
+    <span class="chip chip--neutral">Session closed after inactivity</span>
   {/if}
 
   <div class="stats" aria-label="Session details">
@@ -110,6 +111,11 @@
   .chip--positive {
     background: var(--color-positive-bg);
     color: var(--color-positive-fg);
+  }
+
+  .chip--neutral {
+    background: var(--color-paper-warm);
+    color: var(--color-ink);
   }
 
   .stats {

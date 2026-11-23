@@ -104,6 +104,7 @@
   // Set by `handleDrillClose` when a Drill session closes (any reason);
   // drives the `summary` screen below and is cleared on "Another round".
   let summary = $state<SessionSummaryView | null>(null);
+  let secondaryReturnScreen = $state<'scope-picker' | 'summary'>('scope-picker');
   // The running DrillSession for the current drill entry, created by the
   // practice module; unmounted along with Drill when the screen changes.
   let drillSession = $state<DrillSession | null>(null);
@@ -189,18 +190,19 @@
   }
 
   function handleOpenSettings(): void {
+    secondaryReturnScreen = screen === 'summary' ? 'summary' : 'scope-picker';
     screen = 'settings';
   }
 
   function handleOpenHistory(): void {
+    secondaryReturnScreen = screen === 'summary' ? 'summary' : 'scope-picker';
     screen = 'history';
   }
 
-  // The bar's Back always returns to the Scope picker, even when History or
-  // Settings was opened from the Session summary: avoids adding
-  // "previous screen" state for a single-portrait, no-router app.
+  // History and Settings return to the screen that opened them. Those links
+  // are available only from Scope and Summary, so the origin stays small.
   function handleBarBack(): void {
-    screen = 'scope-picker';
+    screen = secondaryReturnScreen === 'summary' && summary ? 'summary' : 'scope-picker';
   }
 
   function handlePresetChange(preset: WidthPreset): void {

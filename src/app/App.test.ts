@@ -303,7 +303,7 @@ describe('App', () => {
     await screen.findByText('What would you like to write?');
   });
 
-  it('offers Settings from the summary bar, and Back returns to the Scope picker', async () => {
+  it('offers Settings from the summary bar, and Back returns to the Session summary', async () => {
     getMock.mockResolvedValue(ok({ ...DEFAULT_SETTINGS, penCheckShown: true }));
 
     render(App);
@@ -320,7 +320,7 @@ describe('App', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
 
-    await screen.findByText('What would you like to write?');
+    await within(screen.getByRole('main')).findByRole('heading', { name: 'Session summary' });
   });
 
   it('navigates from the Session summary\'s "History" link to the History screen', async () => {
@@ -339,11 +339,10 @@ describe('App', () => {
 
     expect(await screen.findByText('No sessions yet')).toBeTruthy();
 
-    // "Back" from History always returns to the Scope picker, even when
-    // History was opened from the Session summary.
+    // Back returns to the screen that opened History.
     await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
 
-    await screen.findByText('What would you like to write?');
+    await within(screen.getByRole('main')).findByRole('heading', { name: 'Session summary' });
   });
 
   it('reaches Settings from the Scope-picker header and back again, selection intact', async () => {
