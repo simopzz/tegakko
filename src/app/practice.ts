@@ -17,6 +17,7 @@ import type { InkSurface } from '../ports/ink-surface';
 import type { AttemptRepository } from '../ports/attempt-repository';
 import type { TallyRepository } from '../ports/tally-repository';
 import type { SessionRepository } from '../ports/session-repository';
+import type { HandwritingModel } from '../ports/handwriting-model';
 import { DrillSession } from '../adapters/ui/drill-session';
 import { err } from '../domain/result';
 
@@ -25,6 +26,8 @@ export interface PracticeModuleOptions {
   tallyRepository: TallyRepository;
   sessionRepository: SessionRepository;
   inkSurfaceFactory: () => InkSurface;
+  /** Optional recogniser for auto-grading kana. */
+  handwritingModel?: HandwritingModel;
 }
 
 export interface SessionHandle {
@@ -39,12 +42,14 @@ export class PracticeModule {
   private readonly tallyRepository: TallyRepository;
   private readonly sessionRepository: SessionRepository;
   private readonly inkSurfaceFactory: () => InkSurface;
+  private readonly handwritingModel: HandwritingModel | undefined;
 
   constructor(options: PracticeModuleOptions) {
     this.attemptRepository = options.attemptRepository;
     this.tallyRepository = options.tallyRepository;
     this.sessionRepository = options.sessionRepository;
     this.inkSurfaceFactory = options.inkSurfaceFactory;
+    this.handwritingModel = options.handwritingModel;
   }
 
   /** Start a new session: load history (fail-open to empty), sample the
@@ -68,6 +73,7 @@ export class PracticeModule {
       attemptRepository: this.attemptRepository,
       tallyRepository: this.tallyRepository,
       sessionRepository: this.sessionRepository,
+      handwritingModel: this.handwritingModel,
       onClose,
     });
     return { session, inkSurface };

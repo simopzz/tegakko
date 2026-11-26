@@ -418,7 +418,7 @@ describe('Drill', () => {
     const inkSurface = fakeInkSurface();
     renderDrill({ inkSurface });
 
-    expect(screen.getByText('Your call — nothing is checking the shape')).toBeTruthy();
+    expect(screen.getByText('Auto-grading after you pause')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull();
 
     await inkSurface.landStroke();

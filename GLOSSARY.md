@@ -47,11 +47,15 @@ One prompt from shown to graded, with its ink, its timings and whether reveal wa
 _Avoid_: Answer, try
 
 **Self-grade**:
-The learner's own correct/incorrect judgement of an attempt.
+The learner's own correct/incorrect judgement of an attempt. Still the final authority when it overrides an auto-grade.
 _Avoid_: Score, mark
 
+**Auto-grade**:
+The app's algorithmic judgement of an attempt. Kana only in the first version; falls back to self-grade when uncertain or after Reveal.
+_Avoid_: Auto-score, AI grade
+
 **Reveal**:
-Showing the card's grapheme next to the learner's ink before grading, without grading it.
+Showing the card's grapheme next to the learner's ink before grading, without grading it. Disables auto-grade for that attempt.
 _Avoid_: Hint, peek
 
 **Closure**:

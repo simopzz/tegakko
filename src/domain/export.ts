@@ -45,6 +45,9 @@ export const ATTEMPT_EXPORT_KEYS = {
   strokeCount: true,
   revealUsed: true,
   selfGrade: true,
+  algorithmGrade: true,
+  algorithmConfidence: true,
+  overridden: true,
   strokes: true,
 } as const satisfies Record<keyof Attempt, true>;
 
@@ -81,6 +84,9 @@ export function toAttemptExport(attempt: Attempt): AttemptExport {
     strokeCount: attempt.strokeCount,
     revealUsed: attempt.revealUsed,
     selfGrade: attempt.selfGrade,
+    algorithmGrade: attempt.algorithmGrade,
+    algorithmConfidence: attempt.algorithmConfidence,
+    overridden: attempt.overridden,
     strokes: attempt.strokes.map(toStrokeExport),
   };
 }

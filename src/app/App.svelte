@@ -19,6 +19,7 @@
   import { IdbTallyRepository } from '../adapters/persistence/tally-repository';
   import { IdbSessionRepository } from '../adapters/persistence/session-repository';
   import { CanvasInkSurface } from '../adapters/ink/canvas-ink-surface';
+  import { StubHandwritingModel } from '../adapters/grading/stub-handwriting-model';
   import { JsonProgressExporter } from '../adapters/io/json-progress-exporter';
   import { JsonProgressImporter } from '../adapters/io/json-progress-importer';
   import { IdbProgressReplacer } from '../adapters/persistence/progress-replacer';
@@ -44,6 +45,11 @@
   const attemptRepository = new IdbAttemptRepository();
   const tallyRepository = new IdbTallyRepository();
   const sessionRepository: SessionRepository = new IdbSessionRepository();
+  // Grading adapter: a stub recogniser until the real ONNX model is trained
+  // and wired. Always returns "uncertain" so every kana attempt falls back
+  // to the learner for now.
+  const handwritingModel = new StubHandwritingModel();
+
   // The io adapter reads through the same repo instances as the rest of the
   // app -- it never imports `adapters/persistence` itself.
   const progressExporter = new JsonProgressExporter({
@@ -124,6 +130,7 @@
     tallyRepository,
     sessionRepository,
     inkSurfaceFactory,
+    handwritingModel,
   });
 
   onMount(() => {

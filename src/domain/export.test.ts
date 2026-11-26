@@ -39,7 +39,7 @@ function attempt(overrides: Partial<Attempt> = {}): Attempt {
 }
 
 describe('toAttemptExport', () => {
-  it('keeps all 10 attempt fields and no others', () => {
+  it('keeps all 13 attempt fields and no others', () => {
     const exported = toAttemptExport(attempt());
 
     expect(Object.keys(exported).sort()).toEqual(
@@ -53,6 +53,9 @@ describe('toAttemptExport', () => {
         'strokeCount',
         'revealUsed',
         'selfGrade',
+        'algorithmGrade',
+        'algorithmConfidence',
+        'overridden',
         'strokes',
       ].sort(),
     );

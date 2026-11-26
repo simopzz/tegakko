@@ -7,7 +7,7 @@
 // narrowed here, field by field -- every record is rebuilt fresh, so any
 // unknown extra field is dropped rather than spread through into storage.
 
-import type { Attempt, SelfGrade } from './attempt';
+import type { Attempt, SelfGrade, AlgorithmGrade } from './attempt';
 import { CARDS, type CardSet, type Script } from './cards';
 import { EXPORT_VERSION } from './export';
 import type { Stroke, StrokePoint } from './ink';
@@ -50,6 +50,7 @@ export function isInvalidImportError(error: unknown): boolean {
 }
 
 const SELF_GRADES: readonly SelfGrade[] = ['correct', 'incorrect'];
+const ALGORITHM_GRADES: readonly AlgorithmGrade[] = ['correct', 'incorrect', 'uncertain'];
 const CLOSURE_REASONS: readonly ClosureReason[] = ['explicit', 'complete', 'inactivity'];
 const WIDTH_PRESETS: readonly WidthPreset[] = ['subtle', 'expressive', 'calligraphy'];
 const SCRIPTS: readonly Script[] = ['hiragana', 'katakana', 'kanji'];
@@ -98,6 +99,11 @@ function oneOf<T extends string>(value: unknown, allowed: readonly T[], path: st
     fail(path, `one of ${allowed.join(', ')}`);
   }
   return value as T;
+}
+
+function optional<T>(value: unknown, parse: (value: unknown, path: string) => T, path: string): T | undefined {
+  if (value === undefined) return undefined;
+  return parse(value, path);
 }
 
 function isoDate(value: unknown, path: string): string {
@@ -163,6 +169,9 @@ function toAttempt(value: unknown, path: string): Attempt {
     strokeCount: finite(source.strokeCount, `${path}.strokeCount`),
     revealUsed: boolean(source.revealUsed, `${path}.revealUsed`),
     selfGrade: oneOf(source.selfGrade, SELF_GRADES, `${path}.selfGrade`),
+    algorithmGrade: optional(source.algorithmGrade, (v, p) => oneOf(v, ALGORITHM_GRADES, p), `${path}.algorithmGrade`),
+    algorithmConfidence: optional(source.algorithmConfidence, finite, `${path}.algorithmConfidence`),
+    overridden: optional(source.overridden, boolean, `${path}.overridden`),
     strokes: array(source.strokes, `${path}.strokes`).map((stroke, index) =>
       toStroke(stroke, `${path}.strokes[${index}]`),
     ),

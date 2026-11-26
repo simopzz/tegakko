@@ -11,15 +11,17 @@
 import type { Card } from '../../domain/cards';
 import type { Scope } from '../../domain/scope';
 import type { Stroke } from '../../domain/ink';
-import type { Attempt, SelfGrade } from '../../domain/attempt';
+import type { Attempt, SelfGrade, AlgorithmGrade } from '../../domain/attempt';
 import type { Tally } from '../../domain/tally';
 import type { Result } from '../../domain/result';
 import type { AttemptRepository } from '../../ports/attempt-repository';
 import type { TallyRepository } from '../../ports/tally-repository';
 import type { SessionRepository } from '../../ports/session-repository';
+import type { HandwritingModel } from '../../ports/handwriting-model';
 import type { ClosureReason, SessionSummaryView } from '../../domain/session';
 import { sampleSessionCards, undoLastGrade } from '../../domain/drill';
 import { isSessionIdle, buildSummary, buildSessionRecord } from '../../domain/session';
+import { geometryCheck, decideGrade, type GradeResult } from '../../domain/grading';
 
 export interface DrillSessionOptions {
   /** Plain data -- the component snapshots its `$state` proxy before handing
@@ -36,6 +38,10 @@ export interface DrillSessionOptions {
   attemptRepository: AttemptRepository;
   tallyRepository: TallyRepository;
   sessionRepository: SessionRepository;
+  /** Optional recogniser used for auto-grading kana. When absent or for
+   * kanji prompts, grading falls back to the learner's explicit Missed/Correct
+   * taps. */
+  handwritingModel?: HandwritingModel;
   onClose: (summary: SessionSummaryView) => void;
 }
 
@@ -51,6 +57,12 @@ export interface GradeInput {
   /** The first post-Clear stroke's start, same clock as `promptShownAt`;
    * `undefined` through a reveal-from-blank grade. */
   firstStrokeStartedAt: number | undefined;
+  /** Algorithmic grade, if auto-grading ran. */
+  algorithmGrade?: AlgorithmGrade;
+  /** Algorithm confidence, 0..1. */
+  algorithmConfidence?: number;
+  /** True when the learner explicitly overrode the algorithm's grade. */
+  overridden?: boolean;
 }
 
 function toErrResult(error: unknown): Result<void> {
@@ -121,7 +133,7 @@ export class DrillSession {
   // promises -- `undoLastGrade` awaits both before calling `deleteLast`/
   // `decrement`, so a fast Undo can never race the write it's meant to
   // reverse. Cleared on advance and after an undo.
-  private lastGrade: { cardId: string; grade: SelfGrade } | null = null;
+  private lastGrade: { cardId: string; grade: SelfGrade; autoGraded: boolean } | null = null;
   private pendingAttemptWrite: Promise<Result<void>> | undefined;
   private pendingTallyWrite: Promise<Result<void>> | undefined;
 
@@ -130,6 +142,7 @@ export class DrillSession {
   private readonly attemptRepository: AttemptRepository;
   private readonly tallyRepository: TallyRepository;
   private readonly sessionRepository: SessionRepository;
+  private readonly handwritingModel: HandwritingModel | undefined;
   private readonly onClose: (summary: SessionSummaryView) => void;
 
   constructor(options: DrillSessionOptions) {
@@ -144,6 +157,7 @@ export class DrillSession {
     this.attemptRepository = options.attemptRepository;
     this.tallyRepository = options.tallyRepository;
     this.sessionRepository = options.sessionRepository;
+    this.handwritingModel = options.handwritingModel;
     this.onClose = options.onClose;
     // A corrupt stored record (NaN or negative from a bad write) seeds as 0
     // rather than poisoning every count derived from this map -- the Missed
@@ -209,7 +223,17 @@ export class DrillSession {
    * the card's new cumulative tally for the toast on Missed, `null` on
    * Correct. */
   recordGrade(input: GradeInput): number | null {
-    const { card, grade, strokes, revealed, promptShownAt, firstStrokeStartedAt } = input;
+    const {
+      card,
+      grade,
+      strokes,
+      revealed,
+      promptShownAt,
+      firstStrokeStartedAt,
+      algorithmGrade,
+      algorithmConfidence,
+      overridden,
+    } = input;
     const gradedAt = performance.now();
     const totalTimeMs = gradedAt - promptShownAt;
     const timeToFirstStrokeMs =
@@ -224,10 +248,13 @@ export class DrillSession {
       strokeCount: strokes.length,
       revealUsed: revealed,
       selfGrade: grade,
+      algorithmGrade,
+      algorithmConfidence,
+      overridden,
       strokes,
     };
     this.thisSessionAttempts.push(attempt);
-    this.lastGrade = { cardId: card.cardId, grade };
+    this.lastGrade = { cardId: card.cardId, grade, autoGraded: !overridden && algorithmGrade != null };
 
     // Captured (not awaited here) so `undoLastGrade` can await the same
     // promise before calling `deleteLast`.
@@ -247,6 +274,89 @@ export class DrillSession {
     const missCount = (this.cardTallies.get(card.cardId) ?? 0) + 1;
     this.cardTallies.set(card.cardId, missCount);
     return missCount;
+  }
+
+  /** Runs the geometry safety check and, if it passes, the handwriting model.
+   * Does not persist anything; the caller decides whether to commit the grade
+   * (definite results) or ask the learner (uncertain). */
+  async requestAutoGrade(card: Card, strokes: Stroke[]): Promise<GradeResult> {
+    if (card.script === 'kanji' || !this.handwritingModel) {
+      return { grade: 'uncertain', confidence: 0, reason: 'Auto-grade not available' };
+    }
+    const geometry = geometryCheck(strokes);
+    if (!geometry.ok) {
+      return { grade: 'uncertain', confidence: 0, reason: geometry.detail };
+    }
+    const modelResult = await this.handwritingModel.classify(strokes);
+    return decideGrade(card, geometry, modelResult);
+  }
+
+  /** Flips the last auto-graded result and persists the change. Returns the
+   * card's new cumulative tally when the flipped grade is incorrect, `null`
+   * when it is correct. A no-op when the last grade was not auto-graded or
+   * an undo/override is already in flight. */
+  async overrideLastGrade(): Promise<number | null> {
+    if (!this.lastGrade || this.undoing || !this.lastGrade.autoGraded) return null;
+    this.undoing = true;
+    try {
+      const { cardId, grade } = this.lastGrade;
+      const original = this.thisSessionAttempts[this.thisSessionAttempts.length - 1];
+      if (!original) return null;
+
+      // Await the pending writes from the original grade -- a fast override
+      // must never race the increment it is meant to reverse.
+      const attemptWriteResult = await this.pendingAttemptWrite?.catch(toErrResult);
+      const tallyWriteResult =
+        grade === 'incorrect' ? await this.pendingTallyWrite?.catch(toErrResult) : undefined;
+
+      const flippedGrade: SelfGrade = grade === 'correct' ? 'incorrect' : 'correct';
+
+      // Adjust the in-memory mirror unconditionally.
+      if (grade === 'incorrect') {
+        this.cardTallies.set(cardId, Math.max(0, (this.cardTallies.get(cardId) ?? 0) - 1));
+      }
+      if (flippedGrade === 'incorrect') {
+        this.cardTallies.set(cardId, (this.cardTallies.get(cardId) ?? 0) + 1);
+      }
+
+      const attempt: Attempt = {
+        ...original,
+        id: crypto.randomUUID(),
+        selfGrade: flippedGrade,
+        overridden: true,
+      };
+      this.thisSessionAttempts.pop();
+      this.thisSessionAttempts.push(attempt);
+      this.lastGrade = { cardId, grade: flippedGrade, autoGraded: true };
+
+      // Only persist the override if the original grade actually landed.
+      if (attemptWriteResult?.ok) {
+        const deleteResult = await this.attemptRepository
+          .deleteLast(this.sessionId)
+          .catch(toErrResult);
+        if (deleteResult.ok) {
+          this.pendingAttemptWrite = this.attemptRepository.add(attempt);
+          logOnFailure(this.pendingAttemptWrite, 'Failed to persist overridden attempt:');
+
+          if (flippedGrade === 'incorrect') {
+            this.pendingTallyWrite = this.tallyRepository.increment(cardId);
+            logOnFailure(this.pendingTallyWrite, 'Failed to increment tally after override:');
+          } else if (tallyWriteResult?.ok) {
+            // The original increment landed and we are now correct; decrement
+            // the persisted tally.
+            const decrementResult = await this.tallyRepository.decrement(cardId);
+            if (!decrementResult.ok) console.error('Failed to decrement tally after override:', decrementResult.error);
+            this.pendingTallyWrite = undefined;
+          } else {
+            this.pendingTallyWrite = undefined;
+          }
+        }
+      }
+
+      return flippedGrade === 'incorrect' ? (this.cardTallies.get(cardId) ?? 0) : null;
+    } finally {
+      this.undoing = false;
+    }
   }
 
   /** Forgets the last grade and its pending writes, so it can no longer be

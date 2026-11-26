@@ -2,12 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DrillSession, type DrillSessionOptions, type GradeInput } from './drill-session';
 import type { Scope } from '../../domain/scope';
 import type { Attempt, SelfGrade } from '../../domain/attempt';
-import type { Card } from '../../domain/cards';
+import { CARDS, type Card } from '../../domain/cards';
 import type { Result } from '../../domain/result';
 import type { AttemptRepository } from '../../ports/attempt-repository';
 import type { TallyRepository } from '../../ports/tally-repository';
 import type { SessionRepository } from '../../ports/session-repository';
 import type { Session } from '../../domain/session';
+import type { HandwritingModel } from '../../ports/handwriting-model';
+import type { ModelResult } from '../../domain/grading';
 import * as drill from '../../domain/drill';
 
 const SCOPE: Scope = { hiragana: ['yoon'] }; // 33 cards
@@ -66,6 +68,10 @@ function fakeTallyRepository(): TallyRepository & {
     },
   };
   return repo;
+}
+
+function fakeHandwritingModel(result: ModelResult): HandwritingModel {
+  return { classify: () => Promise.resolve(result) };
 }
 
 function fakeSessionRepository(): SessionRepository & { adds: Session[]; addResult: Outcome } {
@@ -403,6 +409,89 @@ describe('DrillSession', () => {
       });
       await Promise.resolve();
       expect(consoleError).toHaveBeenCalledWith('Failed to persist session:', expect.any(Error));
+    });
+  });
+
+  describe('requestAutoGrade', () => {
+    it('returns uncertain for kanji even with a model', async () => {
+      const kanji = CARDS.find((c) => c.script === 'kanji')!;
+      const { session } = setup({
+        scope: { kanji: ['n5'] },
+        sessionSize: 1,
+        handwritingModel: fakeHandwritingModel({ prediction: kanji.grapheme, confidence: 0.99, rejected: false }),
+      });
+      const result = await session.requestAutoGrade(kanji, [{ points: [{ x: 0.2, y: 0.2, pressure: 0.5 }], widthPreset: 'expressive' }]);
+      expect(result.grade).toBe('uncertain');
+    });
+
+    it('returns uncertain when geometry check fails', async () => {
+      const { session } = setup({
+        handwritingModel: fakeHandwritingModel({ prediction: 'あ', confidence: 0.99, rejected: false }),
+      });
+      const card = session.queue[0]!;
+      const result = await session.requestAutoGrade(card, []);
+      expect(result.grade).toBe('uncertain');
+    });
+
+    it('returns correct when the model matches', async () => {
+      const { session } = setup({
+        handwritingModel: fakeHandwritingModel({ prediction: 'あ', confidence: 0.99, rejected: false }),
+        scope: { hiragana: ['base'] },
+      });
+      const card = session.queue[0]!;
+      const points = Array.from({ length: 10 }, (_, i) => ({
+        x: 0.2 + i * 0.06,
+        y: 0.2 + i * 0.06,
+        pressure: 0.5,
+      }));
+      const result = await session.requestAutoGrade(card, [
+        { points, widthPreset: 'expressive' },
+      ]);
+      expect(result.grade).toBe(card.grapheme === 'あ' ? 'correct' : 'incorrect');
+    });
+  });
+
+  describe('overrideLastGrade', () => {
+    it('does nothing for a manual grade', async () => {
+      const { session, attemptRepository } = setup();
+      session.recordGrade(gradeInput(session.queue[0]!, 'incorrect'));
+      const missCount = await session.overrideLastGrade();
+      expect(missCount).toBeNull();
+      expect(attemptRepository.deletes).toHaveLength(0);
+    });
+
+    it('flips an auto-graded correct to incorrect and increments the tally', async () => {
+      const { session, attemptRepository, tallyRepository } = setup();
+      const card = session.queue[0]!;
+      session.recordGrade({
+        ...gradeInput(card, 'correct'),
+        algorithmGrade: 'correct',
+        algorithmConfidence: 0.95,
+      });
+      const missCount = await session.overrideLastGrade();
+      expect(missCount).toBe(1);
+      expect(attemptRepository.deletes).toEqual([session.sessionId]);
+      expect(tallyRepository.increments).toEqual([card.cardId]);
+      const added = attemptRepository.adds[attemptRepository.adds.length - 1]!;
+      expect(added.selfGrade).toBe('incorrect');
+      expect(added.overridden).toBe(true);
+    });
+
+    it('flips an auto-graded incorrect to correct and decrements the tally', async () => {
+      const { session, attemptRepository, tallyRepository } = setup();
+      const card = session.queue[0]!;
+      session.recordGrade({
+        ...gradeInput(card, 'incorrect'),
+        algorithmGrade: 'incorrect',
+        algorithmConfidence: 0.95,
+      });
+      const missCount = await session.overrideLastGrade();
+      expect(missCount).toBeNull();
+      expect(attemptRepository.deletes).toEqual([session.sessionId]);
+      expect(tallyRepository.decrements).toEqual([card.cardId]);
+      const added = attemptRepository.adds[attemptRepository.adds.length - 1]!;
+      expect(added.selfGrade).toBe('correct');
+      expect(added.overridden).toBe(true);
     });
   });
 });

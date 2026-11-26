@@ -18,7 +18,8 @@
   import { SMALL_KANA, type KanjiCard, type Script } from '../../domain/cards';
   import type { InkSurface } from '../../ports/ink-surface';
   import type { Stroke } from '../../domain/ink';
-  import type { SelfGrade } from '../../domain/attempt';
+  import type { SelfGrade, AlgorithmGrade } from '../../domain/attempt';
+  import type { GradeResult } from '../../domain/grading';
   import { DrillSession } from './drill-session';
   import TopBar from './TopBar.svelte';
 
@@ -82,7 +83,17 @@
     strokes: Stroke[];
     promptShownAt: number;
     firstStrokeStartedAt: number | undefined;
+    /** Set when the grade came from auto-grading. */
+    algorithmGrade?: AlgorithmGrade;
+    algorithmConfidence?: number;
+    overridden?: boolean;
   } | null>(null);
+  // Auto-grade state. `autoGradeResult` holds an uncertain result that has
+  // not been committed yet; definite results commit immediately and only
+  // live in `graded`. `autoGradeTimer` is the pause trigger.
+  let autoGradeResult = $state<GradeResult | null>(null);
+  let autoGradeTimer: ReturnType<typeof setTimeout> | undefined;
+  const AUTO_GRADE_DELAY_MS = 800;
   // The queue-completing grade has no next prompt: the last card freezes
   // under its toast (dimmed, cell locked) until Undo or Finish, and
   // nothing can be written on it. Every other graded card is already
@@ -131,6 +142,88 @@
     session.clearUndoable();
   }
 
+  function cancelAutoGrade(): void {
+    if (autoGradeTimer) {
+      clearTimeout(autoGradeTimer);
+      autoGradeTimer = undefined;
+    }
+    autoGradeResult = null;
+  }
+
+  function canAutoGrade(): boolean {
+    return !revealed && !frozen && card.script !== 'kanji' && hasInk;
+  }
+
+  function scheduleAutoGrade(): void {
+    cancelAutoGrade();
+    if (!canAutoGrade()) return;
+    autoGradeTimer = setTimeout(() => void runAutoGrade(), AUTO_GRADE_DELAY_MS);
+  }
+
+  async function runAutoGrade(): Promise<void> {
+    if (!canAutoGrade()) return;
+    autoGradeTimer = undefined;
+    const result = await session.requestAutoGrade(card, strokes);
+    if (result.grade === 'uncertain') {
+      autoGradeResult = result;
+      return;
+    }
+    commitAutoGrade(result);
+  }
+
+  function commitAutoGrade(result: GradeResult): void {
+    if (!session.recordInteraction()) return;
+    const grade: SelfGrade = result.grade === 'correct' ? 'correct' : 'incorrect';
+    const missCount = session.recordGrade({
+      card,
+      grade,
+      strokes,
+      revealed,
+      promptShownAt,
+      firstStrokeStartedAt,
+      algorithmGrade: result.grade,
+      algorithmConfidence: result.confidence,
+      overridden: false,
+    });
+    graded = {
+      grade,
+      missCount,
+      index: queueIndex,
+      revealed,
+      strokes: [...strokes],
+      promptShownAt,
+      firstStrokeStartedAt,
+      algorithmGrade: result.grade,
+      algorithmConfidence: result.confidence,
+      overridden: false,
+    };
+    void tick().then(() => undoButton?.focus());
+    if (session.isLastCard(queueIndex)) return;
+    queueIndex += 1;
+    revealed = false;
+    inkSurface.setCellCount(queue[queueIndex]!.grapheme.length);
+    inkSurface.clear();
+    hasInk = false;
+    strokes = [];
+    firstStrokeStartedAt = undefined;
+    promptShownAt = performance.now();
+    autoGradeResult = null;
+  }
+
+  async function handleOverride(): Promise<void> {
+    if (!session.recordInteraction()) return;
+    const snapshot = graded;
+    if (!snapshot?.algorithmGrade || snapshot.overridden) return;
+    const missCount = await session.overrideLastGrade();
+    if (missCount === null && snapshot.grade !== 'incorrect') return; // nothing changed
+    graded = {
+      ...snapshot,
+      grade: snapshot.grade === 'correct' ? 'incorrect' : 'correct',
+      missCount,
+      overridden: true,
+    };
+  }
+
   onMount(() => {
     if (!cell) return;
     inkSurface.onStrokeComplete((stroke, timing) => {
@@ -151,6 +244,7 @@
       // Only the first stroke since the last Clear/grade sets this --
       // `timeToFirstStrokeMs` measures to the *first* stroke, not the latest.
       firstStrokeStartedAt ??= timing.startedAt;
+      scheduleAutoGrade();
     });
     // The grid the adapter draws must match the prompt from the very first
     // frame, so the count is set before the canvas mounts.
@@ -161,6 +255,7 @@
     document.addEventListener('visibilitychange', checkIdleOnResume);
     window.addEventListener('focus', checkIdleOnResume);
     return () => {
+      cancelAutoGrade();
       inkSurface.destroy();
       document.removeEventListener('visibilitychange', checkIdleOnResume);
       window.removeEventListener('focus', checkIdleOnResume);
@@ -177,6 +272,7 @@
     hasInk = false;
     strokes = [];
     firstStrokeStartedAt = undefined;
+    cancelAutoGrade();
   }
 
   function handleReveal(): void {
@@ -184,6 +280,8 @@
     // A Reveal on the new prompt ends the undo window, same as its first
     // stroke.
     endUndoWindow();
+    // Reveal disables auto-grade for this prompt.
+    cancelAutoGrade();
     // Never assigns a grade -- Missed/Correct stay required afterward.
     revealed = true;
     // Move focus onto the newly-active Missed button so a keyboard/screen
@@ -193,9 +291,13 @@
 
   function handleGrade(grade: SelfGrade): void {
     if (!session.recordInteraction()) return;
+    cancelAutoGrade();
     // A grade always persists an attempt, ink or not, reveal or not; the
     // writes are never awaited. Snapshot the graded card's state for Undo,
     // then advance immediately -- one tap per card, no "Next character".
+    const algorithm = autoGradeResult;
+    const algorithmDefinite = algorithm?.grade === 'correct' || algorithm?.grade === 'incorrect';
+    const overridden = algorithmDefinite && algorithm.grade !== grade;
     const missCount = session.recordGrade({
       card,
       grade,
@@ -203,6 +305,9 @@
       revealed,
       promptShownAt,
       firstStrokeStartedAt,
+      algorithmGrade: algorithm?.grade,
+      algorithmConfidence: algorithm?.confidence,
+      overridden,
     });
     graded = {
       grade,
@@ -212,7 +317,11 @@
       strokes: [...strokes],
       promptShownAt,
       firstStrokeStartedAt,
+      algorithmGrade: algorithm?.grade,
+      algorithmConfidence: algorithm?.confidence,
+      overridden,
     };
+    autoGradeResult = null;
     // Move focus onto Undo: the prompt the learner just tapped Missed or
     // Correct on is gone, and the toast's control is new to the page.
     void tick().then(() => undoButton?.focus());
@@ -238,11 +347,13 @@
    * stays fair on the last card too. */
   function handleFinish(): void {
     if (!session.recordInteraction()) return;
+    cancelAutoGrade();
     session.closeComplete();
   }
 
   async function handleUndo(): Promise<void> {
     if (!session.recordInteraction()) return;
+    cancelAutoGrade();
     const snapshot = graded;
     if (!snapshot || undoing) return;
     undoing = true;
@@ -349,7 +460,15 @@
   {#if !revealed && !frozen}
     <div class="cell-footer">
       {#if !graded}
-        <p class="disclaimer">Your call — nothing is checking the shape</p>
+        <p class="disclaimer">
+          {#if card.script === 'kanji'}
+            Your call — nothing is checking the shape
+          {:else if autoGradeResult}
+            Auto wasn't sure — your call
+          {:else}
+            Auto-grading after you pause
+          {/if}
+        </p>
       {/if}
       {#if hasInk}
         <button type="button" class="clear" onclick={handleClear}>Clear</button>
@@ -409,20 +528,26 @@
   </div>
 
   {#if graded}
-    <!-- "Self-grade landed": a peach (missed-tint) card
+    <!-- "Grade landed": a peach (missed-tint) card
          floating above the action row, not a dark full-width bar -- the
-         graded card and its new miss count, plus a single outlined Undo
-         pill. It rides over the next prompt (or the frozen last card)
-         until the learner commits to what's under it: the new prompt's
-         first stroke or a Reveal, Undo itself, or Finish on the last
-         card. -->
+         graded card and its new miss count, plus an outlined Undo
+         pill (and an Override pill for auto-grades). It rides over the next
+         prompt (or the frozen last card) until the learner commits to what's
+         under it: the new prompt's first stroke or a Reveal, Undo/Override
+         itself, or Finish on the last card. -->
     <div class="toast">
       <!-- role=status wraps ONLY the copy: a button inside a live region
-           gets read out as part of the announcement, so Undo stays an
-           ordinary control outside it. -->
+           gets read out as part of the announcement, so Undo/Override stay
+           ordinary controls outside it. -->
       <div class="toast-copy" role="status">
         <p class="toast-headline">
-          {graded.missCount !== null ? 'Marked missed' : 'Marked correct'}
+          {#if graded.overridden}
+            Overridden {graded.grade === 'incorrect' ? 'missed' : 'correct'}
+          {:else if graded.algorithmGrade}
+            Auto: {graded.grade === 'incorrect' ? 'missed' : 'correct'}
+          {:else}
+            {graded.missCount !== null ? 'Marked missed' : 'Marked correct'}
+          {/if}
         </p>
         <p class="toast-detail">
           {queue[graded.index]!.grapheme} · {scriptLabel[queue[graded.index]!.script]}
@@ -431,6 +556,16 @@
           {/if}
         </p>
       </div>
+      {#if graded.algorithmGrade && !graded.overridden}
+        <button
+          type="button"
+          class="toast-override"
+          disabled={undoing}
+          onclick={handleOverride}
+        >
+          Override
+        </button>
+      {/if}
       <button
         type="button"
         class="toast-undo"
@@ -440,6 +575,17 @@
       >
         Undo
       </button>
+    </div>
+  {/if}
+
+  {#if autoGradeResult && !graded}
+    <!-- Auto-grade returned uncertain: the prompt stays active and the learner
+         must self-grade. The toast is informational only. -->
+    <div class="toast toast--info">
+      <div class="toast-copy" role="status">
+        <p class="toast-headline">Auto: unsure</p>
+        <p class="toast-detail">{autoGradeResult.reason}</p>
+      </div>
     </div>
   {/if}
 </main>
@@ -754,7 +900,8 @@
     color: var(--color-accent-strong);
   }
 
-  .toast-undo {
+  .toast-undo,
+  .toast-override {
     flex: none;
     min-height: 48px;
     padding: 12px 22px;
@@ -768,9 +915,21 @@
     cursor: pointer;
   }
 
+  .toast--info {
+    background: var(--color-paper);
+    border: 1px solid var(--color-grid-guide);
+    color: var(--color-ink);
+  }
+
+  .toast--info .toast-headline,
+  .toast--info .toast-detail {
+    color: var(--color-ink);
+  }
+
   /* Dimmed *and* `disabled` while a reversal is in flight -- mirrors
      `.btn--dimmed`'s reasoning above. */
-  .toast-undo:disabled {
+  .toast-undo:disabled,
+  .toast-override:disabled {
     opacity: 0.5;
     cursor: default;
   }
