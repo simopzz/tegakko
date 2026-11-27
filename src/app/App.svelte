@@ -9,6 +9,11 @@
   import FirstRun from '../adapters/ui/FirstRun.svelte';
   import ScopePicker from '../adapters/ui/ScopePicker.svelte';
   import Drill from '../adapters/ui/Drill.svelte';
+  import DrillPrototype from '../adapters/ui/DrillPrototype.svelte';
+  import PrototypeSwitcher, {
+    type MockOutcome,
+    type VariantKey,
+  } from '../adapters/ui/PrototypeSwitcher.svelte';
   import Settings from '../adapters/ui/Settings.svelte';
   import Sources from '../adapters/ui/Sources.svelte';
   import SessionSummary from '../adapters/ui/SessionSummary.svelte';
@@ -145,6 +150,16 @@
         idleTimeoutMs = result.value.idleTimeoutMs;
       }
       ready = true;
+      if (import.meta.env.DEV && typeof window !== 'undefined') {
+        const hasVariantParam = new URLSearchParams(window.location.search).has('variant');
+        if (hasVariantParam) {
+          void handleStart({
+            hiragana: ['base', 'yoon'],
+            katakana: ['base', 'yoon'],
+            kanji: [],
+          });
+        }
+      }
     });
   });
 
@@ -258,6 +273,22 @@
   // outside its inert main -- Settings reports the open state up so the
   // composition root can inert the bar too (no keyboard escape).
   let settingsModal = $state(false);
+
+  // PROTOTYPE ONLY (ticket #80): URL-driven variant + mock outcome state.
+  function readInitialVariant(): VariantKey {
+    if (typeof window === 'undefined') return 'A';
+    const param = new URLSearchParams(window.location.search).get('variant')?.toUpperCase();
+    return param === 'B' || param === 'C' ? param : 'A';
+  }
+  let protoVariant = $state<VariantKey>(readInitialVariant());
+  let protoOutcome = $state<MockOutcome>('pass-clean');
+
+  function handleVariantChange(next: VariantKey): void {
+    protoVariant = next;
+    const url = new URL(window.location.href);
+    url.searchParams.set('variant', next);
+    window.history.replaceState({}, '', url);
+  }
 </script>
 
 <div class="app">
@@ -289,7 +320,22 @@
     {:else if screen === 'sources'}
       <Sources />
     {:else if screen === 'drill' && drillSession && inkSurface}
-      <Drill {drillSession} {inkSurface} />
+      {#if import.meta.env.DEV}
+        <DrillPrototype
+          {drillSession}
+          {inkSurface}
+          variant={protoVariant}
+          mockOutcome={protoOutcome}
+        />
+        <PrototypeSwitcher
+          current={protoVariant}
+          outcome={protoOutcome}
+          onVariantChange={handleVariantChange}
+          onOutcomeChange={(next) => (protoOutcome = next)}
+        />
+      {:else}
+        <Drill {drillSession} {inkSurface} />
+      {/if}
     {:else if screen === 'summary' && summary}
       <SessionSummary {summary} onAgain={handleSummaryAgain} />
     {:else if screen === 'history'}
